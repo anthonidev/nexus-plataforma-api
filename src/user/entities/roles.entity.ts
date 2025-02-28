@@ -4,10 +4,10 @@ import {
   PrimaryGeneratedColumn,
   OneToMany,
   ManyToMany,
-  View,
   JoinTable,
 } from 'typeorm';
 import { User } from './user.entity';
+import { View } from './view.entity';
 @Entity('roles')
 export class Role {
   @PrimaryGeneratedColumn()
