@@ -13,59 +13,70 @@ import { ContactInfo } from './contact-info.entity';
 import { BillingInfo } from './billing-info.entity';
 import { BankInfo } from './bank-info.entity';
 import { Role } from './roles.entity';
+import {
+  IsBoolean,
+  IsDate,
+  IsNotEmpty,
+  IsOptional,
+  IsUUID,
+  Matches,
+  MinLength,
+} from 'class-validator';
+import { Exclude } from 'class-transformer';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  @IsUUID()
+  id: string;
 
   @Column({ unique: true })
+  @IsNotEmpty({ message: 'El nombre de usuario es requerido' })
   username: string;
 
-  @Column()
+  @Column('text', {
+    select: false,
+    nullable: false,
+  })
+  @Exclude()
+  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\W]{6,}$/, {
+    message:
+      'La contraseña debe contener al menos una mayúscula, una minúscula y un número',
+  })
+  @IsNotEmpty({ message: 'La contraseña es requerida' })
   password: string;
 
-  @Column({ unique: true })
+  @Column('text', { unique: true })
   referralCode: string;
 
-  @Column({ nullable: true })
+  @Column('text', { nullable: true })
   referrerCode: string;
 
-  @Column({ default: true })
+  @Column('bool', {
+    default: true,
+  })
+  @IsBoolean()
   isActive: boolean;
 
   @CreateDateColumn()
+  @IsDate()
   createdAt: Date;
 
   @UpdateDateColumn()
+  @IsDate()
   updatedAt: Date;
 
-  @ManyToOne(() => Role, (role) => role.users)
-  @JoinColumn({ name: 'role_id' })
+  @Column('text', { nullable: true })
+  @IsOptional()
+  @IsDate()
+  lastLoginAt: Date;
+
+  @ManyToOne(() => Role, {
+    nullable: false,
+  })
+  @IsNotEmpty({ message: 'El rol es requerido' })
   role: Role;
-
-  @Column({ nullable: true })
-  roleId: number;
-
-  @OneToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'left_child_id' })
-  leftChild: User;
-
-  @OneToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'right_child_id' })
-  rightChild: User;
-
-  @Column({ nullable: true })
-  leftChildId: number;
-
-  @Column({ nullable: true })
-  rightChildId: number;
-
-  @Column({ nullable: true })
-  position: 'LEFT' | 'RIGHT';
-
-  @Column({ default: 0 })
-  level: number;
 
   @OneToOne(() => PersonalInfo, (personalInfo) => personalInfo.user)
   personalInfo: PersonalInfo;

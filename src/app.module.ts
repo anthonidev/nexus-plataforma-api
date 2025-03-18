@@ -2,11 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { envs } from './config/envs';
 import { UserModule } from './user/user.module';
-import { MembershipsModule } from './memberships/memberships.module';
-import { PaymentsModule } from './payments/payments.module';
-import { BinaryModule } from './binary/binary.module';
-import { RanksModule } from './ranks/ranks.module';
-import { CompanyModule } from './company/company.module';
+
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -24,11 +21,7 @@ import { CompanyModule } from './company/company.module';
       }),
     }),
     UserModule,
-    MembershipsModule,
-    PaymentsModule,
-    BinaryModule,
-    RanksModule,
-    CompanyModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

@@ -1,34 +1,34 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { UserService } from './user.service';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { PaginatedResult } from 'src/common/helpers/pagination.helper';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-
-@Controller('user')
+import { FindUsersDto } from './dto/find-users.dto';
+import { User } from './entities/user.entity';
+import { UserService } from './user.service';
+@Controller('users')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class UserController {
-  constructor(private readonly userService: UserService) {}
-
-  @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
-  }
-
+  constructor(private readonly usersService: UserService) {}
+  // @Post()
+  // @Roles('SYS')
+  // create(@Body() createUserDto: CreateUserDto) {
+  //   return this.usersService.create(createUserDto);
+  // }
   @Get()
-  findAll() {
-    return this.userService.findAll();
+  @Roles('SYS')
+  async findAll(
+    @GetUser() user: User,
+    @Query() findUsersDto: FindUsersDto,
+  ): Promise<PaginatedResult<User>> {
+    return this.usersService.findAll(user.id, findUsersDto);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(+id, updateUserDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.userService.remove(+id);
+  @Get('roles')
+  @Roles('SYS')
+  allRoles() {
+    return this.usersService.allRoles();
   }
 }
