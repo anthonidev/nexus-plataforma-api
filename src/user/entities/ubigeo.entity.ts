@@ -5,31 +5,25 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-
-@Entity({ name: 'ubigeo' })
+@Entity('ubigeos')
 export class Ubigeo {
   @PrimaryGeneratedColumn('increment')
-  nIdUbigeo: number;
-
+  id: number;
   @Column('text', {
     nullable: false,
   })
-  sNombre: string;
-
+  name: string;
   @Column('text', {
     nullable: false,
     unique: true,
   })
-  sCodigo: string;
-
+  code: string;
   @Column('int', {
     nullable: true,
   })
-  nIdUbigeoPadre: number;
-
-  @OneToMany(() => Ubigeo, (ubigeo) => ubigeo.padre)
-  hijos: Ubigeo[];
-
-  @ManyToOne(() => Ubigeo, (ubigeo) => ubigeo.hijos, { nullable: true })
-  padre: Ubigeo;
+  parentId: number;
+  @OneToMany(() => Ubigeo, (ubigeo) => ubigeo.parent)
+  children: Ubigeo[];
+  @ManyToOne(() => Ubigeo, (ubigeo) => ubigeo.children, { nullable: true })
+  parent: Ubigeo;
 }
