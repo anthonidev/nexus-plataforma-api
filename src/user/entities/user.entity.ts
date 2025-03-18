@@ -7,6 +7,8 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  BeforeInsert,
+  BeforeUpdate,
 } from 'typeorm';
 import { PersonalInfo } from './personal-info.entity';
 import { ContactInfo } from './contact-info.entity';
@@ -16,13 +18,14 @@ import { Role } from './roles.entity';
 import {
   IsBoolean,
   IsDate,
+  IsEmail,
   IsNotEmpty,
   IsOptional,
   IsUUID,
   Matches,
   MinLength,
 } from 'class-validator';
-import { Exclude } from 'class-transformer';
+import { Exclude, Transform } from 'class-transformer';
 
 @Entity('users')
 export class User {
@@ -31,8 +34,10 @@ export class User {
   id: string;
 
   @Column({ unique: true })
-  @IsNotEmpty({ message: 'El nombre de usuario es requerido' })
-  username: string;
+  @IsEmail({}, { message: 'El email debe tener un formato válido' })
+  @IsNotEmpty({ message: 'El email es requerido' })
+  @Transform(({ value }) => value?.toLowerCase().trim())
+  email: string;
 
   @Column('text', {
     select: false,
@@ -89,4 +94,10 @@ export class User {
 
   @OneToOne(() => BankInfo, (bankInfo) => bankInfo.user)
   bankInfo: BankInfo;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  emailToLowerCase() {
+    this.email = this.email?.toLowerCase().trim();
+  }
 }

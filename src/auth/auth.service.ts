@@ -57,8 +57,8 @@ export class AuthService {
       .sort((a, b) => (a.order || 0) - (b.order || 0));
     return parentViews.map((view) => this.cleanView(view));
   }
-  async validateUser(username: string, password: string): Promise<any> {
-    const user = await this.usersService.findByUsername(username);
+  async validateUser(email: string, password: string): Promise<any> {
+    const user = await this.usersService.findByEmail(email);
     if (user && (await compare(password, user.password))) {
       if (!user.role.isActive) {
         throw new UnauthorizedException('El rol asociado está inactivo');
@@ -87,14 +87,14 @@ export class AuthService {
       name: userWithRole.role.name,
     };
     const payload = {
-      username: user.username,
+      email: user.email,
       sub: user.id,
       role: cleanRole,
     };
     return {
       user: {
         id: user.id,
-        username: user.username,
+        email: user.email,
         role: cleanRole,
         views: viewTree,
       },

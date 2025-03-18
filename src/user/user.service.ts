@@ -33,14 +33,7 @@ export class UserService {
   ): Promise<User> {
     const user = await this.userRepository.findOne({
       where: criteria,
-      select: [
-        'id',
-        'username',
-        'isActive',
-        'createdAt',
-        'updatedAt',
-        'password',
-      ],
+      select: ['id', 'email', 'isActive', 'createdAt', 'updatedAt', 'password'],
       relations,
     });
     if (!user) {
@@ -48,13 +41,13 @@ export class UserService {
     }
     return user;
   }
-  private async validateRoleAndUsername(
-    username?: string,
+  private async validateRoleAndEmail(
+    email?: string,
     roleId?: number,
   ): Promise<void> {
-    if (username) {
+    if (email) {
       const existingUser = await this.userRepository.findOne({
-        where: { username: username.toLowerCase() },
+        where: { email: email.toLowerCase() },
       });
       if (existingUser) {
         throw new ConflictException('El correo electrónico ya existe');
@@ -127,7 +120,7 @@ export class UserService {
         .take(limit)
         .select([
           'user.id',
-          'user.username',
+          'user.email',
           'user.password',
           'user.isActive',
           'user.createdAt',
@@ -155,14 +148,12 @@ export class UserService {
       throw error;
     }
   }
-  async findByUsername(username: string): Promise<User> {
+  async findByEmail(email: string): Promise<User> {
     try {
-      return await this.findOneOrFail({ username: username.toLowerCase() }, [
-        'role',
-      ]);
+      return await this.findOneOrFail({ email: email.toLowerCase() }, ['role']);
     } catch (error) {
       this.logger.error(
-        `Error fetching user by email ${username}: ${error.message}`,
+        `Error fetching user by email ${email}: ${error.message}`,
       );
       throw error;
     }
