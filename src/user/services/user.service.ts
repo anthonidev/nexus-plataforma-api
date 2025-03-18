@@ -1,25 +1,21 @@
 import {
-  ConflictException,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcryptjs';
-import { FindOptionsWhere, Repository } from 'typeorm';
-import { FindUsersDto } from './dto/find-users.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
 import {
   PaginatedResult,
   PaginationHelper,
 } from 'src/common/helpers/pagination.helper';
-import { Role } from './entities/roles.entity';
+import { FindOptionsWhere, Repository } from 'typeorm';
+import { User } from '../entities/user.entity';
+import { Role } from '../entities/roles.entity';
+import { FindUsersDto } from '../dto/find-users.dto';
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
-  private readonly SALT_ROUNDS = 10;
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,

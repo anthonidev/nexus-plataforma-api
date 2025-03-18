@@ -1,13 +1,13 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { PaginatedResult } from 'src/common/helpers/pagination.helper';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { CreateUserDto } from './dto/create-user.dto';
-import { FindUsersDto } from './dto/find-users.dto';
-import { User } from './entities/user.entity';
-import { UserService } from './user.service';
+import { UserService } from '../services/user.service';
+import { User } from '../entities/user.entity';
+import { FindUsersDto } from '../dto/find-users.dto';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UserController {

@@ -18,7 +18,7 @@ import { Role } from 'src/user/entities/roles.entity';
 import { Ubigeo } from 'src/user/entities/ubigeo.entity';
 import { User } from 'src/user/entities/user.entity';
 import { View } from 'src/user/entities/view.entity';
-import { UserService } from 'src/user/user.service';
+import { UserService } from 'src/user/services/user.service';
 import { DataSource, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 export interface CleanView {
