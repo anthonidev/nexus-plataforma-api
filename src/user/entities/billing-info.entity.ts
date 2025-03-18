@@ -36,7 +36,7 @@ export class BillingInfo {
   @Type(() => Ubigeo)
   ubigeo: Ubigeo;
 
-  @OneToOne(() => User, (user) => user.billingInfo)
+  @OneToOne(() => User, (user) => user.billingInfo, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user: User;
 }

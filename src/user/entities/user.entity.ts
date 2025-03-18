@@ -58,6 +58,23 @@ export class User {
   @Column('text', { nullable: true })
   referrerCode: string;
 
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'parent_id' })
+  parent: User;
+
+  // Referencias directas a hijos izquierdo y derecho (solo uno en cada posición)
+  @OneToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'left_child_id' })
+  leftChild: User;
+
+  @OneToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'right_child_id' })
+  rightChild: User;
+
+  // Posición en el árbol binario (izquierda o derecha)
+  @Column({ type: 'text', nullable: true })
+  position: 'LEFT' | 'RIGHT';
+
   @Column('bool', {
     default: true,
   })
@@ -89,10 +106,12 @@ export class User {
   @OneToOne(() => ContactInfo, (contactInfo) => contactInfo.user)
   contactInfo: ContactInfo;
 
-  @OneToOne(() => BillingInfo, (billingInfo) => billingInfo.user)
+  @OneToOne(() => BillingInfo, (billingInfo) => billingInfo.user, {
+    nullable: true,
+  })
   billingInfo: BillingInfo;
 
-  @OneToOne(() => BankInfo, (bankInfo) => bankInfo.user)
+  @OneToOne(() => BankInfo, (bankInfo) => bankInfo.user, { nullable: true })
   bankInfo: BankInfo;
 
   @BeforeInsert()

@@ -1,20 +1,25 @@
-import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Public } from './decorators/is-public.decorator';
 import { LoginDto } from './dto/login.dto';
-import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthService } from './auth.service';
 import { UserService } from 'src/user/user.service';
+import { RegisterDto } from 'src/user/dto/create-user.dto';
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private authService: AuthService,
-    private usersService: UserService,
-  ) {}
+  constructor(private authService: AuthService) {}
   @Public()
   @Post('register')
-  async register(@Body() createUserDto: CreateUserDto) {
-    return 'User registered';
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
   }
   @Public()
   @Post('login')

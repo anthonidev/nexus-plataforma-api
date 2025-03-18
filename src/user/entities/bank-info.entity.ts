@@ -51,7 +51,7 @@ export class BankInfo {
   @Transform(({ value }) => value?.trim())
   cci: string;
 
-  @OneToOne(() => User, (user) => user.bankInfo)
+  @OneToOne(() => User, (user) => user.bankInfo, { nullable: true })
   @JoinColumn({ name: 'user_id' })
   user: User;
 }

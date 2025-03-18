@@ -4,6 +4,7 @@ import { envs } from './config/envs';
 import { UserModule } from './user/user.module';
 
 import { AuthModule } from './auth/auth.module';
+import { SeedModule } from './seed/seed.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuthModule } from './auth/auth.module';
     }),
     UserModule,
     AuthModule,
+    SeedModule,
   ],
 })
 export class AppModule {}

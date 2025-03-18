@@ -8,7 +8,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { FindOptionsWhere, Repository } from 'typeorm';
-import { CreateUserDto } from './dto/create-user.dto';
 import { FindUsersDto } from './dto/find-users.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
@@ -31,50 +30,35 @@ export class UserService {
     criteria: FindOptionsWhere<User>,
     relations: string[] = [],
   ): Promise<User> {
+    // Relaciones por defecto si no se especifican
+    const defaultRelations = [
+      'role',
+      'personalInfo',
+      'contactInfo',
+      'billingInfo',
+      'bankInfo',
+      'leftChild',
+      'rightChild',
+      'parent',
+    ];
+
+    // Usar las relaciones proporcionadas o las predeterminadas si no se especifican
+    const finalRelations = relations.length > 0 ? relations : defaultRelations;
+
+    // Buscar el usuario con todas sus relaciones
     const user = await this.userRepository.findOne({
       where: criteria,
-      select: ['id', 'email', 'isActive', 'createdAt', 'updatedAt', 'password'],
-      relations,
+      select: ['id', 'email', 'password', 'isActive', 'createdAt', 'updatedAt'],
+      relations: finalRelations,
     });
+
     if (!user) {
       throw new NotFoundException(`Usuario no encontrado`);
     }
+
     return user;
   }
-  private async validateRoleAndEmail(
-    email?: string,
-    roleId?: number,
-  ): Promise<void> {
-    if (email) {
-      const existingUser = await this.userRepository.findOne({
-        where: { email: email.toLowerCase() },
-      });
-      if (existingUser) {
-        throw new ConflictException('El correo electrónico ya existe');
-      }
-    }
-    if (roleId) {
-      const role = await this.roleRepository.findOne({
-        where: { id: roleId, isActive: true },
-      });
-      if (!role) {
-        throw new NotFoundException(
-          `El rol con ID ${roleId} no existe o no está activo`,
-        );
-      }
-    }
-  }
-  private async hashPassword(password: string): Promise<string> {
-    try {
-      return await bcrypt.hash(password, this.SALT_ROUNDS);
-    } catch (error) {
-      this.logger.error(`Error hashing password: ${error.message}`);
-      throw new InternalServerErrorException('Error al procesar la contraseña');
-    }
-  }
-  // async create(dto: CreateUserDto): Promise<Omit<User, 'password'>> {
-  //   //function to create a new user
-  // }
+
   async allRoles(): Promise<Role[]> {
     try {
       return await this.roleRepository.find({
