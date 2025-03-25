@@ -52,4 +52,42 @@ export class UserTreeController {
       },
     };
   }
+
+  /**
+   * Nuevo endpoint para obtener un nodo específico con sus ancestros y descendientes
+   */
+  @Public()
+  @Get('node/:nodeId')
+  async getNodeWithContext(
+    @Param('nodeId') nodeId: string,
+    @Query('descendantDepth', new ParseIntPipe({ optional: true }))
+    descendantDepth: number = 3,
+    @Query('ancestorDepth', new ParseIntPipe({ optional: true }))
+    ancestorDepth: number = 3,
+  ) {
+    const startTime = Date.now();
+
+    // Obtener información del nodo con sus ancestros y descendientes
+    const nodeContext = await this.userTreeService.getNodeWithContext(
+      nodeId,
+      descendantDepth,
+      ancestorDepth,
+    );
+
+    const duration = Date.now() - startTime;
+
+    this.logger.log(
+      `Contexto de nodo generado en ${duration}ms (profundidad descendientes: ${descendantDepth}, profundidad ancestros: ${ancestorDepth})`,
+    );
+
+    return {
+      ...nodeContext,
+      metadata: {
+        queryDurationMs: duration,
+        requestedNodeId: nodeId,
+        descendantDepth,
+        ancestorDepth,
+      },
+    };
+  }
 }
