@@ -5,6 +5,7 @@ import { UserModule } from './user/user.module';
 
 import { AuthModule } from './auth/auth.module';
 import { SeedModule } from './seed/seed.module';
+import { MembershipsModule } from './memberships/memberships.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SeedModule } from './seed/seed.module';
     UserModule,
     AuthModule,
     SeedModule,
+    MembershipsModule,
   ],
 })
 export class AppModule {}
