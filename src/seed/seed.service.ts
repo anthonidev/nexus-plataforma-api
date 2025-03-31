@@ -17,6 +17,10 @@ import { ContactInfo } from 'src/user/entities/contact-info.entity';
 import { faker } from '@faker-js/faker';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
+import { membershipPlansData } from './data/membership-plans.data';
+import { paymentConfigsData } from './data/payment-configs.data';
+import { PaymentConfig } from 'src/payments/entities/payment-config.entity';
 @Injectable()
 export class SeedService {
   private readonly logger = new Logger(SeedService.name);
@@ -27,6 +31,10 @@ export class SeedService {
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
 
+    @InjectRepository(MembershipPlan)
+    private readonly membershipPlanRepository: Repository<MembershipPlan>,
+    @InjectRepository(PaymentConfig)
+    private readonly paymentConfigRepository: Repository<PaymentConfig>,
     @InjectRepository(Ubigeo)
     private readonly ubigeoRepository: Repository<Ubigeo>,
 
@@ -400,6 +408,150 @@ export class SeedService {
     }
   }
 
+  async seedMembershipPlans() {
+    this.logger.log('Iniciando seed de planes de membresía...');
+    try {
+      const results = await Promise.all(
+        membershipPlansData.map(async (planData) => {
+          try {
+            // Verificar si el plan ya existe por nombre
+            const existingPlan = await this.membershipPlanRepository.findOne({
+              where: { name: planData.name },
+            });
+
+            if (existingPlan) {
+              this.logger.debug(
+                `Plan de membresía existente encontrado: ${planData.name}`,
+              );
+              return { status: 'existing', name: planData.name };
+            }
+
+            // Crear el nuevo plan
+            const plan = this.membershipPlanRepository.create({
+              name: planData.name,
+              price: planData.price,
+              checkAmount: planData.checkAmount,
+              binaryPoints: planData.binaryPoints,
+              commissionPercentage: planData.commissionPercentage,
+              directCommissionAmount: planData.directCommissionAmount,
+              products: planData.products,
+              benefits: planData.benefits,
+              isActive: planData.isActive,
+              displayOrder: planData.displayOrder,
+            });
+
+            await this.membershipPlanRepository.save(plan);
+            this.logger.log(
+              `Plan de membresía creado exitosamente: ${planData.name}`,
+            );
+            return { status: 'created', name: planData.name };
+          } catch (error) {
+            this.logger.error(
+              `Error al crear plan de membresía ${planData.name}: ${error.message}`,
+            );
+            return {
+              status: 'error',
+              name: planData.name,
+              error: error.message,
+            };
+          }
+        }),
+      );
+
+      const created = results.filter((r) => r.status === 'created').length;
+      const existing = results.filter((r) => r.status === 'existing').length;
+      const errors = results.filter((r) => r.status === 'error').length;
+      this.logger.log(
+        `Seed de planes de membresía completado. Creados: ${created}, Existentes: ${existing}, Errores: ${errors}`,
+      );
+
+      return {
+        created,
+        existing,
+        errors,
+        details: results,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error general en seedMembershipPlans: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  async seedPaymentConfigs() {
+    this.logger.log('Iniciando seed de configuraciones de pago...');
+    try {
+      const results = await Promise.all(
+        paymentConfigsData.map(async (configData) => {
+          try {
+            // Verificar si la configuración ya existe por código
+            const existingConfig = await this.paymentConfigRepository.findOne({
+              where: { code: configData.code },
+            });
+
+            if (existingConfig) {
+              this.logger.debug(
+                `Configuración de pago existente encontrada: ${configData.code}`,
+              );
+
+              // Opcionalmente, podemos actualizar la configuración existente
+              // para mantenerla al día con cambios en los datos
+              Object.assign(existingConfig, configData);
+              await this.paymentConfigRepository.save(existingConfig);
+
+              return { status: 'updated', code: configData.code };
+            }
+
+            // Crear la nueva configuración
+            const config = this.paymentConfigRepository.create({
+              code: configData.code,
+              name: configData.name,
+              description: configData.description,
+              requiresApproval: configData.requiresApproval,
+              isActive: configData.isActive,
+              minimumAmount: configData.minimumAmount,
+              maximumAmount: configData.maximumAmount,
+            });
+
+            await this.paymentConfigRepository.save(config);
+            this.logger.log(
+              `Configuración de pago creada exitosamente: ${configData.code}`,
+            );
+            return { status: 'created', code: configData.code };
+          } catch (error) {
+            this.logger.error(
+              `Error al crear configuración de pago ${configData.code}: ${error.message}`,
+            );
+            return {
+              status: 'error',
+              code: configData.code,
+              error: error.message,
+            };
+          }
+        }),
+      );
+
+      const created = results.filter((r) => r.status === 'created').length;
+      const updated = results.filter((r) => r.status === 'updated').length;
+      const errors = results.filter((r) => r.status === 'error').length;
+      this.logger.log(
+        `Seed de configuraciones de pago completado. Creados: ${created}, Actualizados: ${updated}, Errores: ${errors}`,
+      );
+
+      return {
+        created,
+        updated,
+        errors,
+        details: results,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error general en seedPaymentConfigs: ${error.message}`,
+      );
+      throw error;
+    }
+  }
   /**
    * Crea el usuario maestro (raíz del árbol)
    */

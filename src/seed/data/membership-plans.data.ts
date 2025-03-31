@@ -1,0 +1,58 @@
+export const membershipPlansData = [
+  {
+    name: 'Ejecutivo',
+    price: 235.0,
+    checkAmount: 0.0,
+    binaryPoints: 0,
+    commissionPercentage: 10.0,
+    directCommissionAmount: 0.0,
+    products: ['1 Colágeno Renew', '1 kit de Afiliación'],
+    benefits: [
+      'Acceso al workshop de las leyes de éxito de Piense y Hágase rico.',
+    ],
+    isActive: true,
+    displayOrder: 1,
+  },
+  {
+    name: 'VIP',
+    price: 799.0,
+    checkAmount: 1000.0,
+    binaryPoints: 1000,
+    commissionPercentage: 15.0,
+    directCommissionAmount: 50.0,
+    products: [
+      '1 Colágeno renew',
+      '1 Café blend exclusive',
+      '1 Capsula de moringa',
+      '1 Kit de afiliación',
+    ],
+    benefits: [
+      'Acceso al workshop de las leyes de éxito de Piense y Hágase rico.',
+      'Accede al curso de Inteligencia Artificial',
+    ],
+    isActive: true,
+    displayOrder: 2,
+  },
+  {
+    name: 'Premium',
+    price: 1799.0,
+    checkAmount: 2500.0,
+    binaryPoints: 2000,
+    commissionPercentage: 20.0,
+    directCommissionAmount: 100.0,
+    products: [
+      '3 Colágeno renew',
+      '3 Café blend exclusive',
+      '1 Capsula de moringa',
+      '1 Energizante',
+      '1 Fibra laxante',
+      '1 Kit de afiliación',
+    ],
+    benefits: [
+      'Acceso al workshop de las leyes de éxito de Piense y Hágase rico.',
+      'Accede al curso de Inteligencia Artificial',
+    ],
+    isActive: true,
+    displayOrder: 3,
+  },
+];

@@ -18,4 +18,14 @@ export class SeedController {
   seedUsers(@Body() seedUsersDto: SeedUsersDto) {
     return this.seedService.seedUsers(seedUsersDto.count);
   }
+
+  @Post('membership-plans')
+  seedMembershipPlans() {
+    return this.seedService.seedMembershipPlans();
+  }
+
+  @Post('payment-configs')
+  seedPaymentConfigs() {
+    return this.seedService.seedPaymentConfigs();
+  }
 }
