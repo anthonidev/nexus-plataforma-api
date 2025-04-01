@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MembershipPlan } from '../entities/membership-plan.entity';
 import { FindMembershipPlansDto } from '../dto/find-membership-plan.dto';
+import { MembershipPlan } from '../entities/membership-plan.entity';
 
 @Injectable()
 export class MembershipPlansService {
@@ -34,6 +34,27 @@ export class MembershipPlansService {
     } catch (error) {
       this.logger.error(
         `Error al obtener planes de membresía: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  async findOne(id: number) {
+    try {
+      const plan = await this.membershipPlanRepository.findOne({
+        where: { id },
+      });
+
+      if (!plan) {
+        throw new NotFoundException(
+          `Plan de membresía con ID ${id} no encontrado`,
+        );
+      }
+
+      return plan;
+    } catch (error) {
+      this.logger.error(
+        `Error al obtener plan de membresía con ID ${id}: ${error.message}`,
       );
       throw error;
     }
