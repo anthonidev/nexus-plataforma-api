@@ -2,9 +2,7 @@ import {
   Body,
   Controller,
   HttpStatus,
-  Param,
   ParseFilePipeBuilder,
-  ParseIntPipe,
   Post,
   UploadedFiles,
   UseGuards,
@@ -14,10 +12,8 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
-import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { ApproveMembershipSubscriptionDto } from '../dto/approve-membership-subscription.dto';
 import { CreateMembershipSubscriptionDto } from '../dto/create-membership-subscription.dto';
 import { UserMembershipsService } from '../services/user-memberships.service';
 
@@ -53,20 +49,6 @@ export class UserMembershipsController {
       user.id,
       createDto,
       files,
-    );
-  }
-
-  @Post(':id/approve')
-  @Roles('SYS', 'ADM')
-  approveSubscription(
-    @GetUser() admin,
-    @Param('id', ParseIntPipe) membershipId: number,
-    @Body() approveDto: ApproveMembershipSubscriptionDto,
-  ) {
-    return this.userMembershipsService.approveSubscription(
-      admin.id,
-      membershipId,
-      approveDto,
     );
   }
 }

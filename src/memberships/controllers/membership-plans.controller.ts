@@ -6,7 +6,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Public } from 'src/auth/decorators/is-public.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { FindMembershipPlansDto } from '../dto/find-membership-plan.dto';
 import { MembershipPlansService } from '../services/membership-plans.service';
@@ -18,15 +18,13 @@ export class MembershipPlansController {
     private readonly membershipPlansService: MembershipPlansService,
   ) {}
 
-  @Public()
   @Get()
-  findAll(@Query() filters: FindMembershipPlansDto) {
-    return this.membershipPlansService.findAll(filters);
+  findAll(@Query() filters: FindMembershipPlansDto, @GetUser() user) {
+    return this.membershipPlansService.findAll(filters, user.id);
   }
 
-  @Public()
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.membershipPlansService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @GetUser() user) {
+    return this.membershipPlansService.findOne(id, user.id);
   }
 }

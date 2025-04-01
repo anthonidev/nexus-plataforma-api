@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FindMembershipPlansDto } from '../dto/find-membership-plan.dto';
 import { MembershipPlan } from '../entities/membership-plan.entity';
+import { Membership } from '../entities/membership.entity';
 
 @Injectable()
 export class MembershipPlansService {
@@ -13,8 +14,10 @@ export class MembershipPlansService {
     private readonly membershipPlanRepository: Repository<MembershipPlan>,
   ) {}
 
-  async findAll(filters: FindMembershipPlansDto = {}) {
+  async findAll(filters: FindMembershipPlansDto = {}, userId: string) {
     try {
+      //  validar si el usuario tiene membresía
+
       const queryBuilder =
         this.membershipPlanRepository.createQueryBuilder('plan');
 
@@ -39,7 +42,7 @@ export class MembershipPlansService {
     }
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, userId: string) {
     try {
       const plan = await this.membershipPlanRepository.findOne({
         where: { id },

@@ -4,7 +4,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
@@ -13,7 +12,6 @@ import { PaymentImage } from 'src/payments/entities/payment-image.entity';
 import { Payment, PaymentStatus } from 'src/payments/entities/payment.entity';
 import { User } from 'src/user/entities/user.entity';
 import { DataSource, Repository } from 'typeorm';
-import { ApproveMembershipSubscriptionDto } from '../dto/approve-membership-subscription.dto';
 import { CreateMembershipSubscriptionDto } from '../dto/create-membership-subscription.dto';
 import { MembershipPlan } from '../entities/membership-plan.entity';
 import { Membership, MembershipStatus } from '../entities/membership.entity';
@@ -305,129 +303,6 @@ export class UserMembershipsService {
       }
 
       this.logger.error(`Error al crear suscripción: ${error.message}`);
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  async approveSubscription(
-    adminId: string,
-    membershipId: number,
-    approveDto: ApproveMembershipSubscriptionDto,
-  ) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      const admin = await this.userRepository.findOne({
-        where: { id: adminId },
-        relations: ['role'],
-      });
-
-      if (!admin) {
-        throw new NotFoundException(
-          `Administrador con ID ${adminId} no encontrado`,
-        );
-      }
-
-      if (!['SYS', 'ADM'].includes(admin.role.code)) {
-        throw new UnauthorizedException(
-          'No tienes permisos para realizar esta acción',
-        );
-      }
-
-      const membership = await this.membershipRepository.findOne({
-        where: { id: membershipId },
-        relations: ['user', 'plan'],
-      });
-
-      if (!membership) {
-        throw new NotFoundException(
-          `Membresía con ID ${membershipId} no encontrada`,
-        );
-      }
-
-      if (membership.status !== MembershipStatus.PENDING) {
-        throw new BadRequestException(
-          `La membresía no está pendiente, su estado actual es: ${membership.status}`,
-        );
-      }
-
-      const payment = await this.paymentRepository.findOne({
-        where: {
-          relatedEntityType: 'membership',
-          relatedEntityId: membershipId,
-        },
-      });
-
-      if (!payment) {
-        throw new NotFoundException(
-          `Pago asociado a la membresía ${membershipId} no encontrado`,
-        );
-      }
-
-      const now = new Date();
-
-      if (approveDto.approved) {
-        membership.status = MembershipStatus.ACTIVE;
-
-        payment.status = PaymentStatus.APPROVED;
-        payment.reviewedBy = admin;
-        payment.reviewedAt = now;
-      } else {
-        membership.status = MembershipStatus.INACTIVE;
-
-        payment.status = PaymentStatus.REJECTED;
-        payment.reviewedBy = admin;
-        payment.reviewedAt = now;
-        payment.rejectionReason =
-          approveDto.rejectionReason ||
-          'Solicitud rechazada por el administrador';
-      }
-
-      await queryRunner.manager.save(membership);
-      await queryRunner.manager.save(payment);
-
-      const membershipHistory = this.membershipHistoryRepository.create({
-        membership: { id: membershipId },
-        performedBy: { id: adminId },
-        action: approveDto.approved
-          ? MembershipAction.CREATED
-          : MembershipAction.CANCELLED,
-        notes:
-          approveDto.notes ||
-          (approveDto.approved
-            ? 'Solicitud de membresía aprobada'
-            : `Solicitud de membresía rechazada: ${approveDto.rejectionReason}`),
-        metadata: {
-          approved: approveDto.approved,
-          paymentId: payment.id,
-        },
-      });
-
-      await queryRunner.manager.save(membershipHistory);
-
-      await queryRunner.commitTransaction();
-
-      return {
-        id: membership.id,
-        status: membership.status,
-        message: approveDto.approved
-          ? `Membresía activada exitosamente para el usuario ${membership.user.id}`
-          : `Membresía rechazada para el usuario ${membership.user.id}`,
-        plan: {
-          id: membership.plan.id,
-          name: membership.plan.name,
-        },
-        paymentStatus: payment.status,
-      };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error(
-        `Error al aprobar/rechazar suscripción: ${error.message}`,
-      );
       throw error;
     } finally {
       await queryRunner.release();
