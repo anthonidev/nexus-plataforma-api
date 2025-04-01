@@ -22,47 +22,37 @@ export class MembershipPlansService {
 
   async findAll(filters: FindMembershipPlansDto = {}, userId: string) {
     try {
-      // 1. Buscar la información de membresía del usuario
       const userMembershipInfo = await this.getUserMembershipInfo(userId);
 
-      // 2. Construir la consulta base
       const queryBuilder =
         this.membershipPlanRepository.createQueryBuilder('plan');
 
-      // 3. Aplicar filtros básicos
       if (filters.isActive !== undefined) {
         queryBuilder.where('plan.isActive = :isActive', {
           isActive: filters.isActive,
         });
       } else {
-        // Por defecto, mostrar solo planes activos
         queryBuilder.where('plan.isActive = :isActive', { isActive: true });
       }
 
-      // 4. Aplicar filtros basados en la membresía actual del usuario
       if (
         userMembershipInfo.hasMembership &&
         userMembershipInfo.status === MembershipStatus.ACTIVE
       ) {
-        // Si el usuario tiene una membresía activa, no mostrar planes de menor valor
         queryBuilder.andWhere('plan.price > :currentPrice', {
           currentPrice: userMembershipInfo.plan.price,
         });
 
-        // No incluir el plan actual
         queryBuilder.andWhere('plan.id != :currentPlanId', {
           currentPlanId: userMembershipInfo.plan.id,
         });
       }
 
-      // 5. Ordenar los resultados
       queryBuilder.orderBy('plan.displayOrder', 'ASC');
       queryBuilder.addOrderBy('plan.name', 'ASC');
 
-      // 6. Obtener los planes filtrados
       let plans: any = await queryBuilder.getMany();
 
-      // 7. Si el usuario tiene una membresía activa, calcular el precio de actualización
       if (
         userMembershipInfo.hasMembership &&
         userMembershipInfo.status === MembershipStatus.ACTIVE
@@ -77,7 +67,6 @@ export class MembershipPlansService {
         });
       }
 
-      // 8. Retornar el resultado con la información de la membresía actual
       return {
         plans,
         userMembership: userMembershipInfo,
@@ -92,10 +81,8 @@ export class MembershipPlansService {
 
   async findOne(id: number, userId: string) {
     try {
-      // 1. Buscar la información de membresía del usuario
       const userMembershipInfo = await this.getUserMembershipInfo(userId);
 
-      // 2. Buscar el plan solicitado
       const plan = await this.membershipPlanRepository.findOne({
         where: { id },
       });
@@ -106,7 +93,6 @@ export class MembershipPlansService {
         );
       }
 
-      // 3. Si el usuario tiene una membresía activa, calcular el costo de actualización
       let result = { ...plan };
 
       if (
@@ -114,7 +100,6 @@ export class MembershipPlansService {
         userMembershipInfo.status === MembershipStatus.ACTIVE
       ) {
         const upgradeCost = plan.price - userMembershipInfo.plan.price;
-        // Si el plan solicitado es de menor valor, advertir
         if (plan.price <= userMembershipInfo.plan.price) {
           result['warning'] =
             'Este plan es de igual o menor valor que tu plan actual. No es recomendable cambiar.';
@@ -135,13 +120,9 @@ export class MembershipPlansService {
     }
   }
 
-  /**
-   * Obtiene la información de la membresía actual del usuario
-   */
   private async getUserMembershipInfo(
     userId: string,
   ): Promise<UserMembershipInfo> {
-    // Verificar que el usuario existe
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -150,14 +131,12 @@ export class MembershipPlansService {
       throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
     }
 
-    // Buscar la membresía más reciente del usuario
     const membership = await this.membershipRepository.findOne({
       where: { user: { id: userId } },
       relations: ['plan'],
       order: { createdAt: 'DESC' },
     });
 
-    // Si no tiene membresía
     if (!membership) {
       return {
         hasMembership: false,
@@ -165,7 +144,6 @@ export class MembershipPlansService {
       };
     }
 
-    // Construir respuesta según el estado de la membresía
     const response: UserMembershipInfo = {
       hasMembership: true,
       status: membership.status,
@@ -178,7 +156,6 @@ export class MembershipPlansService {
       endDate: membership.endDate,
     };
 
-    // Agregar mensaje según el estado
     switch (membership.status) {
       case MembershipStatus.PENDING:
         response.message =

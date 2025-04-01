@@ -51,4 +51,32 @@ export class UserMembershipsController {
       files,
     );
   }
+
+  @Post('upgrade')
+  @UseInterceptors(FilesInterceptor('paymentImages', 5)) // Máximo 5 imágenes
+  @UsePipes(new ValidationPipe({ transform: true }))
+  updateMembership(
+    @GetUser() user,
+    @Body() updateDto: CreateMembershipSubscriptionDto,
+    @UploadedFiles(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png)$/,
+        })
+        .addMaxSizeValidator({
+          maxSize: 1024 * 1024 * 5, // 5MB
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+          fileIsRequired: true,
+        }),
+    )
+    files: Array<Express.Multer.File>,
+  ) {
+    return this.userMembershipsService.updateMembership(
+      user.id,
+      updateDto,
+      files,
+    );
+  }
 }

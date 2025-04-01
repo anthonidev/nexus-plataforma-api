@@ -19,6 +19,10 @@ import {
   MembershipAction,
   MembershipHistory,
 } from '../entities/membership_history.entity';
+import {
+  MembershipUpgrade,
+  UpgradeStatus,
+} from '../entities/membership_upgrades.entity';
 
 @Injectable()
 export class UserMembershipsService {
@@ -303,6 +307,266 @@ export class UserMembershipsService {
       }
 
       this.logger.error(`Error al crear suscripción: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async updateMembership(
+    userId: string,
+    updateDto: CreateMembershipSubscriptionDto,
+    files: Express.Multer.File[],
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+      }
+
+      // Buscar la membresía activa del usuario
+      const currentMembership = await this.membershipRepository.findOne({
+        where: {
+          user: { id: userId },
+          status: MembershipStatus.ACTIVE,
+        },
+        relations: ['plan'],
+      });
+
+      if (!currentMembership) {
+        throw new BadRequestException(
+          'No tienes una membresía activa para actualizar',
+        );
+      }
+
+      // Buscar el plan de destino
+      const newPlan = await this.planRepository.findOne({
+        where: { id: updateDto.planId },
+      });
+
+      if (!newPlan) {
+        throw new NotFoundException(
+          `Plan con ID ${updateDto.planId} no encontrado`,
+        );
+      }
+
+      // Verificar que el nuevo plan tiene un precio mayor
+      if (newPlan.price <= currentMembership.plan.price) {
+        throw new BadRequestException(
+          `Solo puedes actualizar a un plan de mayor valor. El plan seleccionado (${newPlan.name}) tiene un precio igual o menor al actual (${currentMembership.plan.name})`,
+        );
+      }
+
+      // Calcular el costo de actualización (diferencia entre planes)
+      const upgradeCost = newPlan.price - currentMembership.plan.price;
+
+      // Verificar que el monto pagado sea correcto
+      if (Math.abs(updateDto.totalAmount - upgradeCost) > 0.01) {
+        throw new BadRequestException(
+          `El monto del pago (${updateDto.totalAmount}) no coincide con el costo de actualización (${upgradeCost})`,
+        );
+      }
+
+      // Obtener la configuración de pago para actualizaciones
+      const paymentConfig = await this.paymentConfigRepository.findOne({
+        where: { code: 'PLAN_UPGRADE' },
+      });
+
+      if (!paymentConfig || !paymentConfig.isActive) {
+        throw new BadRequestException(
+          'La opción de pago para actualización de planes no está disponible',
+        );
+      }
+
+      // Validación de archivo y detalles de pago
+      if (!files || files.length === 0) {
+        throw new BadRequestException(
+          'Se requiere al menos una imagen de comprobante de pago',
+        );
+      }
+
+      if (
+        !updateDto.payments ||
+        !Array.isArray(updateDto.payments) ||
+        updateDto.payments.length === 0
+      ) {
+        throw new BadRequestException('Se requieren detalles de pago');
+      }
+
+      // Validar que el número de archivos coincide con el número de detalles de pago
+      if (files.length !== updateDto.payments.length) {
+        throw new BadRequestException(
+          `El número de imágenes (${files.length}) no coincide con el número de detalles de pago (${updateDto.payments.length})`,
+        );
+      }
+
+      // Si hay múltiples pagos, verificar que la suma coincide con el total
+      if (updateDto.payments.length > 1) {
+        const totalFromPayments = updateDto.payments.reduce(
+          (sum, p) => sum + p.amount,
+          0,
+        );
+        if (Math.abs(totalFromPayments - updateDto.totalAmount) > 0.01) {
+          throw new BadRequestException(
+            `La suma de los montos (${totalFromPayments}) no coincide con el monto total (${updateDto.totalAmount})`,
+          );
+        }
+      }
+
+      // Crear un registro de actualización de membresía
+      const membershipUpgrade = queryRunner.manager.create(MembershipUpgrade, {
+        membership: { id: currentMembership.id },
+        fromPlan: { id: currentMembership.plan.id },
+        toPlan: { id: newPlan.id },
+        status: UpgradeStatus.PENDING,
+        upgradeCost,
+        paymentReference: updateDto.paymentReference,
+        notes: updateDto.notes || 'Solicitud de actualización de membresía',
+      });
+
+      const savedUpgrade = await queryRunner.manager.save(membershipUpgrade);
+
+      // Crear el pago
+      const payment = queryRunner.manager.create(Payment, {
+        user: { id: userId },
+        paymentConfig: { id: paymentConfig.id },
+        amount: upgradeCost,
+        status: PaymentStatus.PENDING,
+        relatedEntityType: 'membership_upgrade',
+        relatedEntityId: savedUpgrade.id,
+        metadata: {
+          membershipId: currentMembership.id,
+          fromPlanId: currentMembership.plan.id,
+          fromPlanName: currentMembership.plan.name,
+          toPlanId: newPlan.id,
+          toPlanName: newPlan.name,
+        },
+      });
+
+      const savedPayment = await queryRunner.manager.save(payment);
+
+      // Procesar y guardar imágenes
+      const uploadedImages = [];
+      const cloudinaryIds = [];
+
+      // Verificar que todos los fileIndex sean válidos
+      for (const payment of updateDto.payments) {
+        if (
+          payment.fileIndex === undefined ||
+          payment.fileIndex < 0 ||
+          payment.fileIndex >= files.length
+        ) {
+          throw new BadRequestException(
+            `El fileIndex ${payment.fileIndex} no es válido. Debe estar entre 0 y ${files.length - 1}`,
+          );
+        }
+      }
+
+      // Primero subimos todas las imágenes a Cloudinary
+      const cloudinaryUploads = [];
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const cloudinaryResponse = await this.cloudinaryService.uploadImage(
+            files[i],
+            'payments',
+          );
+          cloudinaryIds.push(cloudinaryResponse.publicId);
+          cloudinaryUploads[i] = cloudinaryResponse;
+        } catch (uploadError) {
+          this.logger.error(`Error al subir imagen: ${uploadError.message}`);
+          throw {
+            message: `Error al subir imagen: ${uploadError.message}`,
+            cloudinaryIds,
+          };
+        }
+      }
+
+      for (const paymentDetail of updateDto.payments) {
+        const fileIndex = paymentDetail.fileIndex;
+        const cloudinaryResponse = cloudinaryUploads[fileIndex];
+
+        const paymentImage = queryRunner.manager.create(PaymentImage, {
+          payment: { id: savedPayment.id },
+          url: cloudinaryResponse.url,
+          cloudinaryPublicId: cloudinaryResponse.publicId,
+          amount: paymentDetail.amount,
+          bankName: paymentDetail.bankName,
+          transactionReference: paymentDetail.transactionReference,
+          transactionDate: new Date(paymentDetail.transactionDate),
+          isActive: true,
+        });
+
+        const savedImage = await queryRunner.manager.save(paymentImage);
+        uploadedImages.push({
+          id: savedImage.id,
+          url: savedImage.url,
+          bankName: savedImage.bankName,
+          transactionReference: savedImage.transactionReference,
+          amount: savedImage.amount,
+          fileIndex: fileIndex,
+        });
+      }
+
+      // Registrar en el historial de la membresía
+      const membershipHistory = queryRunner.manager.create(MembershipHistory, {
+        membership: { id: currentMembership.id },
+        action: MembershipAction.UPGRADED,
+        notes: updateDto.notes || 'Solicitud de actualización de membresía',
+        changes: {
+          fromPlanId: currentMembership.plan.id,
+          fromPlanName: currentMembership.plan.name,
+          toPlanId: newPlan.id,
+          toPlanName: newPlan.name,
+          upgradeCost,
+        },
+        metadata: {
+          upgradeId: savedUpgrade.id,
+          paymentId: savedPayment.id,
+          imagesCount: uploadedImages.length,
+        },
+      });
+
+      await queryRunner.manager.save(membershipHistory);
+
+      await queryRunner.commitTransaction();
+
+      return {
+        id: savedUpgrade.id,
+        membershipId: currentMembership.id,
+        fromPlan: currentMembership.plan.name,
+        toPlan: newPlan.name,
+        status: UpgradeStatus.PENDING,
+        message:
+          'Solicitud de actualización de membresía creada exitosamente. Pendiente de aprobación.',
+        paymentId: savedPayment.id,
+        upgradeCost,
+        uploadedImages,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+
+      // Si hubo un error después de subir imágenes a Cloudinary, deberíamos eliminarlas
+      if (error.cloudinaryIds && Array.isArray(error.cloudinaryIds)) {
+        for (const publicId of error.cloudinaryIds) {
+          try {
+            await this.cloudinaryService.deleteImage(publicId);
+            this.logger.log(`Imagen eliminada de Cloudinary: ${publicId}`);
+          } catch (deleteErr) {
+            this.logger.error(
+              `Error al eliminar imagen de Cloudinary: ${deleteErr.message}`,
+            );
+          }
+        }
+      }
+
+      this.logger.error(`Error al actualizar membresía: ${error.message}`);
       throw error;
     } finally {
       await queryRunner.release();
