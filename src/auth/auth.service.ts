@@ -11,6 +11,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { compare } from 'bcryptjs';
 import { envs } from 'src/config/envs';
+import {
+  Membership,
+  MembershipStatus,
+} from 'src/memberships/entities/membership.entity';
 import { RegisterDto } from 'src/user/dto/create-user.dto';
 import { ContactInfo } from 'src/user/entities/contact-info.entity';
 import { PersonalInfo } from 'src/user/entities/personal-info.entity';
@@ -31,6 +35,15 @@ export interface CleanView {
   metadata?: any | null;
   children: CleanView[];
 }
+
+export interface MembershipInfo {
+  hasMembership: boolean;
+  plan?: {
+    id: number;
+    name: string;
+  };
+  status?: string;
+}
 @Injectable()
 export class AuthService {
   private readonly SALT_ROUNDS = 10;
@@ -44,10 +57,8 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Ubigeo)
     private readonly ubigeoRepository: Repository<Ubigeo>,
-    @InjectRepository(PersonalInfo)
-    private readonly personalInfoRepository: Repository<PersonalInfo>,
-    @InjectRepository(ContactInfo)
-    private readonly contactInfoRepository: Repository<ContactInfo>,
+    @InjectRepository(Membership)
+    private membershipRepository: Repository<Membership>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
   ) {}
@@ -78,12 +89,37 @@ export class AuthService {
       children,
     };
   }
+
   private async buildViewTree(views: View[]): Promise<CleanView[]> {
     const parentViews = views
       .filter((view) => !view.parent && view.isActive)
       .sort((a, b) => (a.order || 0) - (b.order || 0));
     return parentViews.map((view) => this.cleanView(view));
   }
+
+  private async getUserMembershipInfo(userId: string): Promise<MembershipInfo> {
+    const membership = await this.membershipRepository.findOne({
+      where: {
+        user: { id: userId },
+        status: MembershipStatus.ACTIVE,
+      },
+      relations: ['plan'],
+    });
+
+    if (!membership) {
+      return { hasMembership: false };
+    }
+
+    return {
+      hasMembership: true,
+      plan: {
+        id: membership.plan.id,
+        name: membership.plan.name,
+      },
+      status: membership.status,
+    };
+  }
+
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
     if (user && (await compare(password, user.password))) {
@@ -100,6 +136,10 @@ export class AuthService {
     if (!userWithRole.role.isActive) {
       throw new UnauthorizedException('El rol asociado está inactivo');
     }
+
+    // Get user's membership information
+    const membershipInfo = await this.getUserMembershipInfo(user.id);
+
     const roleViews = await this.viewRepository
       .createQueryBuilder('view')
       .leftJoinAndSelect('view.parent', 'parent')
@@ -107,23 +147,34 @@ export class AuthService {
       .leftJoin('view.roles', 'role')
       .where('role.id = :roleId', { roleId: userWithRole.role.id })
       .getMany();
+
     const viewTree = await this.buildViewTree(roleViews);
+
     const cleanRole = {
       id: userWithRole.role.id,
       code: userWithRole.role.code,
       name: userWithRole.role.name,
     };
+
     const payload = {
       email: user.email,
       sub: user.id,
       role: cleanRole,
+      membership: membershipInfo.hasMembership
+        ? {
+            planId: membershipInfo.plan.id,
+            planName: membershipInfo.plan.name,
+          }
+        : null,
     };
+
     return {
       user: {
         id: user.id,
         email: user.email,
         role: cleanRole,
         views: viewTree,
+        membership: membershipInfo,
       },
       accessToken: this.jwtService.sign(payload),
       refreshToken: this.jwtService.sign(payload, {
@@ -148,16 +199,13 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    // Generar un código de referido único
     const referralCode = this.generateReferralCode();
 
-    // Iniciar transacción
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // Verificar si el correo ya existe
       const existingUser = await this.userRepository.findOne({
         where: { email: registerDto.email.toLowerCase() },
       });
@@ -166,7 +214,6 @@ export class AuthService {
         throw new ConflictException('El correo electrónico ya está registrado');
       }
 
-      // Obtener el rol especificado en el DTO
       const role = await this.roleRepository.findOne({
         where: { id: registerDto.roleId, isActive: true },
       });
@@ -177,7 +224,6 @@ export class AuthService {
         );
       }
 
-      // Verificar el ubigeo
       const ubigeo = await this.ubigeoRepository.findOne({
         where: { id: registerDto.ubigeo.id },
       });
@@ -188,7 +234,6 @@ export class AuthService {
         );
       }
 
-      // Crear el usuario
       const user = new User();
       user.email = registerDto.email;
       user.password = await this.hashPassword(registerDto.password);
@@ -196,9 +241,7 @@ export class AuthService {
       user.role = role;
       user.position = registerDto.position;
 
-      // Procesamiento del código de referido si existe
       if (registerDto.referrerCode) {
-        // Obtener el usuario referente
         const referrer = await this.userRepository.findOne({
           where: { referralCode: registerDto.referrerCode },
           relations: ['leftChild', 'rightChild'],

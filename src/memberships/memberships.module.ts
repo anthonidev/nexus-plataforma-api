@@ -13,6 +13,7 @@ import { Payment } from 'src/payments/entities/payment.entity';
 import { PaymentImage } from 'src/payments/entities/payment-image.entity';
 import { User } from 'src/user/entities/user.entity';
 import { UserMembershipsController } from './controllers/user-memberships.controller';
+import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 
 @Module({
   controllers: [MembershipPlansController, UserMembershipsController],
@@ -29,6 +30,7 @@ import { UserMembershipsController } from './controllers/user-memberships.contro
       PaymentImage,
       User,
     ]),
+    CloudinaryModule,
   ],
   exports: [MembershipPlansService, UserMembershipsService, TypeOrmModule],
 })

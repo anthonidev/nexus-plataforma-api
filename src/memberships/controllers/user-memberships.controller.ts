@@ -1,19 +1,25 @@
 import {
   Body,
   Controller,
-  Get,
+  HttpStatus,
   Param,
+  ParseFilePipeBuilder,
   ParseIntPipe,
   Post,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { GetUser } from 'src/auth/decorators/get-user.decorator';
-import { UserMembershipsService } from '../services/user-memberships.service';
-import { CreateMembershipSubscriptionDto } from '../dto/create-membership-subscription.dto';
 import { ApproveMembershipSubscriptionDto } from '../dto/approve-membership-subscription.dto';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { CreateMembershipSubscriptionDto } from '../dto/create-membership-subscription.dto';
+import { UserMembershipsService } from '../services/user-memberships.service';
 
 @Controller('user-memberships')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -21,43 +27,35 @@ export class UserMembershipsController {
   constructor(
     private readonly userMembershipsService: UserMembershipsService,
   ) {}
-
-  /**
-   * Obtiene todas las membresías del usuario autenticado
-   */
-  @Get()
-  getUserMemberships(@GetUser() user) {
-    return this.userMembershipsService.getUserMemberships(user.id);
-  }
-
-  /**
-   * Obtiene el detalle de una membresía específica
-   */
-  @Get(':id')
-  getMembershipDetail(
-    @GetUser() user,
-    @Param('id', ParseIntPipe) membershipId: number,
-  ) {
-    return this.userMembershipsService.getMembershipDetail(
-      user.id,
-      membershipId,
-    );
-  }
-
-  /**
-   * Crea una solicitud de suscripción a un plan
-   */
   @Post('subscribe')
+  @UseInterceptors(FilesInterceptor('paymentImages', 5)) // Máximo 5 imágenes
+  @UsePipes(new ValidationPipe({ transform: true }))
   createSubscription(
     @GetUser() user,
     @Body() createDto: CreateMembershipSubscriptionDto,
+    @UploadedFiles(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png)$/,
+        })
+        .addMaxSizeValidator({
+          maxSize: 1024 * 1024 * 5, // 5MB
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+          fileIsRequired: true,
+        }),
+    )
+    files: Array<Express.Multer.File>,
   ) {
-    return this.userMembershipsService.createSubscription(user.id, createDto);
+    // El controlador solo pasa los datos al servicio
+    return this.userMembershipsService.createSubscription(
+      user.id,
+      createDto,
+      files,
+    );
   }
 
-  /**
-   * Aprueba o rechaza una solicitud de membresía (solo administradores)
-   */
   @Post(':id/approve')
   @Roles('SYS', 'ADM')
   approveSubscription(
