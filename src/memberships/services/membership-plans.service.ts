@@ -1,10 +1,14 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { User } from 'src/user/entities/user.entity';
 import { Repository } from 'typeorm';
 import { FindMembershipPlansDto } from '../dto/find-membership-plan.dto';
 import { MembershipPlan } from '../entities/membership-plan.entity';
 import { Membership, MembershipStatus } from '../entities/membership.entity';
-import { User } from 'src/user/entities/user.entity';
+import {
+  MembershipUpgrade,
+  UpgradeStatus,
+} from '../entities/membership_upgrades.entity';
 import { UserMembershipInfo } from '../interfaces/MembershipResponse.interface';
 
 @Injectable()
@@ -16,13 +20,36 @@ export class MembershipPlansService {
     private readonly membershipPlanRepository: Repository<MembershipPlan>,
     @InjectRepository(Membership)
     private readonly membershipRepository: Repository<Membership>,
+    @InjectRepository(MembershipUpgrade)
+    private readonly membershipUpgradeRepository: Repository<MembershipUpgrade>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
-
   async findAll(filters: FindMembershipPlansDto = {}, userId: string) {
     try {
       const userMembershipInfo = await this.getUserMembershipInfo(userId);
+
+      if (userMembershipInfo.hasMembership) {
+        const pendingUpgrade = await this.membershipUpgradeRepository.findOne({
+          where: {
+            membership: { id: userMembershipInfo.membershipId },
+            status: UpgradeStatus.PENDING,
+          },
+          relations: ['toPlan'],
+        });
+
+        if (pendingUpgrade) {
+          userMembershipInfo.pendingUpgrade = {
+            id: pendingUpgrade.id,
+            toPlan: {
+              id: pendingUpgrade.toPlan.id,
+              name: pendingUpgrade.toPlan.name,
+            },
+            upgradeCost: pendingUpgrade.upgradeCost,
+            status: pendingUpgrade.status,
+          };
+        }
+      }
 
       const queryBuilder =
         this.membershipPlanRepository.createQueryBuilder('plan');
@@ -46,6 +73,12 @@ export class MembershipPlansService {
         queryBuilder.andWhere('plan.id != :currentPlanId', {
           currentPlanId: userMembershipInfo.plan.id,
         });
+
+        if (userMembershipInfo.pendingUpgrade) {
+          queryBuilder.andWhere('plan.id != :pendingPlanId', {
+            pendingPlanId: userMembershipInfo.pendingUpgrade.toPlan.id,
+          });
+        }
       }
 
       queryBuilder.orderBy('plan.displayOrder', 'ASC');
@@ -61,7 +94,7 @@ export class MembershipPlansService {
           const upgradeCost = plan.price - userMembershipInfo.plan.price;
           return {
             ...plan,
-            upgradeCost: Math.max(0, upgradeCost), // Asegurar que nunca sea negativo
+            upgradeCost: Math.max(0, upgradeCost),
             isUpgrade: true,
           };
         });
@@ -78,7 +111,6 @@ export class MembershipPlansService {
       throw error;
     }
   }
-
   async findOne(id: number, userId: string) {
     try {
       const userMembershipInfo = await this.getUserMembershipInfo(userId);
@@ -146,6 +178,7 @@ export class MembershipPlansService {
 
     const response: UserMembershipInfo = {
       hasMembership: true,
+      membershipId: membership.id,
       status: membership.status,
       plan: {
         id: membership.plan.id,

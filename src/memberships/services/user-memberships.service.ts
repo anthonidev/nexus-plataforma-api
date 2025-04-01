@@ -105,7 +105,6 @@ export class UserMembershipsService {
         );
       }
 
-      // Obtener la configuración de pago para membresías
       const paymentConfig = await this.paymentConfigRepository.findOne({
         where: { code: 'MEMBERSHIP_PAYMENT' },
       });
@@ -116,7 +115,6 @@ export class UserMembershipsService {
         );
       }
 
-      // Validación de archivo y detalles de pago
       if (!files || files.length === 0) {
         throw new BadRequestException(
           'Se requiere al menos una imagen de comprobante de pago',
@@ -131,7 +129,6 @@ export class UserMembershipsService {
         throw new BadRequestException('Se requieren detalles de pago');
       }
 
-      // Validar el monto del pago
       if (
         createDto.totalAmount < plan.price ||
         Math.abs(createDto.totalAmount - plan.price) > 0.01
@@ -141,14 +138,12 @@ export class UserMembershipsService {
         );
       }
 
-      // Validar que el número de archivos coincide con el número de detalles de pago
       if (files.length !== createDto.payments.length) {
         throw new BadRequestException(
           `El número de imágenes (${files.length}) no coincide con el número de detalles de pago (${createDto.payments.length})`,
         );
       }
 
-      // Si hay múltiples pagos, verificar que la suma coincide con el total
       if (createDto.payments.length > 1) {
         const totalFromPayments = createDto.payments.reduce(
           (sum, p) => sum + p.amount,
@@ -163,7 +158,7 @@ export class UserMembershipsService {
 
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setFullYear(endDate.getFullYear() + 1); // Membresía por 1 año
+      endDate.setFullYear(endDate.getFullYear() + 1);
 
       const nextReconsumptionDate = new Date();
       nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 30);
@@ -173,10 +168,10 @@ export class UserMembershipsService {
         plan: { id: plan.id },
         startDate,
         endDate,
-        status: MembershipStatus.PENDING, // Pendiente hasta que se apruebe el pago
+        status: MembershipStatus.PENDING,
         paidAmount: createDto.totalAmount,
         paymentReference: createDto.paymentReference,
-        minimumReconsumptionAmount: 300, // Valor por defecto
+        minimumReconsumptionAmount: 300,
         nextReconsumptionDate,
         accumulatedBinaryPoints: 0,
         autoRenewal: false,
@@ -200,11 +195,9 @@ export class UserMembershipsService {
 
       const savedPayment = await queryRunner.manager.save(payment);
 
-      // Procesar y guardar imágenes
       const uploadedImages = [];
       const cloudinaryIds = [];
 
-      // Verificar que todos los fileIndex sean válidos
       for (const payment of createDto.payments) {
         if (
           payment.fileIndex === undefined ||
@@ -217,7 +210,6 @@ export class UserMembershipsService {
         }
       }
 
-      // Primero subimos todas las imágenes a Cloudinary
       const cloudinaryUploads = [];
       for (let i = 0; i < files.length; i++) {
         try {
@@ -262,7 +254,6 @@ export class UserMembershipsService {
         });
       }
 
-      // Registrar en el historial
       const membershipHistory = this.membershipHistoryRepository.create({
         membership: { id: savedMembership.id },
         action: MembershipAction.CREATED,
@@ -280,19 +271,13 @@ export class UserMembershipsService {
       await queryRunner.commitTransaction();
 
       return {
-        id: savedMembership.id,
-        status: savedMembership.status,
+        success: true,
         message:
           'Solicitud de membresía creada exitosamente. Pendiente de aprobación.',
-        paymentId: savedPayment.id,
-        planName: plan.name,
-        amount: createDto.totalAmount,
-        uploadedImages,
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
 
-      // Si hubo un error después de subir imágenes a Cloudinary, deberíamos eliminarlas
       if (error.cloudinaryIds && Array.isArray(error.cloudinaryIds)) {
         for (const publicId of error.cloudinaryIds) {
           try {
@@ -307,7 +292,10 @@ export class UserMembershipsService {
       }
 
       this.logger.error(`Error al crear suscripción: ${error.message}`);
-      throw error;
+      return {
+        success: false,
+        message: `Error al crear suscripción: ${error.message}`,
+      };
     } finally {
       await queryRunner.release();
     }
@@ -331,7 +319,6 @@ export class UserMembershipsService {
         throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
       }
 
-      // Buscar la membresía activa del usuario
       const currentMembership = await this.membershipRepository.findOne({
         where: {
           user: { id: userId },
@@ -346,7 +333,6 @@ export class UserMembershipsService {
         );
       }
 
-      // Buscar el plan de destino
       const newPlan = await this.planRepository.findOne({
         where: { id: updateDto.planId },
       });
@@ -357,24 +343,20 @@ export class UserMembershipsService {
         );
       }
 
-      // Verificar que el nuevo plan tiene un precio mayor
       if (newPlan.price <= currentMembership.plan.price) {
         throw new BadRequestException(
           `Solo puedes actualizar a un plan de mayor valor. El plan seleccionado (${newPlan.name}) tiene un precio igual o menor al actual (${currentMembership.plan.name})`,
         );
       }
 
-      // Calcular el costo de actualización (diferencia entre planes)
       const upgradeCost = newPlan.price - currentMembership.plan.price;
 
-      // Verificar que el monto pagado sea correcto
       if (Math.abs(updateDto.totalAmount - upgradeCost) > 0.01) {
         throw new BadRequestException(
           `El monto del pago (${updateDto.totalAmount}) no coincide con el costo de actualización (${upgradeCost})`,
         );
       }
 
-      // Obtener la configuración de pago para actualizaciones
       const paymentConfig = await this.paymentConfigRepository.findOne({
         where: { code: 'PLAN_UPGRADE' },
       });
@@ -385,7 +367,6 @@ export class UserMembershipsService {
         );
       }
 
-      // Validación de archivo y detalles de pago
       if (!files || files.length === 0) {
         throw new BadRequestException(
           'Se requiere al menos una imagen de comprobante de pago',
@@ -400,14 +381,12 @@ export class UserMembershipsService {
         throw new BadRequestException('Se requieren detalles de pago');
       }
 
-      // Validar que el número de archivos coincide con el número de detalles de pago
       if (files.length !== updateDto.payments.length) {
         throw new BadRequestException(
           `El número de imágenes (${files.length}) no coincide con el número de detalles de pago (${updateDto.payments.length})`,
         );
       }
 
-      // Si hay múltiples pagos, verificar que la suma coincide con el total
       if (updateDto.payments.length > 1) {
         const totalFromPayments = updateDto.payments.reduce(
           (sum, p) => sum + p.amount,
@@ -420,7 +399,6 @@ export class UserMembershipsService {
         }
       }
 
-      // Crear un registro de actualización de membresía
       const membershipUpgrade = queryRunner.manager.create(MembershipUpgrade, {
         membership: { id: currentMembership.id },
         fromPlan: { id: currentMembership.plan.id },
@@ -433,7 +411,6 @@ export class UserMembershipsService {
 
       const savedUpgrade = await queryRunner.manager.save(membershipUpgrade);
 
-      // Crear el pago
       const payment = queryRunner.manager.create(Payment, {
         user: { id: userId },
         paymentConfig: { id: paymentConfig.id },
@@ -452,11 +429,9 @@ export class UserMembershipsService {
 
       const savedPayment = await queryRunner.manager.save(payment);
 
-      // Procesar y guardar imágenes
       const uploadedImages = [];
       const cloudinaryIds = [];
 
-      // Verificar que todos los fileIndex sean válidos
       for (const payment of updateDto.payments) {
         if (
           payment.fileIndex === undefined ||
@@ -469,7 +444,6 @@ export class UserMembershipsService {
         }
       }
 
-      // Primero subimos todas las imágenes a Cloudinary
       const cloudinaryUploads = [];
       for (let i = 0; i < files.length; i++) {
         try {
@@ -514,7 +488,6 @@ export class UserMembershipsService {
         });
       }
 
-      // Registrar en el historial de la membresía
       const membershipHistory = queryRunner.manager.create(MembershipHistory, {
         membership: { id: currentMembership.id },
         action: MembershipAction.UPGRADED,
@@ -538,21 +511,13 @@ export class UserMembershipsService {
       await queryRunner.commitTransaction();
 
       return {
-        id: savedUpgrade.id,
-        membershipId: currentMembership.id,
-        fromPlan: currentMembership.plan.name,
-        toPlan: newPlan.name,
-        status: UpgradeStatus.PENDING,
+        success: true,
         message:
           'Solicitud de actualización de membresía creada exitosamente. Pendiente de aprobación.',
-        paymentId: savedPayment.id,
-        upgradeCost,
-        uploadedImages,
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
 
-      // Si hubo un error después de subir imágenes a Cloudinary, deberíamos eliminarlas
       if (error.cloudinaryIds && Array.isArray(error.cloudinaryIds)) {
         for (const publicId of error.cloudinaryIds) {
           try {
@@ -567,7 +532,10 @@ export class UserMembershipsService {
       }
 
       this.logger.error(`Error al actualizar membresía: ${error.message}`);
-      throw error;
+      return {
+        success: false,
+        message: `Error al actualizar membresía: ${error.message}`,
+      };
     } finally {
       await queryRunner.release();
     }

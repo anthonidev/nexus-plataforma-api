@@ -24,7 +24,7 @@ export class UserMembershipsController {
     private readonly userMembershipsService: UserMembershipsService,
   ) {}
   @Post('subscribe')
-  @UseInterceptors(FilesInterceptor('paymentImages', 5)) // Máximo 5 imágenes
+  @UseInterceptors(FilesInterceptor('paymentImages', 5))
   @UsePipes(new ValidationPipe({ transform: true }))
   createSubscription(
     @GetUser() user,
@@ -35,7 +35,7 @@ export class UserMembershipsController {
           fileType: /(jpg|jpeg|png)$/,
         })
         .addMaxSizeValidator({
-          maxSize: 1024 * 1024 * 5, // 5MB
+          maxSize: 1024 * 1024 * 5,
         })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -44,7 +44,6 @@ export class UserMembershipsController {
     )
     files: Array<Express.Multer.File>,
   ) {
-    // El controlador solo pasa los datos al servicio
     return this.userMembershipsService.createSubscription(
       user.id,
       createDto,
@@ -53,7 +52,7 @@ export class UserMembershipsController {
   }
 
   @Post('upgrade')
-  @UseInterceptors(FilesInterceptor('paymentImages', 5)) // Máximo 5 imágenes
+  @UseInterceptors(FilesInterceptor('paymentImages', 5))
   @UsePipes(new ValidationPipe({ transform: true }))
   updateMembership(
     @GetUser() user,
@@ -64,7 +63,7 @@ export class UserMembershipsController {
           fileType: /(jpg|jpeg|png)$/,
         })
         .addMaxSizeValidator({
-          maxSize: 1024 * 1024 * 5, // 5MB
+          maxSize: 1024 * 1024 * 5,
         })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
