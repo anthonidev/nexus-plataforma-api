@@ -1,20 +1,4 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  ManyToOne,
-  OneToOne,
-  JoinColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-  BeforeInsert,
-  BeforeUpdate,
-} from 'typeorm';
-import { PersonalInfo } from './personal-info.entity';
-import { ContactInfo } from './contact-info.entity';
-import { BillingInfo } from './billing-info.entity';
-import { BankInfo } from './bank-info.entity';
-import { Role } from './roles.entity';
+import { Exclude, Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsDate,
@@ -25,7 +9,23 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
-import { Exclude, Transform } from 'class-transformer';
+import {
+  BeforeInsert,
+  BeforeUpdate,
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { BankInfo } from './bank-info.entity';
+import { BillingInfo } from './billing-info.entity';
+import { ContactInfo } from './contact-info.entity';
+import { PersonalInfo } from './personal-info.entity';
+import { Role } from './roles.entity';
 
 @Entity('users')
 export class User {
