@@ -6,9 +6,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
 import { FindPaymentsDto } from '../dto/find-payments.dto';
 import { FinancePaymentsService } from '../services/finance-payments.service';
 
