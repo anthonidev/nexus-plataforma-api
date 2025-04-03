@@ -230,11 +230,9 @@ export class SeedService {
       );
       this.logger.log('Todas las provincias han sido procesadas.');
 
-      // PASO 3: Insertar todos los distritos después de que departamentos y provincias estén listos
       this.logger.log('Iniciando inserción de distritos...');
       const distritos = distritosData;
 
-      // Utilizamos Promise.all para esperar que todos los distritos se inserten
       await Promise.all(
         distritos.map(async (distrito) => {
           const existingDistrito = await this.ubigeoRepository.findOne({
@@ -246,7 +244,6 @@ export class SeedService {
             return;
           }
 
-          // Ahora usamos province_id para obtener la provincia correcta
           const provincia = await this.ubigeoRepository.findOne({
             where: { code: distrito.province_id },
           });
@@ -303,7 +300,6 @@ export class SeedService {
       const results = await Promise.all(
         membershipPlansData.map(async (planData) => {
           try {
-            // Verificar si el plan ya existe por nombre
             const existingPlan = await this.membershipPlanRepository.findOne({
               where: { name: planData.name },
             });
@@ -315,7 +311,6 @@ export class SeedService {
               return { status: 'existing', name: planData.name };
             }
 
-            // Crear el nuevo plan
             const plan = this.membershipPlanRepository.create({
               name: planData.name,
               price: planData.price,
@@ -374,7 +369,6 @@ export class SeedService {
       const results = await Promise.all(
         paymentConfigsData.map(async (configData) => {
           try {
-            // Verificar si la configuración ya existe por código
             const existingConfig = await this.paymentConfigRepository.findOne({
               where: { code: configData.code },
             });
@@ -384,15 +378,12 @@ export class SeedService {
                 `Configuración de pago existente encontrada: ${configData.code}`,
               );
 
-              // Opcionalmente, podemos actualizar la configuración existente
-              // para mantenerla al día con cambios en los datos
               Object.assign(existingConfig, configData);
               await this.paymentConfigRepository.save(existingConfig);
 
               return { status: 'updated', code: configData.code };
             }
 
-            // Crear la nueva configuración
             const config = this.paymentConfigRepository.create({
               code: configData.code,
               name: configData.name,
@@ -451,7 +442,6 @@ export class SeedService {
     await queryRunner.startTransaction();
 
     try {
-      // Obtener roles
       const sysRole = await this.roleRepository.findOne({
         where: { code: 'SYS' },
       });
@@ -471,15 +461,13 @@ export class SeedService {
         );
       }
 
-      // Obtener un ubigeo de Surco (para el primer usuario)
       const surcoUbigeo = await this.ubigeoRepository.findOne({
         where: { name: 'SANTIAGO DE SURCO' },
       });
 
-      // Ubigeo por defecto para los demás usuarios
-      const defaultUbigeo = await this.ubigeoRepository.findOne(
-        { where: { code: '150101' } }, // Ubigeo de Lima Metropolitana
-      );
+      const defaultUbigeo = await this.ubigeoRepository.findOne({
+        where: { code: '150101' },
+      });
 
       if (!defaultUbigeo) {
         throw new Error(
@@ -487,7 +475,6 @@ export class SeedService {
         );
       }
       const defaultPass = 'NexusPass%2025';
-      // 1. Usuario Master - César Huertas Anaya (Cliente)
       const masterUser = await this.createSpecificUser(
         {
           email: 'cesar.huertas@inmobiliariahuertas.com',
@@ -501,14 +488,13 @@ export class SeedService {
           address: 'Polo Hunt, Surco',
           ubigeo: surcoUbigeo || defaultUbigeo,
         },
-        null, // Sin padre
-        null, // Sin posición
+        null,
+        null,
         queryRunner,
       );
 
       this.logger.log(`Usuario master creado: ${masterUser.email}`);
 
-      // 2. Usuario Sistema - Anthoni Portocarrero Rodriguez
       const systemUser = await this.createSpecificUser(
         {
           email: 'softwaretoni21@gmail.com',
@@ -527,13 +513,8 @@ export class SeedService {
         queryRunner,
       );
 
-      // Actualizar referencia en el padre
-      masterUser.leftChild = systemUser;
-      await queryRunner.manager.save(masterUser);
-
       this.logger.log(`Usuario sistema creado: ${systemUser.email}`);
 
-      // 3. Usuario Admin - Nexus Adm
       const adminUser = await this.createSpecificUser(
         {
           email: 'admin@nexusplatform.com',
@@ -552,13 +533,8 @@ export class SeedService {
         queryRunner,
       );
 
-      // Actualizar referencia en el padre
-      masterUser.rightChild = adminUser;
-      await queryRunner.manager.save(masterUser);
-
       this.logger.log(`Usuario admin creado: ${adminUser.email}`);
 
-      // 4. Usuario Finanzas - Finanzas Nexus
       const financeUser = await this.createSpecificUser(
         {
           email: 'finanzas@nexusplatform.com',
@@ -577,10 +553,6 @@ export class SeedService {
         queryRunner,
       );
 
-      // Actualizar referencia en el padre
-      systemUser.leftChild = financeUser;
-      await queryRunner.manager.save(systemUser);
-
       this.logger.log(`Usuario finanzas creado: ${financeUser.email}`);
 
       await queryRunner.commitTransaction();
@@ -590,7 +562,6 @@ export class SeedService {
         `Seed de usuarios específicos completado en ${duration}ms`,
       );
 
-      // Retornar información de los usuarios creados
       return {
         success: true,
         duration: `${duration}ms`,

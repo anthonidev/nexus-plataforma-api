@@ -82,22 +82,6 @@ export class UserPoints {
   @Min(0, { message: 'Los puntos retirados no pueden ser negativos' })
   totalWithdrawnPoints: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    default: 0,
-  })
-  @IsNumber(
-    { maxDecimalPlaces: 2 },
-    {
-      message:
-        'Los puntos binarios deben ser un número válido con hasta 2 decimales',
-    },
-  )
-  @Min(0, { message: 'Los puntos binarios no pueden ser negativos' })
-  binaryPoints: number;
-
   @OneToMany(() => PointsTransaction, (transaction) => transaction.user)
   transactions: PointsTransaction[];
 

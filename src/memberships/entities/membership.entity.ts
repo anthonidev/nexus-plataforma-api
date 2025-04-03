@@ -35,7 +35,7 @@ export enum MembershipStatus {
 }
 
 @Entity('memberships')
-@Index(['user', 'status'], { where: "status = 'ACTIVE'" }) // Para consultas rápidas de membresías activas por usuario
+@Index(['user', 'status'], { where: "status = 'ACTIVE'" })
 export class Membership {
   @PrimaryGeneratedColumn()
   id: number;
@@ -101,11 +101,6 @@ export class Membership {
     message: 'La fecha del próximo reconsumo debe ser una fecha válida',
   })
   nextReconsumptionDate: Date;
-
-  @Column({ type: 'int', default: 0 })
-  @IsNumber()
-  @Min(0, { message: 'Los puntos binarios acumulados no pueden ser negativos' })
-  accumulatedBinaryPoints: number;
 
   @Column({ type: 'boolean', default: false })
   autoRenewal: boolean;

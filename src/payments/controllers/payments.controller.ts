@@ -6,11 +6,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { User } from 'src/user/entities/user.entity';
-import { FindPaymentsDto } from './dto/find-payments.dto';
+import { FindPaymentsDto } from '../dto/find-payments.dto';
+import { PaymentsService } from '../services/payments.service';
 
 @Controller('payments')
 @UseGuards(JwtAuthGuard)

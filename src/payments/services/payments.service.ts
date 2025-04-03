@@ -5,15 +5,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Payment } from './entities/payment.entity';
+import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { Repository } from 'typeorm';
-import { FindPaymentsDto } from './dto/find-payments.dto';
-import {
-  PaginationHelper,
-  PaginatedResult,
-} from 'src/common/helpers/pagination.helper';
-import { PaymentImage } from './entities/payment-image.entity';
-import { PaymentConfig } from './entities/payment-config.entity';
+import { FindPaymentsDto } from '../dto/find-payments.dto';
+import { PaymentConfig } from '../entities/payment-config.entity';
+import { PaymentImage } from '../entities/payment-image.entity';
+import { Payment } from '../entities/payment.entity';
 
 @Injectable()
 export class PaymentsService {

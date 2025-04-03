@@ -173,7 +173,6 @@ export class UserMembershipsService {
         paymentReference: createDto.paymentReference,
         minimumReconsumptionAmount: 300,
         nextReconsumptionDate,
-        accumulatedBinaryPoints: 0,
         autoRenewal: false,
       });
 
