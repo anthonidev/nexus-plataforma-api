@@ -1,10 +1,5 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Controller, Post } from '@nestjs/common';
 import { SeedService } from './seed.service';
-import { IsInt } from 'class-validator';
-class SeedUsersDto {
-  @IsInt()
-  count: number = 2000;
-}
 
 @Controller('seed')
 export class SeedController {
@@ -15,8 +10,8 @@ export class SeedController {
   }
 
   @Post('users')
-  seedUsers(@Body() seedUsersDto: SeedUsersDto) {
-    return this.seedService.seedUsers(seedUsersDto.count);
+  seedUsers() {
+    return this.seedService.seedUsers();
   }
 
   @Post('membership-plans')

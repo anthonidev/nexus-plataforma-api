@@ -65,6 +65,7 @@ export class PointsTransaction {
 
   @Column({
     type: 'enum',
+    enum: PointTransactionStatus,
     default: PointTransactionStatus.PENDING,
   })
   @IsEnum(PointTransactionStatus, {

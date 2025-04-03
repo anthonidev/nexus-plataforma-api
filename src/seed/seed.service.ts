@@ -296,117 +296,6 @@ export class SeedService {
       throw error;
     }
   }
-  async seedUsers(count: number = 2000): Promise<any> {
-    this.logger.log(`Iniciando seed de ${count} usuarios...`);
-    const startTime = Date.now();
-
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      // Buscar un rol válido para los usuarios
-      const roles = await this.roleRepository.find({
-        where: { isActive: true },
-      });
-      if (roles.length === 0) {
-        throw new Error('No hay roles disponibles en el sistema');
-      }
-
-      // Buscar ubicaciones (ubigeos) disponibles
-      const ubigeos = await this.ubigeoRepository.find({ take: 100 });
-      if (ubigeos.length === 0) {
-        throw new Error(
-          'No hay ubicaciones (ubigeos) disponibles en el sistema',
-        );
-      }
-
-      // Crear usuario maestro (root)
-      const masterUser = await this.createMasterUser(
-        roles[0],
-        ubigeos[0],
-        queryRunner,
-      );
-      this.logger.log(`Usuario maestro creado: ${masterUser.email}`);
-
-      // Crear usuarios adicionales uno por uno
-      const userNodes = [masterUser]; // Lista de nodos donde podemos insertar nuevos hijos
-
-      for (let i = 0; i < count; i++) {
-        if (i % 100 === 0) {
-          this.logger.log(`Progreso: ${i}/${count} usuarios creados`);
-        }
-
-        // Seleccionar un rol aleatorio
-        const randomRole = roles[Math.floor(Math.random() * roles.length)];
-
-        // Seleccionar un ubigeo aleatorio
-        const randomUbigeo =
-          ubigeos[Math.floor(Math.random() * ubigeos.length)];
-
-        // Seleccionar un nodo padre aleatorio de los disponibles
-        const parentIndex = Math.floor(Math.random() * userNodes.length);
-        const parentUser = userNodes[parentIndex];
-
-        // Determinar en qué posición (izquierda o derecha) colocar al nuevo usuario
-        let position: 'LEFT' | 'RIGHT' = null;
-
-        if (!parentUser.leftChild) {
-          position = 'LEFT';
-        } else if (!parentUser.rightChild) {
-          position = 'RIGHT';
-        } else {
-          // Este nodo ya tiene ambos hijos, así que debemos elegir otro nodo
-          // Quitar este nodo de la lista de posibles padres
-          userNodes.splice(parentIndex, 1);
-          // Reintentar con otro nodo (decrementamos i para no perder la iteración)
-          i--;
-          continue;
-        }
-
-        // Crear el nuevo usuario
-        const newUser = await this.createRandomUser(
-          randomRole,
-          randomUbigeo,
-          parentUser,
-          position,
-          queryRunner,
-        );
-
-        // Actualizar referencia en el padre
-        if (position === 'LEFT') {
-          parentUser.leftChild = newUser;
-        } else {
-          parentUser.rightChild = newUser;
-        }
-        await queryRunner.manager.save(parentUser);
-
-        userNodes.push(newUser);
-      }
-
-      await queryRunner.commitTransaction();
-
-      const duration = Date.now() - startTime;
-      this.logger.log(`Seed de usuarios completado en ${duration}ms`);
-
-      return {
-        success: true,
-        duration: `${duration}ms`,
-        userCount: count + 1, // +1 por el usuario maestro
-        masterUser: {
-          id: masterUser.id,
-          email: masterUser.email,
-          referralCode: masterUser.referralCode,
-        },
-      };
-    } catch (error) {
-      this.logger.error(`Error en seed de usuarios: ${error.message}`);
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
 
   async seedMembershipPlans() {
     this.logger.log('Iniciando seed de planes de membresía...');
@@ -553,49 +442,210 @@ export class SeedService {
     }
   }
 
-  private async createMasterUser(
-    role: Role,
-    ubigeo: Ubigeo,
-    queryRunner: any,
-  ): Promise<User> {
-    // Generar código de referido único
-    const referralCode = this.generateReferralCode();
+  async seedUsers(): Promise<any> {
+    this.logger.log('Iniciando seed de usuarios específicos...');
+    const startTime = Date.now();
 
-    // Crear usuario
-    const user = new User();
-    user.email = 'master@example.com';
-    user.password = await this.hashPassword('Master123');
-    user.referralCode = referralCode;
-    user.role = role;
-    user.isActive = true;
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const savedUser = await queryRunner.manager.save(user);
+    try {
+      // Obtener roles
+      const sysRole = await this.roleRepository.findOne({
+        where: { code: 'SYS' },
+      });
+      const adminRole = await this.roleRepository.findOne({
+        where: { code: 'ADM' },
+      });
+      const facRole = await this.roleRepository.findOne({
+        where: { code: 'FAC' },
+      });
+      const clientRole = await this.roleRepository.findOne({
+        where: { code: 'CLI' },
+      });
 
-    // Crear información personal
-    const personalInfo = new PersonalInfo();
-    personalInfo.firstName = 'Usuario';
-    personalInfo.lastName = 'Maestro';
-    personalInfo.gender = 'MASCULINO';
-    personalInfo.birthDate = new Date('1980-01-01');
-    personalInfo.user = savedUser;
-    await queryRunner.manager.save(personalInfo);
+      if (!sysRole || !adminRole || !facRole || !clientRole) {
+        throw new Error(
+          'No se encontraron todos los roles necesarios. Ejecuta primero el seed de roles.',
+        );
+      }
 
-    // Crear información de contacto
-    const contactInfo = new ContactInfo();
-    contactInfo.phone = '999999999';
-    contactInfo.address = 'Calle Principal 123';
-    contactInfo.ubigeo = ubigeo;
-    contactInfo.user = savedUser;
-    await queryRunner.manager.save(contactInfo);
+      // Obtener un ubigeo de Surco (para el primer usuario)
+      const surcoUbigeo = await this.ubigeoRepository.findOne({
+        where: { name: 'SANTIAGO DE SURCO' },
+      });
 
-    return savedUser;
+      // Ubigeo por defecto para los demás usuarios
+      const defaultUbigeo = await this.ubigeoRepository.findOne(
+        { where: { code: '150101' } }, // Ubigeo de Lima Metropolitana
+      );
+
+      if (!defaultUbigeo) {
+        throw new Error(
+          'No hay ubicaciones (ubigeos) disponibles en el sistema. Ejecuta primero el seed de ubigeos.',
+        );
+      }
+      const defaultPass = 'NexusPass%2025';
+      // 1. Usuario Master - César Huertas Anaya (Cliente)
+      const masterUser = await this.createSpecificUser(
+        {
+          email: 'cesar.huertas@inmobiliariahuertas.com',
+          password: defaultPass,
+          role: clientRole,
+          firstName: 'César',
+          lastName: 'Huertas Anaya',
+          gender: 'MASCULINO',
+          birthDate: new Date('1994-05-21'),
+          phone: '941290426',
+          address: 'Polo Hunt, Surco',
+          ubigeo: surcoUbigeo || defaultUbigeo,
+        },
+        null, // Sin padre
+        null, // Sin posición
+        queryRunner,
+      );
+
+      this.logger.log(`Usuario master creado: ${masterUser.email}`);
+
+      // 2. Usuario Sistema - Anthoni Portocarrero Rodriguez
+      const systemUser = await this.createSpecificUser(
+        {
+          email: 'softwaretoni21@gmail.com',
+          password: defaultPass,
+          role: sysRole,
+          firstName: 'Anthoni',
+          lastName: 'Portocarrero Rodriguez',
+          gender: 'MASCULINO',
+          birthDate: new Date('1999-12-21'),
+          phone: '958920823',
+          address: 'Mi Casa 123',
+          ubigeo: defaultUbigeo,
+        },
+        null,
+        null,
+        queryRunner,
+      );
+
+      // Actualizar referencia en el padre
+      masterUser.leftChild = systemUser;
+      await queryRunner.manager.save(masterUser);
+
+      this.logger.log(`Usuario sistema creado: ${systemUser.email}`);
+
+      // 3. Usuario Admin - Nexus Adm
+      const adminUser = await this.createSpecificUser(
+        {
+          email: 'admin@nexusplatform.com',
+          password: defaultPass,
+          role: adminRole,
+          firstName: 'Nexus',
+          lastName: 'Adm',
+          gender: 'MASCULINO',
+          birthDate: new Date('1990-01-01'),
+          phone: '999888777',
+          address: 'Oficina Nexus 123',
+          ubigeo: defaultUbigeo,
+        },
+        null,
+        null,
+        queryRunner,
+      );
+
+      // Actualizar referencia en el padre
+      masterUser.rightChild = adminUser;
+      await queryRunner.manager.save(masterUser);
+
+      this.logger.log(`Usuario admin creado: ${adminUser.email}`);
+
+      // 4. Usuario Finanzas - Finanzas Nexus
+      const financeUser = await this.createSpecificUser(
+        {
+          email: 'finanzas@nexusplatform.com',
+          password: defaultPass,
+          role: facRole,
+          firstName: 'Finanzas',
+          lastName: 'Nexus',
+          gender: 'FEMENINO',
+          birthDate: new Date('1995-06-15'),
+          phone: '987654321',
+          address: 'Área Finanzas, Oficina Central',
+          ubigeo: defaultUbigeo,
+        },
+        null,
+        null,
+        queryRunner,
+      );
+
+      // Actualizar referencia en el padre
+      systemUser.leftChild = financeUser;
+      await queryRunner.manager.save(systemUser);
+
+      this.logger.log(`Usuario finanzas creado: ${financeUser.email}`);
+
+      await queryRunner.commitTransaction();
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `Seed de usuarios específicos completado en ${duration}ms`,
+      );
+
+      // Retornar información de los usuarios creados
+      return {
+        success: true,
+        duration: `${duration}ms`,
+        userCount: 4,
+        users: [
+          {
+            id: masterUser.id,
+            email: masterUser.email,
+            name: `${masterUser.personalInfo.firstName} ${masterUser.personalInfo.lastName}`,
+            role: masterUser.role.name,
+          },
+          {
+            id: systemUser.id,
+            email: systemUser.email,
+            name: `${systemUser.personalInfo.firstName} ${systemUser.personalInfo.lastName}`,
+            role: systemUser.role.name,
+          },
+          {
+            id: adminUser.id,
+            email: adminUser.email,
+            name: `${adminUser.personalInfo.firstName} ${adminUser.personalInfo.lastName}`,
+            role: adminUser.role.name,
+          },
+          {
+            id: financeUser.id,
+            email: financeUser.email,
+            name: `${financeUser.personalInfo.firstName} ${financeUser.personalInfo.lastName}`,
+            role: financeUser.role.name,
+          },
+        ],
+      };
+    } catch (error) {
+      this.logger.error(`Error en seed de usuarios: ${error.message}`);
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
-  private async createRandomUser(
-    role: Role,
-    ubigeo: Ubigeo,
-    parent: User,
-    position: 'LEFT' | 'RIGHT',
+  private async createSpecificUser(
+    userData: {
+      email: string;
+      password: string;
+      role: Role;
+      firstName: string;
+      lastName: string;
+      gender: string;
+      birthDate: Date;
+      phone: string;
+      address: string;
+      ubigeo: Ubigeo;
+    },
+    parent: User | null,
+    position: 'LEFT' | 'RIGHT' | null,
     queryRunner: any,
   ): Promise<User> {
     // Generar código de referido único
@@ -603,40 +653,40 @@ export class SeedService {
 
     // Crear usuario
     const user = new User();
-    user.email = faker.internet.email().toLowerCase();
-    user.password = await this.hashPassword('Password123');
+    user.email = userData.email;
+    user.password = await this.hashPassword(userData.password);
     user.referralCode = referralCode;
-    user.referrerCode = parent.referralCode; // El código de referido del padre
-    user.role = role;
-    user.isActive = Math.random() > 0.1; // 90% de usuarios activos
-    user.parent = parent;
-    user.position = position;
+    user.role = userData.role;
+    user.isActive = true;
+
+    if (parent) {
+      user.parent = parent;
+      user.position = position;
+      user.referrerCode = parent.referralCode;
+    }
 
     const savedUser = await queryRunner.manager.save(user);
 
     // Crear información personal
     const personalInfo = new PersonalInfo();
-    personalInfo.firstName = faker.person.firstName();
-    personalInfo.lastName = faker.person.lastName();
-    personalInfo.gender = faker.helpers.arrayElement([
-      'MASCULINO',
-      'FEMENINO',
-      'OTRO',
-    ]);
-    personalInfo.birthDate = faker.date.between({
-      from: '1950-01-01',
-      to: '2000-12-31',
-    });
+    personalInfo.firstName = userData.firstName;
+    personalInfo.lastName = userData.lastName;
+    personalInfo.gender = userData.gender;
+    personalInfo.birthDate = userData.birthDate;
     personalInfo.user = savedUser;
-    await queryRunner.manager.save(personalInfo);
+
+    const savedPersonalInfo = await queryRunner.manager.save(personalInfo);
+    savedUser.personalInfo = savedPersonalInfo;
 
     // Crear información de contacto
     const contactInfo = new ContactInfo();
-    contactInfo.phone = faker.string.numeric({ length: 9 });
-    contactInfo.address = faker.location.streetAddress();
-    contactInfo.ubigeo = ubigeo;
+    contactInfo.phone = userData.phone;
+    contactInfo.address = userData.address;
+    contactInfo.ubigeo = userData.ubigeo;
     contactInfo.user = savedUser;
-    await queryRunner.manager.save(contactInfo);
+
+    const savedContactInfo = await queryRunner.manager.save(contactInfo);
+    savedUser.contactInfo = savedContactInfo;
 
     return savedUser;
   }

@@ -9,9 +9,10 @@ import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity'
 import { MembershipsModule } from 'src/memberships/memberships.module';
 import { PaymentsModule } from 'src/payments/payments.module';
 import { PaymentConfig } from 'src/payments/entities/payment-config.entity';
+import { Rank } from 'src/points/entities/ranks.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([View, Role, MembershipPlan, PaymentConfig]),
+    TypeOrmModule.forFeature([View, Role, MembershipPlan, PaymentConfig, Rank]),
     UserModule,
     MembershipsModule,
     PaymentsModule,
