@@ -28,4 +28,9 @@ export class SeedController {
   seedPaymentConfigs() {
     return this.seedService.seedPaymentConfigs();
   }
+
+  @Post('ranks')
+  seedRanks() {
+    return this.seedService.seedRanks();
+  }
 }

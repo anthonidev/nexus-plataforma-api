@@ -21,6 +21,8 @@ import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity'
 import { membershipPlansData } from './data/membership-plans.data';
 import { paymentConfigsData } from './data/payment-configs.data';
 import { PaymentConfig } from 'src/payments/entities/payment-config.entity';
+import { rankData } from './data/rank.data';
+import { Rank } from 'src/points/entities/ranks.entity';
 @Injectable()
 export class SeedService {
   private readonly logger = new Logger(SeedService.name);
@@ -30,14 +32,14 @@ export class SeedService {
     private readonly viewRepository: Repository<View>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
-
     @InjectRepository(MembershipPlan)
     private readonly membershipPlanRepository: Repository<MembershipPlan>,
     @InjectRepository(PaymentConfig)
     private readonly paymentConfigRepository: Repository<PaymentConfig>,
     @InjectRepository(Ubigeo)
     private readonly ubigeoRepository: Repository<Ubigeo>,
-
+    @InjectRepository(Rank)
+    private readonly rankRepository: Repository<Rank>,
     private readonly dataSource: DataSource,
   ) {}
   private async createView(viewData: any, parentView?: View): Promise<View> {
@@ -379,11 +381,9 @@ export class SeedService {
         }
         await queryRunner.manager.save(parentUser);
 
-        // Añadir el nuevo usuario a la lista de posibles padres
         userNodes.push(newUser);
       }
 
-      // Commit de la transacción
       await queryRunner.commitTransaction();
 
       const duration = Date.now() - startTime;
@@ -552,9 +552,7 @@ export class SeedService {
       throw error;
     }
   }
-  /**
-   * Crea el usuario maestro (raíz del árbol)
-   */
+
   private async createMasterUser(
     role: Role,
     ubigeo: Ubigeo,
@@ -593,9 +591,6 @@ export class SeedService {
     return savedUser;
   }
 
-  /**
-   * Crea un usuario aleatorio con datos generados
-   */
   private async createRandomUser(
     role: Role,
     ubigeo: Ubigeo,
@@ -646,17 +641,55 @@ export class SeedService {
     return savedUser;
   }
 
-  /**
-   * Genera un código de referido único
-   */
   private generateReferralCode(): string {
     return uuidv4().substring(0, 8).toUpperCase();
   }
 
-  /**
-   * Hashea una contraseña
-   */
   private async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, this.SALT_ROUNDS);
+  }
+
+  async seedRanks() {
+    this.logger.log('Iniciando seed de rangos...');
+    try {
+      const results = await Promise.all(
+        rankData.map(async (rankItem) => {
+          try {
+            const existingRank = await this.rankRepository.findOne({
+              where: { code: rankItem.code },
+            });
+
+            if (existingRank) {
+              this.logger.debug(`Rango existente encontrado: ${rankItem.code}`);
+              return { status: 'existing', code: rankItem.code };
+            }
+
+            const rank = this.rankRepository.create(rankItem);
+            await this.rankRepository.save(rank);
+            this.logger.log(`Rango creado exitosamente: ${rankItem.code}`);
+            return { status: 'created', code: rankItem.code };
+          } catch (error) {
+            this.logger.error(
+              `Error al crear rango ${rankItem.code}: ${error.message}`,
+            );
+            return {
+              status: 'error',
+              code: rankItem.code,
+              error: error.message,
+            };
+          }
+        }),
+      );
+
+      const created = results.filter((r) => r.status === 'created').length;
+      const existing = results.filter((r) => r.status === 'existing').length;
+      const errors = results.filter((r) => r.status === 'error').length;
+      this.logger.log(
+        `Seed de rangos completado. Creados: ${created}, Existentes: ${existing}, Errores: ${errors}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error en seedRanks: ${error.message}`);
+      throw error;
+    }
   }
 }

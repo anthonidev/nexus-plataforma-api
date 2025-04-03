@@ -8,6 +8,7 @@ import { SeedModule } from './seed/seed.module';
 import { MembershipsModule } from './memberships/memberships.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { PointsModule } from './points/points.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     SeedModule,
     MembershipsModule,
     PaymentsModule,
+    PointsModule,
   ],
 })
 export class AppModule {}
