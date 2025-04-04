@@ -215,12 +215,12 @@ export class AuthService {
       }
 
       const role = await this.roleRepository.findOne({
-        where: { id: registerDto.roleId, isActive: true },
+        where: { code: registerDto.roleCode, isActive: true },
       });
 
       if (!role) {
         throw new NotFoundException(
-          `No se encontró el rol con ID ${registerDto.roleId}`,
+          `No se encontró el rol con ID ${registerDto.roleCode}`,
         );
       }
 

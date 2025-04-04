@@ -90,6 +90,7 @@ export class RegisterDto {
   @IsOptional()
   position?: 'LEFT' | 'RIGHT';
 
+  @IsString()
   @IsNotEmpty({ message: 'El rol es requerido' })
-  roleId: number;
+  roleCode: string;
 }

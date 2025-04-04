@@ -14,10 +14,24 @@ import { PaymentImage } from 'src/payments/entities/payment-image.entity';
 import { User } from 'src/user/entities/user.entity';
 import { UserMembershipsController } from './controllers/user-memberships.controller';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
+import { MembershipHistoryController } from './controllers/membership-history.controller';
+import { ReconsumptionController } from './controllers/reconsumption.controller';
+import { MembershipService } from './services/membership.service';
+import { ReconsumptionService } from './services/reconsumption.service';
 
 @Module({
-  controllers: [MembershipPlansController, UserMembershipsController],
-  providers: [MembershipPlansService, UserMembershipsService],
+  controllers: [
+    MembershipPlansController,
+    UserMembershipsController,
+    MembershipHistoryController,
+    ReconsumptionController,
+  ],
+  providers: [
+    MembershipPlansService,
+    UserMembershipsService,
+    MembershipService,
+    ReconsumptionService,
+  ],
   imports: [
     TypeOrmModule.forFeature([
       MembershipPlan,
@@ -32,6 +46,12 @@ import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
     ]),
     CloudinaryModule,
   ],
-  exports: [MembershipPlansService, UserMembershipsService, TypeOrmModule],
+  exports: [
+    MembershipPlansService,
+    UserMembershipsService,
+    MembershipService,
+    ReconsumptionService,
+    TypeOrmModule,
+  ],
 })
 export class MembershipsModule {}

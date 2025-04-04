@@ -1,20 +1,11 @@
-import {
-  Controller,
-  Get,
-  HttpException,
-  HttpStatus,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { Public } from '../../auth/decorators/is-public.decorator';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
 import { UbigeoService } from '../services/ubigeo.service';
 @Controller('ubigeos')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class UbigeoController {
   constructor(private readonly ubigeoService: UbigeoService) {}
-  @Get()
   @Public()
+  @Get()
   async findAll() {
     try {
       const ubigeos = await this.ubigeoService.findAll();

@@ -272,15 +272,13 @@ export class FinancePaymentApprovalService {
 
     if (userPoints) {
       userPoints.membershipPlan = plan;
-      userPoints.totalEarnedPoints += plan.binaryPoints;
-      userPoints.availablePoints += plan.binaryPoints;
       await queryRunner.manager.save(userPoints);
     } else {
       const newUserPoints = this.userPointsRepository.create({
         user: { id: user.id },
         membershipPlan: plan,
-        availablePoints: plan.binaryPoints,
-        totalEarnedPoints: plan.binaryPoints,
+        availablePoints: 0,
+        totalEarnedPoints: 0,
         totalWithdrawnPoints: 0,
       });
       await queryRunner.manager.save(newUserPoints);
@@ -374,10 +372,12 @@ export class FinancePaymentApprovalService {
         );
         return;
       }
+      console.log('directBonus', referrerPlan.directCommissionAmount);
 
       // Calcular la comisión directa
       const directBonus =
         referrerPlan.directCommissionAmount * (plan.price / 100);
+      console.log('directBonus', directBonus);
 
       // Actualizar los puntos del referente
       const referrerPoints = await this.userPointsRepository.findOne({
@@ -385,8 +385,10 @@ export class FinancePaymentApprovalService {
       });
 
       if (referrerPoints) {
-        referrerPoints.availablePoints += directBonus;
-        referrerPoints.totalEarnedPoints += directBonus;
+        referrerPoints.availablePoints =
+          Number(referrerPoints.availablePoints) + directBonus;
+        referrerPoints.totalEarnedPoints =
+          Number(referrerPoints.totalEarnedPoints) + directBonus;
         await queryRunner.manager.save(referrerPoints);
       } else {
         const newReferrerPoints = this.userPointsRepository.create({
