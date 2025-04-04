@@ -610,6 +610,7 @@ export class FinancePaymentApprovalService {
 
       const userPlan = userMembership.plan;
       const userPosition = user.position;
+      console.log('userPosition', userPosition);
       const now = new Date();
       const weekStartDate = this.getFirstDayOfWeek(now);
       const weekEndDate = this.getLastDayOfWeek(now);
@@ -624,10 +625,12 @@ export class FinancePaymentApprovalService {
       });
 
       if (existingVolume) {
-        if (userPosition === 'LEFT') {
-          existingVolume.leftVolume += pointsDifference;
-        } else if (userPosition === 'RIGHT') {
-          existingVolume.rightVolume += pointsDifference;
+        if (userPosition == 'LEFT') {
+          existingVolume.leftVolume =
+            Number(existingVolume.leftVolume) + Number(pointsDifference);
+        } else if (userPosition == 'RIGHT') {
+          existingVolume.rightVolume =
+            Number(existingVolume.rightVolume) + Number(pointsDifference);
         }
 
         await queryRunner.manager.save(existingVolume);
@@ -639,8 +642,8 @@ export class FinancePaymentApprovalService {
         const newVolume = this.weeklyVolumeRepository.create({
           user: { id: user.id },
           membershipPlan: userPlan,
-          leftVolume: userPosition === 'LEFT' ? pointsDifference : 0,
-          rightVolume: userPosition === 'RIGHT' ? pointsDifference : 0,
+          leftVolume: userPosition == 'LEFT' ? pointsDifference : 0,
+          rightVolume: userPosition == 'RIGHT' ? pointsDifference : 0,
           weekStartDate: weekStartDate,
           weekEndDate: weekEndDate,
           status: VolumeProcessingStatus.PENDING,
@@ -1039,13 +1042,16 @@ export class FinancePaymentApprovalService {
           weekEndDate: weekEndDate,
         },
       });
+      console.log('side', side);
 
       if (existingVolume) {
         // Actualizar volumen existente
-        if (side === VolumeSide.LEFT) {
-          existingVolume.leftVolume += binaryPoints;
+        if (side == VolumeSide.LEFT) {
+          existingVolume.leftVolume =
+            Number(existingVolume.leftVolume) + Number(binaryPoints);
         } else {
-          existingVolume.rightVolume += binaryPoints;
+          existingVolume.rightVolume =
+            Number(existingVolume.rightVolume) + Number(binaryPoints);
         }
 
         await queryRunner.manager.save(existingVolume);
@@ -1057,8 +1063,8 @@ export class FinancePaymentApprovalService {
         const newVolume = this.weeklyVolumeRepository.create({
           user: { id: parent.id },
           membershipPlan: parentPlan,
-          leftVolume: side === VolumeSide.LEFT ? binaryPoints : 0,
-          rightVolume: side === VolumeSide.RIGHT ? binaryPoints : 0,
+          leftVolume: side == VolumeSide.LEFT ? binaryPoints : 0,
+          rightVolume: side == VolumeSide.RIGHT ? binaryPoints : 0,
           weekStartDate: weekStartDate,
           weekEndDate: weekEndDate,
           status: VolumeProcessingStatus.PENDING,

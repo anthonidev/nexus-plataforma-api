@@ -342,7 +342,12 @@ export class UserMembershipsService {
         );
       }
 
-      if (newPlan.price <= currentMembership.plan.price) {
+      console.log('newPlan', newPlan.price);
+      console.log('currentMembership', currentMembership.plan.price);
+
+      if (Number(newPlan.price) <= Number(currentMembership.plan.price)) {
+        console.log('price new', newPlan.price);
+        console.log('price current', currentMembership.plan.price);
         throw new BadRequestException(
           `Solo puedes actualizar a un plan de mayor valor. El plan seleccionado (${newPlan.name}) tiene un precio igual o menor al actual (${currentMembership.plan.name})`,
         );

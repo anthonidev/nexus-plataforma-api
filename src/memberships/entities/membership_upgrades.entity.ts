@@ -106,7 +106,7 @@ export class MembershipUpgrade {
     if (
       this.fromPlan &&
       this.toPlan &&
-      this.fromPlan.price >= this.toPlan.price
+      Number(this.fromPlan.price) >= Number(this.toPlan.price)
     ) {
       throw new Error(
         'El plan destino debe tener un precio mayor que el plan original',

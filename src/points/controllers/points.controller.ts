@@ -2,11 +2,11 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { User } from 'src/user/entities/user.entity';
-import { PointsService } from '../services/points.service';
 import {
   FindPointsTransactionDto,
   FindWeeklyVolumeDto,
 } from '../dto/find-weekly-volume.dto';
+import { PointsService } from '../services/points.service';
 
 @Controller('points')
 @UseGuards(JwtAuthGuard)
