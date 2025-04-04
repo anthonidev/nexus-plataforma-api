@@ -55,7 +55,15 @@ export class Payment {
   @IsNotEmpty({ message: 'La configuración de pago es requerida' })
   paymentConfig: PaymentConfig;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     { message: 'El monto debe ser un número válido con hasta 2 decimales' },

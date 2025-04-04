@@ -65,7 +65,16 @@ export class PaymentConfig {
   isActive: boolean;
 
   // Añadimos un campo para el monto mínimo de pago
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsOptional()
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -77,7 +86,16 @@ export class PaymentConfig {
   @Min(0, { message: 'El monto mínimo no puede ser negativo' })
   minimumAmount: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsOptional()
   @IsNumber(
     { maxDecimalPlaces: 2 },

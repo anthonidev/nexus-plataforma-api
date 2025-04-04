@@ -54,6 +54,10 @@ export class WeeklyVolume {
     precision: 10,
     scale: 2,
     default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -70,6 +74,10 @@ export class WeeklyVolume {
     precision: 10,
     scale: 2,
     default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -104,6 +112,10 @@ export class WeeklyVolume {
     precision: 10,
     scale: 2,
     nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   @IsOptional()
   @IsNumber(
@@ -132,6 +144,10 @@ export class WeeklyVolume {
     precision: 10,
     scale: 2,
     default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   @IsNumber(
     { maxDecimalPlaces: 2 },

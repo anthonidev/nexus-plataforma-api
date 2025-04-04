@@ -69,7 +69,15 @@ export class Membership {
   })
   status: MembershipStatus;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     {
@@ -85,7 +93,16 @@ export class Membership {
   @IsString()
   paymentReference: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 300 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 300,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     {

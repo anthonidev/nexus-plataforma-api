@@ -39,6 +39,10 @@ export class UserPoints {
     precision: 10,
     scale: 2,
     default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -55,6 +59,10 @@ export class UserPoints {
     precision: 10,
     scale: 2,
     default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -71,6 +79,10 @@ export class UserPoints {
     precision: 10,
     scale: 2,
     default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   @IsNumber(
     { maxDecimalPlaces: 2 },

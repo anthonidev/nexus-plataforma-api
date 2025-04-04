@@ -33,7 +33,15 @@ export class MembershipPlan {
   @Transform(({ value }) => value?.trim())
   name: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     { message: 'El precio debe ser un número válido con hasta 2 decimales' },
@@ -41,7 +49,15 @@ export class MembershipPlan {
   @Min(0, { message: 'El precio no puede ser negativo' })
   price: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     {
@@ -57,7 +73,15 @@ export class MembershipPlan {
   @Min(0, { message: 'Los puntos binarios no pueden ser negativos' })
   binaryPoints: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     {
@@ -68,7 +92,16 @@ export class MembershipPlan {
   @Min(0, { message: 'El porcentaje de comisión no puede ser negativo' })
   commissionPercentage: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   @IsOptional()
   @IsNumber(
     { maxDecimalPlaces: 2 },
