@@ -72,7 +72,10 @@ export class MembershipService {
     userId: string,
     paginationDto: PaginationDto,
   ): Promise<
-    PaginatedResult<MembershipReconsumption> & { canReconsume: boolean }
+    PaginatedResult<MembershipReconsumption> & {
+      canReconsume: boolean;
+      autoRenewal: boolean;
+    }
   > {
     try {
       const { page = 1, limit = 10, order = 'DESC' } = paginationDto;
@@ -126,12 +129,15 @@ export class MembershipService {
       const canReconsume =
         !pendingReconsumption && new Date() >= thirtyDaysAfterLastDate;
 
+      const autoRenewal = membership.autoRenewal;
+
       return {
         ...PaginationHelper.createPaginatedResponse(
           items,
           totalItems,
           paginationDto,
         ),
+        autoRenewal,
         canReconsume,
       };
     } catch (error) {

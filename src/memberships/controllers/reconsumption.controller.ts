@@ -26,7 +26,7 @@ import { ReconsumptionService } from '../services/reconsumption.service';
 export class ReconsumptionController {
   constructor(private readonly reconsumptionService: ReconsumptionService) {}
 
-  @Post('reconsumption')
+  @Post('   ')
   @UseInterceptors(FilesInterceptor('paymentImages', 5))
   @UsePipes(new ValidationPipe({ transform: true }))
   createReconsumption(

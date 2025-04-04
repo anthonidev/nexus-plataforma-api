@@ -1,6 +1,7 @@
 import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsNotEmpty,
   IsNumber,
@@ -84,9 +85,6 @@ export class CreateReconsumptionDto {
   @Type(() => PaymentDetailDto)
   payments: PaymentDetailDto[];
 }
-
-// src/memberships/dto/update-auto-renewal.dto.ts
-import { IsBoolean } from 'class-validator';
 
 export class UpdateAutoRenewalDto {
   @IsBoolean({ message: 'El valor de autoRenewal debe ser booleano' })
