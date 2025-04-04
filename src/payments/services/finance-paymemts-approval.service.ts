@@ -15,6 +15,10 @@ import {
   MembershipHistory,
 } from 'src/memberships/entities/membership_history.entity';
 import {
+  MembershipUpgrade,
+  UpgradeStatus,
+} from 'src/memberships/entities/membership_upgrades.entity';
+import {
   PointsTransaction,
   PointTransactionStatus,
   PointTransactionType,
@@ -51,6 +55,8 @@ export class FinancePaymentApprovalService {
     private readonly pointsTransactionRepository: Repository<PointsTransaction>,
     @InjectRepository(WeeklyVolume)
     private readonly weeklyVolumeRepository: Repository<WeeklyVolume>,
+    @InjectRepository(MembershipUpgrade)
+    private readonly membershipUpgradeRepository: Repository<MembershipUpgrade>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -104,10 +110,7 @@ export class FinancePaymentApprovalService {
           this.logger.log(`Aprobación de reconsumo no implementada aún`);
           break;
         case 'PLAN_UPGRADE':
-          // TODO: Implementar lógica para actualización de plan
-          this.logger.log(
-            `Aprobación de actualización de plan no implementada aún`,
-          );
+          await this.processPlanUpgradePayment(payment, queryRunner);
           break;
         default:
           this.logger.warn(
@@ -215,6 +218,42 @@ export class FinancePaymentApprovalService {
         }
       }
 
+      // Si es un pago de actualización de plan, actualizar el estado del upgrade a CANCELLED
+      if (
+        payment.paymentConfig.code === 'PLAN_UPGRADE' &&
+        payment.relatedEntityType === 'membership_upgrade'
+      ) {
+        const membershipUpgrade =
+          await this.membershipUpgradeRepository.findOne({
+            where: { id: payment.relatedEntityId },
+            relations: ['membership'],
+          });
+
+        if (
+          membershipUpgrade &&
+          membershipUpgrade.status === UpgradeStatus.PENDING
+        ) {
+          // Actualizar el estado del upgrade a CANCELLED
+          membershipUpgrade.status = UpgradeStatus.CANCELLED;
+          await queryRunner.manager.save(membershipUpgrade);
+
+          // Registro histórico
+          const membershipHistory = this.membershipHistoryRepository.create({
+            membership: { id: membershipUpgrade.membership.id },
+            action: MembershipAction.STATUS_CHANGED,
+            performedBy: reviewer,
+            notes: `Actualización de plan cancelada por rechazo de pago: ${rejectPaymentDto.rejectionReason}`,
+            changes: {
+              previousUpgradeStatus: UpgradeStatus.PENDING,
+              newUpgradeStatus: UpgradeStatus.CANCELLED,
+              upgradeId: membershipUpgrade.id,
+            },
+          });
+
+          await queryRunner.manager.save(membershipHistory);
+        }
+      }
+
       await queryRunner.commitTransaction();
 
       return {
@@ -288,6 +327,8 @@ export class FinancePaymentApprovalService {
     if (user.referrerCode) {
       await this.processDirectBonus(user, plan, queryRunner);
     }
+    const binaryPoints = plan.binaryPoints;
+    await this.updateUserVolume(user, binaryPoints, queryRunner);
 
     // 3. Alimentar los volúmenes del árbol
     await this.processTreeVolumes(user, plan, queryRunner);
@@ -323,6 +364,375 @@ export class FinancePaymentApprovalService {
     });
 
     await queryRunner.manager.save(membershipHistory);
+  }
+
+  private async processPlanUpgradePayment(payment: Payment, queryRunner: any) {
+    if (payment.relatedEntityType !== 'membership_upgrade') {
+      throw new BadRequestException(
+        'El pago no está relacionado a una actualización de plan',
+      );
+    }
+
+    const membershipUpgrade = await this.membershipUpgradeRepository.findOne({
+      where: { id: payment.relatedEntityId },
+      relations: ['membership', 'fromPlan', 'toPlan', 'membership.user'],
+    });
+
+    if (!membershipUpgrade) {
+      throw new NotFoundException(
+        `Actualización con ID ${payment.relatedEntityId} no encontrada`,
+      );
+    }
+
+    if (membershipUpgrade.status !== UpgradeStatus.PENDING) {
+      throw new BadRequestException(
+        `La actualización no está en estado pendiente`,
+      );
+    }
+
+    const user = membershipUpgrade.membership.user;
+    const fromPlan = membershipUpgrade.fromPlan;
+    const toPlan = membershipUpgrade.toPlan;
+    const membership = membershipUpgrade.membership;
+
+    // Calcular la diferencia de puntos entre el nuevo plan y el anterior
+    const priceDifference = toPlan.price - fromPlan.price;
+    const pointsDifference = toPlan.binaryPoints - fromPlan.binaryPoints;
+
+    // 1. Procesar bonos directos si tiene referente
+    if (user.referrerCode) {
+      await this.processDirectBonusUpgrade(
+        user,
+        toPlan,
+        fromPlan,
+        priceDifference,
+        queryRunner,
+      );
+    }
+
+    // 2. Actualizar el volumen del usuario que actualiza el plan
+    await this.updateUserVolume(user, pointsDifference, queryRunner);
+
+    // 3. Alimentar los volúmenes del árbol (para los padres)
+    await this.processTreeVolumesUpgrade(user, pointsDifference, queryRunner);
+
+    // 4. Actualizar la membresía
+    membership.plan = toPlan;
+
+    // Si la membresía ya estaba activa, mantenemos las fechas, solo cambiamos el plan
+    if (membership.status === MembershipStatus.ACTIVE) {
+      // No modificamos las fechas existentes
+    } else {
+      // Si no estaba activa (caso improbable en una actualización), actualizamos fechas
+      const now = new Date();
+      const expirationDate = new Date(now);
+      expirationDate.setDate(expirationDate.getDate() + 30);
+
+      const nextReconsumptionDate = new Date(expirationDate);
+      nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 30);
+
+      membership.status = MembershipStatus.ACTIVE;
+      membership.startDate = now;
+      membership.endDate = expirationDate;
+      membership.nextReconsumptionDate = nextReconsumptionDate;
+    }
+
+    await queryRunner.manager.save(membership);
+
+    // 5. Actualizar el estado de la actualización de plan
+    membershipUpgrade.status = UpgradeStatus.COMPLETED;
+    membershipUpgrade.completedDate = new Date();
+    await queryRunner.manager.save(membershipUpgrade);
+
+    // 6. Crear registro histórico
+    const membershipHistory = this.membershipHistoryRepository.create({
+      membership: { id: membership.id },
+      action: MembershipAction.UPGRADED,
+      performedBy: payment.reviewedBy,
+      notes: 'Plan actualizado exitosamente',
+      changes: {
+        previousPlanId: fromPlan.id,
+        previousPlanName: fromPlan.name,
+        newPlanId: toPlan.id,
+        newPlanName: toPlan.name,
+        upgradeCost: priceDifference,
+      },
+    });
+
+    await queryRunner.manager.save(membershipHistory);
+  }
+  private async processDirectBonusUpgrade(
+    user: User,
+    toPlan: MembershipPlan,
+    fromPlan: MembershipPlan,
+    priceDifference: number,
+    queryRunner: any,
+  ) {
+    try {
+      // Buscar el referente
+      const referrer = await this.userRepository.findOne({
+        where: { referralCode: user.referrerCode },
+        relations: ['role'],
+      });
+
+      if (!referrer) {
+        this.logger.warn(
+          `No se encontró referente con código ${user.referrerCode}`,
+        );
+        return;
+      }
+
+      // Verificar que el referente tenga una membresía activa
+      const referrerMembership = await this.membershipRepository.findOne({
+        where: {
+          user: { id: referrer.id },
+          status: MembershipStatus.ACTIVE,
+        },
+        relations: ['plan'],
+      });
+
+      if (!referrerMembership) {
+        this.logger.warn(
+          `El referente ${referrer.id} no tiene una membresía activa`,
+        );
+        return;
+      }
+
+      const referrerPlan = referrerMembership.plan;
+
+      // Verificar que el plan del referente tenga directCommissionAmount
+      if (
+        !referrerPlan.directCommissionAmount ||
+        referrerPlan.directCommissionAmount <= 0
+      ) {
+        this.logger.warn(
+          `El plan ${referrerPlan.id} del referente no tiene configurada una comisión directa`,
+        );
+        return;
+      }
+
+      // Calcular la comisión directa basada en la diferencia de precio
+      const directBonus =
+        referrerPlan.directCommissionAmount * (priceDifference / 100);
+
+      // Solo procesamos si hay un bono positivo
+      if (directBonus <= 0) {
+        this.logger.warn(`No hay bono directo para procesar (${directBonus})`);
+        return;
+      }
+
+      // Actualizar los puntos del referente
+      const referrerPoints = await this.userPointsRepository.findOne({
+        where: { user: { id: referrer.id } },
+      });
+
+      if (referrerPoints) {
+        referrerPoints.availablePoints =
+          Number(referrerPoints.availablePoints) + directBonus;
+        referrerPoints.totalEarnedPoints =
+          Number(referrerPoints.totalEarnedPoints) + directBonus;
+        await queryRunner.manager.save(referrerPoints);
+      } else {
+        const newReferrerPoints = this.userPointsRepository.create({
+          user: { id: referrer.id },
+          membershipPlan: referrerPlan,
+          availablePoints: directBonus,
+          totalEarnedPoints: directBonus,
+          totalWithdrawnPoints: 0,
+        });
+        await queryRunner.manager.save(newReferrerPoints);
+      }
+
+      // Crear transacción de puntos
+      const pointsTransaction = this.pointsTransactionRepository.create({
+        user: { id: referrer.id },
+        membershipPlan: referrerPlan,
+        type: PointTransactionType.DIRECT_BONUS,
+        amount: directBonus,
+        status: PointTransactionStatus.COMPLETED,
+        metadata: {
+          referredUserId: user.id,
+          isUpgrade: true,
+          fromPlan: {
+            id: fromPlan.id,
+            name: fromPlan.name,
+            price: fromPlan.price,
+          },
+          toPlan: {
+            id: toPlan.id,
+            name: toPlan.name,
+            price: toPlan.price,
+          },
+          priceDifference: priceDifference,
+          commissionPercentage: referrerPlan.directCommissionAmount,
+        },
+      });
+
+      await queryRunner.manager.save(pointsTransaction);
+
+      this.logger.log(
+        `Bono directo por upgrade procesado: ${directBonus} puntos para el usuario ${referrer.id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error al procesar bono directo por upgrade: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  private async updateUserVolume(
+    user: User,
+    pointsDifference: number,
+    queryRunner: any,
+  ) {
+    try {
+      if (pointsDifference <= 0) {
+        this.logger.warn(
+          `No hay diferencia de puntos positiva para procesar (${pointsDifference})`,
+        );
+        return;
+      }
+
+      const userMembership = await this.membershipRepository.findOne({
+        where: {
+          user: { id: user.id },
+          status: MembershipStatus.ACTIVE,
+        },
+        relations: ['plan'],
+      });
+
+      if (!userMembership) {
+        this.logger.warn(`El usuario ${user.id} no tiene una membresía activa`);
+        return;
+      }
+
+      const userPlan = userMembership.plan;
+      const userPosition = user.position;
+      const now = new Date();
+      const weekStartDate = this.getFirstDayOfWeek(now);
+      const weekEndDate = this.getLastDayOfWeek(now);
+
+      const existingVolume = await this.weeklyVolumeRepository.findOne({
+        where: {
+          user: { id: user.id },
+          status: VolumeProcessingStatus.PENDING,
+          weekStartDate: weekStartDate,
+          weekEndDate: weekEndDate,
+        },
+      });
+
+      if (existingVolume) {
+        if (userPosition === 'LEFT') {
+          existingVolume.leftVolume += pointsDifference;
+        } else if (userPosition === 'RIGHT') {
+          existingVolume.rightVolume += pointsDifference;
+        }
+
+        await queryRunner.manager.save(existingVolume);
+        this.logger.log(
+          `Volumen semanal del usuario ${user.id} actualizado: +${pointsDifference} en ambos lados`,
+        );
+      } else {
+        // Crear nuevo volumen
+        const newVolume = this.weeklyVolumeRepository.create({
+          user: { id: user.id },
+          membershipPlan: userPlan,
+          leftVolume: userPosition === 'LEFT' ? pointsDifference : 0,
+          rightVolume: userPosition === 'RIGHT' ? pointsDifference : 0,
+          weekStartDate: weekStartDate,
+          weekEndDate: weekEndDate,
+          status: VolumeProcessingStatus.PENDING,
+          carryOverVolume: 0,
+        });
+
+        await queryRunner.manager.save(newVolume);
+        this.logger.log(
+          `Nuevo volumen semanal creado para el usuario ${user.id}: ${pointsDifference} en ambos lados`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error al actualizar volumen del usuario: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  private async processTreeVolumesUpgrade(
+    user: User,
+    pointsDifference: number,
+    queryRunner: any,
+  ) {
+    try {
+      // Solo procesamos si hay una diferencia positiva de puntos
+      if (pointsDifference <= 0) {
+        this.logger.warn(
+          `No hay diferencia de puntos positiva para procesar (${pointsDifference})`,
+        );
+        return;
+      }
+
+      // Obtener todos los padres en la estructura del árbol
+      const parents = await this.getAllParents(user.id);
+
+      for (const parent of parents) {
+        // Verificar que el padre tenga una membresía activa
+        const parentMembership = await this.membershipRepository.findOne({
+          where: {
+            user: { id: parent.id },
+            status: MembershipStatus.ACTIVE,
+          },
+          relations: ['plan'],
+        });
+
+        if (!parentMembership) {
+          this.logger.debug(
+            `El padre ${parent.id} no tiene una membresía activa, saltando`,
+          );
+          continue;
+        }
+
+        const parentPlan = parentMembership.plan;
+
+        // Verificar que el plan del padre tenga porcentaje de comisión
+        if (
+          !parentPlan.commissionPercentage ||
+          parentPlan.commissionPercentage <= 0
+        ) {
+          this.logger.debug(
+            `El plan ${parentPlan.id} del padre no tiene configurado un porcentaje de comisión, saltando`,
+          );
+          continue;
+        }
+
+        // Determinar el lado del árbol
+        const side = await this.determineTreeSide(parent.id, user.id);
+        if (!side) {
+          this.logger.warn(
+            `No se pudo determinar el lado del árbol para el usuario ${user.id} con respecto al padre ${parent.id}`,
+          );
+          continue;
+        }
+
+        // Crear o actualizar el volumen semanal
+        await this.updateWeeklyVolume(
+          parent,
+          parentPlan,
+          pointsDifference,
+          side,
+          queryRunner,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error al procesar volúmenes del árbol para upgrade: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 
   private async processDirectBonus(
