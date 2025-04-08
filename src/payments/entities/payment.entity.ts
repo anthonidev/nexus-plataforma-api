@@ -1,30 +1,30 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  ManyToOne,
-  OneToMany,
-  CreateDateColumn,
-  UpdateDateColumn,
-  JoinColumn,
-  Index,
-  BeforeInsert,
-  BeforeUpdate,
-} from 'typeorm';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
+  IsDate,
   IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
-  IsBoolean,
-  IsDate,
-  Min,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { User } from 'src/user/entities/user.entity';
+import {
+  BeforeInsert,
+  BeforeUpdate,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { PaymentConfig } from './payment-config.entity';
 import { PaymentImage } from './payment-image.entity';
 
@@ -76,6 +76,26 @@ export class Payment {
     message: 'El estado debe ser PENDING, APPROVED o REJECTED',
   })
   status: PaymentStatus;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  @IsString()
+  codeOperation: string;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  @IsString()
+  banckName: string;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  @IsOptional()
+  @IsDate()
+  dateOperation: Date;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  @IsString()
+  numberTicket: string;
 
   @Column({ nullable: true })
   @IsOptional()

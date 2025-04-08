@@ -61,8 +61,6 @@ export class FinancePaymentApprovalService {
   ) {}
 
   async approvePayment(paymentId: number, reviewerId: string) {
-    console.log('paymentId', paymentId);
-
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -93,14 +91,12 @@ export class FinancePaymentApprovalService {
         );
       }
 
-      // Actualizar el pago
       payment.status = PaymentStatus.APPROVED;
       payment.reviewedBy = reviewer;
       payment.reviewedAt = new Date();
 
       await queryRunner.manager.save(payment);
 
-      // Procesar según el tipo de pago
       switch (payment.paymentConfig.code) {
         case 'MEMBERSHIP_PAYMENT':
           await this.processMembershipPayment(payment, queryRunner);
@@ -304,7 +300,6 @@ export class FinancePaymentApprovalService {
     const user = membership.user;
     const plan = membership.plan;
 
-    // 1. Crear o actualizar UserPoints y asignar los binaryPoints del plan
     const userPoints = await this.userPointsRepository.findOne({
       where: { user: { id: user.id } },
     });
@@ -323,18 +318,14 @@ export class FinancePaymentApprovalService {
       await queryRunner.manager.save(newUserPoints);
     }
 
-    // 2. Procesar bonos directos si tiene referente
     if (user.referrerCode) {
       await this.processDirectBonus(user, plan, queryRunner);
     }
     const binaryPoints = plan.binaryPoints;
     console.log('binaryPoints', binaryPoints);
-    await this.updateUserVolume(user, binaryPoints, queryRunner);
 
-    // 3. Alimentar los volúmenes del árbol
     await this.processTreeVolumes(user, plan, queryRunner);
 
-    // 4. Actualizar membresía
     const now = new Date();
     const expirationDate = new Date(now);
     expirationDate.setDate(expirationDate.getDate() + 30);
@@ -349,7 +340,6 @@ export class FinancePaymentApprovalService {
 
     await queryRunner.manager.save(membership);
 
-    // 5. Crear registro histórico
     const membershipHistory = this.membershipHistoryRepository.create({
       membership: { id: membership.id },
       action: MembershipAction.STATUS_CHANGED,
@@ -396,11 +386,9 @@ export class FinancePaymentApprovalService {
     const toPlan = membershipUpgrade.toPlan;
     const membership = membershipUpgrade.membership;
 
-    // Calcular la diferencia de puntos entre el nuevo plan y el anterior
     const priceDifference = toPlan.price - fromPlan.price;
     const pointsDifference = toPlan.binaryPoints - fromPlan.binaryPoints;
 
-    // 1. Procesar bonos directos si tiene referente
     if (user.referrerCode) {
       await this.processDirectBonusUpgrade(
         user,
@@ -411,20 +399,12 @@ export class FinancePaymentApprovalService {
       );
     }
 
-    // 2. Actualizar el volumen del usuario que actualiza el plan
-    await this.updateUserVolume(user, pointsDifference, queryRunner);
-
-    // 3. Alimentar los volúmenes del árbol (para los padres)
     await this.processTreeVolumesUpgrade(user, pointsDifference, queryRunner);
 
-    // 4. Actualizar la membresía
     membership.plan = toPlan;
 
-    // Si la membresía ya estaba activa, mantenemos las fechas, solo cambiamos el plan
     if (membership.status === MembershipStatus.ACTIVE) {
-      // No modificamos las fechas existentes
     } else {
-      // Si no estaba activa (caso improbable en una actualización), actualizamos fechas
       const now = new Date();
       const expirationDate = new Date(now);
       expirationDate.setDate(expirationDate.getDate() + 30);
@@ -440,12 +420,10 @@ export class FinancePaymentApprovalService {
 
     await queryRunner.manager.save(membership);
 
-    // 5. Actualizar el estado de la actualización de plan
     membershipUpgrade.status = UpgradeStatus.COMPLETED;
     membershipUpgrade.completedDate = new Date();
     await queryRunner.manager.save(membershipUpgrade);
 
-    // 6. Crear registro histórico
     const membershipHistory = this.membershipHistoryRepository.create({
       membership: { id: membership.id },
       action: MembershipAction.UPGRADED,
@@ -470,7 +448,6 @@ export class FinancePaymentApprovalService {
     queryRunner: any,
   ) {
     try {
-      // Buscar el referente
       const referrer = await this.userRepository.findOne({
         where: { referralCode: user.referrerCode },
         relations: ['role'],
@@ -483,7 +460,6 @@ export class FinancePaymentApprovalService {
         return;
       }
 
-      // Verificar que el referente tenga una membresía activa
       const referrerMembership = await this.membershipRepository.findOne({
         where: {
           user: { id: referrer.id },
@@ -501,7 +477,6 @@ export class FinancePaymentApprovalService {
 
       const referrerPlan = referrerMembership.plan;
 
-      // Verificar que el plan del referente tenga directCommissionAmount
       if (
         !referrerPlan.directCommissionAmount ||
         referrerPlan.directCommissionAmount <= 0
@@ -512,17 +487,14 @@ export class FinancePaymentApprovalService {
         return;
       }
 
-      // Calcular la comisión directa basada en la diferencia de precio
       const directBonus =
         referrerPlan.directCommissionAmount * (priceDifference / 100);
 
-      // Solo procesamos si hay un bono positivo
       if (directBonus <= 0) {
         this.logger.warn(`No hay bono directo para procesar (${directBonus})`);
         return;
       }
 
-      // Actualizar los puntos del referente
       const referrerPoints = await this.userPointsRepository.findOne({
         where: { user: { id: referrer.id } },
       });
@@ -544,7 +516,6 @@ export class FinancePaymentApprovalService {
         await queryRunner.manager.save(newReferrerPoints);
       }
 
-      // Crear transacción de puntos
       const pointsTransaction = this.pointsTransactionRepository.create({
         user: { id: referrer.id },
         membershipPlan: referrerPlan,
@@ -583,117 +554,12 @@ export class FinancePaymentApprovalService {
     }
   }
 
-  private async updateUserVolume(
-    user: User,
-    pointsDifference: number,
-    queryRunner: any,
-  ) {
-    try {
-      if (pointsDifference <= 0) {
-        this.logger.warn(
-          `No hay diferencia de puntos positiva para procesar (${pointsDifference})`,
-        );
-        return;
-      }
-
-      const userMembership = await this.membershipRepository.findOne({
-        where: {
-          user: { id: user.id },
-          // status: MembershipStatus.ACTIVE,
-        },
-        relations: ['plan'],
-      });
-
-      if (!userMembership) {
-        this.logger.warn(`El usuario ${user.id} no tiene una membresía activa`);
-        return;
-      }
-
-      const userPlan = userMembership.plan;
-      const userPosition = user.position;
-      console.log('userPosition', userPosition);
-      const now = new Date();
-      const weekStartDate = this.getFirstDayOfWeek(now);
-      const weekEndDate = this.getLastDayOfWeek(now);
-
-      const existingVolume = await this.weeklyVolumeRepository.findOne({
-        where: {
-          user: { id: user.id },
-          status: VolumeProcessingStatus.PENDING,
-          weekStartDate: weekStartDate,
-          weekEndDate: weekEndDate,
-        },
-      });
-
-      if (existingVolume) {
-        if (userPosition == 'LEFT') {
-          existingVolume.leftVolume =
-            Number(existingVolume.leftVolume) + Number(pointsDifference);
-        } else if (userPosition == 'RIGHT') {
-          existingVolume.rightVolume =
-            Number(existingVolume.rightVolume) + Number(pointsDifference);
-        }else{
-          existingVolume.leftVolume =
-            Number(existingVolume.leftVolume) + Number(pointsDifference);
-        }
-
-        await queryRunner.manager.save(existingVolume);
-        this.logger.log(
-          `Volumen semanal del usuario ${user.id} actualizado: +${pointsDifference} en ambos lados`,
-        );
-      } else {
-        // Crear nuevo volumen
-
-        if (!userPosition){
-          const newVolume = this.weeklyVolumeRepository.create({
-            user: { id: user.id },
-            membershipPlan: userPlan,
-            leftVolume: pointsDifference,
-            rightVolume:  0,
-            weekStartDate: weekStartDate,
-            weekEndDate: weekEndDate,
-            status: VolumeProcessingStatus.PENDING,
-            carryOverVolume: 0,
-          });
-        await queryRunner.manager.save(newVolume);
-
-        }else{
-          const newVolume = this.weeklyVolumeRepository.create({
-            user: { id: user.id },
-            membershipPlan: userPlan,
-            leftVolume: userPosition == 'LEFT' ? pointsDifference : 0,
-            rightVolume: userPosition == 'RIGHT' ? pointsDifference : 0,
-            weekStartDate: weekStartDate,
-            weekEndDate: weekEndDate,
-            status: VolumeProcessingStatus.PENDING,
-            carryOverVolume: 0,
-          });
-        await queryRunner.manager.save(newVolume);
-
-        }
-
-        
-
-        this.logger.log(
-          `Nuevo volumen semanal creado para el usuario ${user.id}: ${pointsDifference} en ambos lados`,
-        );
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error al actualizar volumen del usuario: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
   private async processTreeVolumesUpgrade(
     user: User,
     pointsDifference: number,
     queryRunner: any,
   ) {
     try {
-      // Solo procesamos si hay una diferencia positiva de puntos
       if (pointsDifference <= 0) {
         this.logger.warn(
           `No hay diferencia de puntos positiva para procesar (${pointsDifference})`,
@@ -701,11 +567,9 @@ export class FinancePaymentApprovalService {
         return;
       }
 
-      // Obtener todos los padres en la estructura del árbol
       const parents = await this.getAllParents(user.id);
 
       for (const parent of parents) {
-        // Verificar que el padre tenga una membresía activa
         const parentMembership = await this.membershipRepository.findOne({
           where: {
             user: { id: parent.id },
@@ -723,7 +587,6 @@ export class FinancePaymentApprovalService {
 
         const parentPlan = parentMembership.plan;
 
-        // Verificar que el plan del padre tenga porcentaje de comisión
         if (
           !parentPlan.commissionPercentage ||
           parentPlan.commissionPercentage <= 0
@@ -734,7 +597,6 @@ export class FinancePaymentApprovalService {
           continue;
         }
 
-        // Determinar el lado del árbol
         const side = await this.determineTreeSide(parent.id, user.id);
         if (!side) {
           this.logger.warn(
@@ -743,7 +605,6 @@ export class FinancePaymentApprovalService {
           continue;
         }
 
-        // Crear o actualizar el volumen semanal
         await this.updateWeeklyVolume(
           parent,
           parentPlan,
@@ -767,7 +628,6 @@ export class FinancePaymentApprovalService {
     queryRunner: any,
   ) {
     try {
-      // Buscar el referente
       const referrer = await this.userRepository.findOne({
         where: { referralCode: user.referrerCode },
         relations: ['role'],
@@ -780,7 +640,6 @@ export class FinancePaymentApprovalService {
         return;
       }
 
-      // Verificar que el referente tenga una membresía activa
       const referrerMembership = await this.membershipRepository.findOne({
         where: {
           user: { id: referrer.id },
@@ -798,7 +657,6 @@ export class FinancePaymentApprovalService {
 
       const referrerPlan = referrerMembership.plan;
 
-      // Verificar que el plan del referente tenga directCommissionAmount
       if (
         !referrerPlan.directCommissionAmount ||
         referrerPlan.directCommissionAmount <= 0
@@ -810,12 +668,10 @@ export class FinancePaymentApprovalService {
       }
       console.log('directBonus', referrerPlan.directCommissionAmount);
 
-      // Calcular la comisión directa
       const directBonus =
         referrerPlan.directCommissionAmount * (plan.price / 100);
       console.log('directBonus', directBonus);
 
-      // Actualizar los puntos del referente
       const referrerPoints = await this.userPointsRepository.findOne({
         where: { user: { id: referrer.id } },
       });
@@ -837,7 +693,6 @@ export class FinancePaymentApprovalService {
         await queryRunner.manager.save(newReferrerPoints);
       }
 
-      // Crear transacción de puntos
       const pointsTransaction = this.pointsTransactionRepository.create({
         user: { id: referrer.id },
         membershipPlan: referrerPlan,
@@ -873,11 +728,9 @@ export class FinancePaymentApprovalService {
     queryRunner: any,
   ) {
     try {
-      // Obtener todos los padres en la estructura del árbol
       const parents = await this.getAllParents(user.id);
 
       for (const parent of parents) {
-        // Verificar que el padre tenga una membresía activa
         const parentMembership = await this.membershipRepository.findOne({
           where: {
             user: { id: parent.id },
@@ -895,7 +748,6 @@ export class FinancePaymentApprovalService {
 
         const parentPlan = parentMembership.plan;
 
-        // Verificar que el plan del padre tenga porcentaje de comisión
         if (
           !parentPlan.commissionPercentage ||
           parentPlan.commissionPercentage <= 0
@@ -906,7 +758,6 @@ export class FinancePaymentApprovalService {
           continue;
         }
 
-        // Determinar el lado del árbol
         const side = await this.determineTreeSide(parent.id, user.id);
         if (!side) {
           this.logger.warn(
@@ -915,7 +766,6 @@ export class FinancePaymentApprovalService {
           continue;
         }
 
-        // Crear o actualizar el volumen semanal
         await this.updateWeeklyVolume(
           parent,
           parentPlan,
@@ -956,7 +806,6 @@ export class FinancePaymentApprovalService {
     parentId: string,
     childId: string,
   ): Promise<VolumeSide | null> {
-    // Verificar primero si es hijo directo
     const parent = await this.userRepository.findOne({
       where: { id: parentId },
       relations: ['leftChild', 'rightChild'],
@@ -970,9 +819,6 @@ export class FinancePaymentApprovalService {
       return VolumeSide.RIGHT;
     }
 
-    // Si no es hijo directo, verificar recursivamente
-    // Esta es una implementación simplificada. En un sistema real,
-    // probablemente necesitarías una consulta SQL más optimizada.
     const isLeftDescendant = await this.isDescendantOfSide(
       parentId,
       childId,
@@ -1014,7 +860,6 @@ export class FinancePaymentApprovalService {
     if (!childId) return false;
     if (childId === descendantId) return true;
 
-    // Verificar recursivamente en ambos lados del hijo
     const child = await this.userRepository.findOne({
       where: { id: childId },
       relations: ['leftChild', 'rightChild'],
@@ -1051,12 +896,10 @@ export class FinancePaymentApprovalService {
     queryRunner: any,
   ) {
     try {
-      // Calcular fechas de la semana actual
       const now = new Date();
       const weekStartDate = this.getFirstDayOfWeek(now);
       const weekEndDate = this.getLastDayOfWeek(now);
 
-      // Buscar si ya existe un volumen para esta semana
       const existingVolume = await this.weeklyVolumeRepository.findOne({
         where: {
           user: { id: parent.id },
@@ -1068,7 +911,6 @@ export class FinancePaymentApprovalService {
       console.log('side', side);
 
       if (existingVolume) {
-        // Actualizar volumen existente
         if (side == VolumeSide.LEFT) {
           existingVolume.leftVolume =
             Number(existingVolume.leftVolume) + Number(binaryPoints);
@@ -1082,7 +924,6 @@ export class FinancePaymentApprovalService {
           `Volumen semanal actualizado para usuario ${parent.id}: +${binaryPoints} en lado ${side}`,
         );
       } else {
-        // Crear nuevo volumen
         const newVolume = this.weeklyVolumeRepository.create({
           user: { id: parent.id },
           membershipPlan: parentPlan,
@@ -1110,7 +951,7 @@ export class FinancePaymentApprovalService {
 
   private getFirstDayOfWeek(date: Date): Date {
     const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Ajustar cuando el día es domingo
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(date);
     monday.setDate(diff);
     monday.setHours(0, 0, 0, 0);

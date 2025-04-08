@@ -1,15 +1,3 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  ManyToOne,
-  CreateDateColumn,
-  JoinColumn,
-  BeforeInsert,
-  BeforeUpdate,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -22,6 +10,18 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import {
+  BeforeInsert,
+  BeforeUpdate,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Payment } from './payment.entity';
 
 @Entity('payment_images')

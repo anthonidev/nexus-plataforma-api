@@ -5,6 +5,7 @@ import {
   IsEmail,
   IsNotEmpty,
   IsOptional,
+  IsString,
   IsUUID,
   Matches,
   MinLength,
@@ -113,6 +114,21 @@ export class User {
 
   @OneToOne(() => BankInfo, (bankInfo) => bankInfo.user, { nullable: true })
   bankInfo: BankInfo;
+
+  @Column({ nullable: true })
+  @IsString()
+  @IsOptional()
+  nickname: string;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  @IsString()
+  photo: string;
+
+  @Column({ nullable: true })
+  @IsOptional()
+  @IsString()
+  cloudinaryPublicId: string;
 
   @BeforeInsert()
   @BeforeUpdate()
