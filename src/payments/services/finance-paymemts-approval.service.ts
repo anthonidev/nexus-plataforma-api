@@ -33,6 +33,8 @@ import { User } from 'src/user/entities/user.entity';
 import { DataSource, Repository } from 'typeorm';
 import { RejectPaymentDto } from '../dto/approval.dto';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
+import { ApprovePaymentDto } from '../dto/approve-payment.dto';
+import { MonthlyVolumeRank } from 'src/points/entities/monthly_volume_ranks.entity';
 
 @Injectable()
 export class FinancePaymentApprovalService {
@@ -55,12 +57,18 @@ export class FinancePaymentApprovalService {
     private readonly pointsTransactionRepository: Repository<PointsTransaction>,
     @InjectRepository(WeeklyVolume)
     private readonly weeklyVolumeRepository: Repository<WeeklyVolume>,
+    @InjectRepository(MonthlyVolumeRank)
+    private readonly monthlyVolumeRankRepository: Repository<MonthlyVolumeRank>,
     @InjectRepository(MembershipUpgrade)
     private readonly membershipUpgradeRepository: Repository<MembershipUpgrade>,
     private readonly dataSource: DataSource,
   ) {}
 
-  async approvePayment(paymentId: number, reviewerId: string) {
+  async approvePayment(
+    paymentId: number,
+    reviewerId: string,
+    approvePaymentDto: ApprovePaymentDto,
+  ) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -94,6 +102,11 @@ export class FinancePaymentApprovalService {
       payment.status = PaymentStatus.APPROVED;
       payment.reviewedBy = reviewer;
       payment.reviewedAt = new Date();
+
+      payment.codeOperation = approvePaymentDto.codeOperation;
+      payment.banckName = approvePaymentDto.banckName;
+      payment.dateOperation = new Date(approvePaymentDto.dateOperation);
+      payment.numberTicket = approvePaymentDto.numberTicket;
 
       await queryRunner.manager.save(payment);
 
@@ -321,9 +334,6 @@ export class FinancePaymentApprovalService {
     if (user.referrerCode) {
       await this.processDirectBonus(user, plan, queryRunner);
     }
-    const binaryPoints = plan.binaryPoints;
-    console.log('binaryPoints', binaryPoints);
-
     await this.processTreeVolumes(user, plan, queryRunner);
 
     const now = new Date();

@@ -13,6 +13,7 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { User } from 'src/user/entities/user.entity';
 import { FinancePaymentApprovalService } from '../services/finance-paymemts-approval.service';
 import { RejectPaymentDto } from '../dto/approval.dto';
+import { ApprovePaymentDto } from '../dto/approve-payment.dto';
 
 @Controller('finance/payments/approval')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,10 +24,17 @@ export class FinancePaymentApprovalController {
   ) {}
 
   @Post(':id/approve')
-  approvePayment(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
-    return this.financePaymentApprovalService.approvePayment(id, user.id);
+  approvePayment(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUser() user: User,
+    @Body() approvePaymentDto: ApprovePaymentDto,
+  ) {
+    return this.financePaymentApprovalService.approvePayment(
+      id,
+      user.id,
+      approvePaymentDto,
+    );
   }
-
   @Post(':id/reject')
   rejectPayment(
     @Param('id', ParseIntPipe) id: number,

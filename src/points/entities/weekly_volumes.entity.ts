@@ -31,7 +31,7 @@ export enum VolumeSide {
 }
 
 @Entity('weekly_volumes')
-@Index(['user', 'weekStartDate']) // Optimizar consultas
+@Index(['user', 'weekStartDate'])
 export class WeeklyVolume {
   @PrimaryGeneratedColumn()
   id: number;

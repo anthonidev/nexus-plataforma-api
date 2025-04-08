@@ -9,6 +9,7 @@ import { WeeklyVolume } from './entities/weekly_volumes.entity';
 import { PointsController } from './controllers/points.controller';
 import { PointsService } from './services/points.service';
 import { UserModule } from 'src/user/user.module';
+import { MonthlyVolumeRank } from './entities/monthly_volume_ranks.entity';
 
 @Module({
   controllers: [PointsController],
@@ -20,6 +21,7 @@ import { UserModule } from 'src/user/user.module';
       UserPoints,
       UserRank,
       WeeklyVolume,
+      MonthlyVolumeRank,
     ]),
     UserModule,
   ],
