@@ -9,6 +9,7 @@ import { MembershipsModule } from './memberships/memberships.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { PointsModule } from './points/points.module';
+import { RanksModule } from './ranks/ranks.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { PointsModule } from './points/points.module';
     MembershipsModule,
     PaymentsModule,
     PointsModule,
+    RanksModule,
   ],
 })
 export class AppModule {}

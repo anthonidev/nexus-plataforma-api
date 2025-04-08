@@ -1,5 +1,12 @@
 export const rankData = [
   {
+    name: 'Bronce',
+    code: 'BRONZE',
+    requiredPoints: 0,
+    requiredDirects: 0,
+    isActive: true,
+  },
+  {
     name: 'Ejecutivo',
     code: 'EXECUTIVE',
     requiredPoints: 2400,

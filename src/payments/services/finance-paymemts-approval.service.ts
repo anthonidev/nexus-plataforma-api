@@ -32,9 +32,8 @@ import {
 import { User } from 'src/user/entities/user.entity';
 import { DataSource, Repository } from 'typeorm';
 import { RejectPaymentDto } from '../dto/approval.dto';
-import { Payment, PaymentStatus } from '../entities/payment.entity';
 import { ApprovePaymentDto } from '../dto/approve-payment.dto';
-import { MonthlyVolumeRank } from 'src/points/entities/monthly_volume_ranks.entity';
+import { Payment, PaymentStatus } from '../entities/payment.entity';
 
 @Injectable()
 export class FinancePaymentApprovalService {
@@ -57,8 +56,7 @@ export class FinancePaymentApprovalService {
     private readonly pointsTransactionRepository: Repository<PointsTransaction>,
     @InjectRepository(WeeklyVolume)
     private readonly weeklyVolumeRepository: Repository<WeeklyVolume>,
-    @InjectRepository(MonthlyVolumeRank)
-    private readonly monthlyVolumeRankRepository: Repository<MonthlyVolumeRank>,
+
     @InjectRepository(MembershipUpgrade)
     private readonly membershipUpgradeRepository: Repository<MembershipUpgrade>,
     private readonly dataSource: DataSource,
