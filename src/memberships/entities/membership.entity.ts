@@ -97,7 +97,7 @@ export class Membership {
     type: 'decimal',
     precision: 10,
     scale: 2,
-    default: 300,
+    default: 217,
     transformer: {
       to: (value: number) => value,
       from: (value: string) => parseFloat(value),

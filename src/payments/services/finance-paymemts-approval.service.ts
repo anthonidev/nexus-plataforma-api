@@ -328,6 +328,7 @@ export class FinancePaymentApprovalService {
       await this.processDirectBonus(user, plan, queryRunner);
     }
     const binaryPoints = plan.binaryPoints;
+    console.log('binaryPoints', binaryPoints);
     await this.updateUserVolume(user, binaryPoints, queryRunner);
 
     // 3. Alimentar los volúmenes del árbol
@@ -598,7 +599,7 @@ export class FinancePaymentApprovalService {
       const userMembership = await this.membershipRepository.findOne({
         where: {
           user: { id: user.id },
-          status: MembershipStatus.ACTIVE,
+          // status: MembershipStatus.ACTIVE,
         },
         relations: ['plan'],
       });
@@ -631,6 +632,9 @@ export class FinancePaymentApprovalService {
         } else if (userPosition == 'RIGHT') {
           existingVolume.rightVolume =
             Number(existingVolume.rightVolume) + Number(pointsDifference);
+        }else{
+          existingVolume.leftVolume =
+            Number(existingVolume.leftVolume) + Number(pointsDifference);
         }
 
         await queryRunner.manager.save(existingVolume);
@@ -639,18 +643,37 @@ export class FinancePaymentApprovalService {
         );
       } else {
         // Crear nuevo volumen
-        const newVolume = this.weeklyVolumeRepository.create({
-          user: { id: user.id },
-          membershipPlan: userPlan,
-          leftVolume: userPosition == 'LEFT' ? pointsDifference : 0,
-          rightVolume: userPosition == 'RIGHT' ? pointsDifference : 0,
-          weekStartDate: weekStartDate,
-          weekEndDate: weekEndDate,
-          status: VolumeProcessingStatus.PENDING,
-          carryOverVolume: 0,
-        });
 
+        if (!userPosition){
+          const newVolume = this.weeklyVolumeRepository.create({
+            user: { id: user.id },
+            membershipPlan: userPlan,
+            leftVolume: pointsDifference,
+            rightVolume:  0,
+            weekStartDate: weekStartDate,
+            weekEndDate: weekEndDate,
+            status: VolumeProcessingStatus.PENDING,
+            carryOverVolume: 0,
+          });
         await queryRunner.manager.save(newVolume);
+
+        }else{
+          const newVolume = this.weeklyVolumeRepository.create({
+            user: { id: user.id },
+            membershipPlan: userPlan,
+            leftVolume: userPosition == 'LEFT' ? pointsDifference : 0,
+            rightVolume: userPosition == 'RIGHT' ? pointsDifference : 0,
+            weekStartDate: weekStartDate,
+            weekEndDate: weekEndDate,
+            status: VolumeProcessingStatus.PENDING,
+            carryOverVolume: 0,
+          });
+        await queryRunner.manager.save(newVolume);
+
+        }
+
+        
+
         this.logger.log(
           `Nuevo volumen semanal creado para el usuario ${user.id}: ${pointsDifference} en ambos lados`,
         );
