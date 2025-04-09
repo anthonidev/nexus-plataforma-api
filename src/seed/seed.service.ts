@@ -22,7 +22,7 @@ import { membershipPlansData } from './data/membership-plans.data';
 import { paymentConfigsData } from './data/payment-configs.data';
 import { PaymentConfig } from 'src/payments/entities/payment-config.entity';
 import { rankData } from './data/rank.data';
-import { Rank } from 'src/points/entities/ranks.entity';
+import { Rank } from 'src/ranks/entities/ranks.entity';
 @Injectable()
 export class SeedService {
   private readonly logger = new Logger(SeedService.name);

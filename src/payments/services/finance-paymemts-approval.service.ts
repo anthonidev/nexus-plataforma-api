@@ -29,6 +29,12 @@ import {
   VolumeSide,
   WeeklyVolume,
 } from 'src/points/entities/weekly_volumes.entity';
+import {
+  MonthlyVolumeRank,
+  MonthlyVolumeStatus,
+} from 'src/ranks/entities/monthly_volume_ranks.entity';
+import { Rank } from 'src/ranks/entities/ranks.entity';
+import { UserRank } from 'src/ranks/entities/user_ranks.entity';
 import { User } from 'src/user/entities/user.entity';
 import { DataSource, Repository } from 'typeorm';
 import { RejectPaymentDto } from '../dto/approval.dto';
@@ -59,6 +65,13 @@ export class FinancePaymentApprovalService {
 
     @InjectRepository(MembershipUpgrade)
     private readonly membershipUpgradeRepository: Repository<MembershipUpgrade>,
+
+    @InjectRepository(Rank)
+    private readonly rankRepository: Repository<Rank>,
+    @InjectRepository(UserRank)
+    private readonly userRankRepository: Repository<UserRank>,
+    @InjectRepository(MonthlyVolumeRank)
+    private readonly monthlyVolumeRankRepository: Repository<MonthlyVolumeRank>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -333,7 +346,7 @@ export class FinancePaymentApprovalService {
       await this.processDirectBonus(user, plan, queryRunner);
     }
     await this.processTreeVolumes(user, plan, queryRunner);
-
+    await this.createOrUpdateUserRank(user, plan, queryRunner);
     const now = new Date();
     const expirationDate = new Date(now);
     expirationDate.setDate(expirationDate.getDate() + 30);
@@ -408,7 +421,7 @@ export class FinancePaymentApprovalService {
     }
 
     await this.processTreeVolumesUpgrade(user, pointsDifference, queryRunner);
-
+    await this.createOrUpdateUserRank(user, toPlan, queryRunner);
     membership.plan = toPlan;
 
     if (membership.status === MembershipStatus.ACTIVE) {
@@ -561,7 +574,48 @@ export class FinancePaymentApprovalService {
       throw error;
     }
   }
+  private async createOrUpdateUserRank(
+    user: User,
+    plan: MembershipPlan,
+    queryRunner: any,
+  ) {
+    try {
+      const bronzeRank = await this.rankRepository.findOne({
+        where: { code: 'BRONZE' },
+      });
 
+      if (!bronzeRank) {
+        this.logger.warn('No se encontró el rango BRONZE');
+        return;
+      }
+
+      const existingUserRank = await this.userRankRepository.findOne({
+        where: { user: { id: user.id } },
+      });
+
+      if (existingUserRank) {
+        existingUserRank.membershipPlan = plan;
+        await queryRunner.manager.save(existingUserRank);
+      } else {
+        const newUserRank = this.userRankRepository.create({
+          user: { id: user.id },
+          membershipPlan: plan,
+          currentRank: bronzeRank,
+          highestRank: bronzeRank,
+        });
+
+        await queryRunner.manager.save(newUserRank);
+      }
+
+      this.logger.log(`UserRank creado/actualizado para usuario ${user.id}`);
+    } catch (error) {
+      this.logger.error(
+        `Error al crear/actualizar UserRank: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
   private async processTreeVolumesUpgrade(
     user: User,
     pointsDifference: number,
@@ -614,6 +668,13 @@ export class FinancePaymentApprovalService {
         }
 
         await this.updateWeeklyVolume(
+          parent,
+          parentPlan,
+          pointsDifference,
+          side,
+          queryRunner,
+        );
+        await this.updateMonthlyVolume(
           parent,
           parentPlan,
           pointsDifference,
@@ -775,6 +836,13 @@ export class FinancePaymentApprovalService {
         }
 
         await this.updateWeeklyVolume(
+          parent,
+          parentPlan,
+          plan.binaryPoints,
+          side,
+          queryRunner,
+        );
+        await this.updateMonthlyVolume(
           parent,
           parentPlan,
           plan.binaryPoints,
@@ -956,7 +1024,81 @@ export class FinancePaymentApprovalService {
       throw error;
     }
   }
+  private async updateMonthlyVolume(
+    parent: User,
+    parentPlan: MembershipPlan,
+    binaryPoints: number,
+    side: VolumeSide,
+    queryRunner: any,
+  ) {
+    try {
+      const now = new Date();
+      const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEndDate = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
 
+      const existingVolume = await this.monthlyVolumeRankRepository.findOne({
+        where: {
+          user: { id: parent.id },
+          status: MonthlyVolumeStatus.PENDING,
+          monthStartDate: monthStartDate,
+          monthEndDate: monthEndDate,
+        },
+      });
+
+      if (existingVolume) {
+        if (side === VolumeSide.LEFT) {
+          existingVolume.leftVolume =
+            Number(existingVolume.leftVolume) + Number(binaryPoints);
+          existingVolume.leftDirects = existingVolume.leftDirects || 0;
+        } else {
+          existingVolume.rightVolume =
+            Number(existingVolume.rightVolume) + Number(binaryPoints);
+          existingVolume.rightDirects = existingVolume.rightDirects || 0;
+        }
+
+        existingVolume.totalVolume =
+          Number(existingVolume.leftVolume) +
+          Number(existingVolume.rightVolume);
+
+        await queryRunner.manager.save(existingVolume);
+        this.logger.log(
+          `Volumen mensual actualizado para usuario ${parent.id}: +${binaryPoints} en lado ${side}`,
+        );
+      } else {
+        const newVolume = this.monthlyVolumeRankRepository.create({
+          user: { id: parent.id },
+          membershipPlan: parentPlan,
+          leftVolume: side === VolumeSide.LEFT ? binaryPoints : 0,
+          rightVolume: side === VolumeSide.RIGHT ? binaryPoints : 0,
+          totalVolume: binaryPoints,
+          leftDirects: 0,
+          rightDirects: 0,
+          monthStartDate: monthStartDate,
+          monthEndDate: monthEndDate,
+          status: MonthlyVolumeStatus.PENDING,
+        });
+
+        await queryRunner.manager.save(newVolume);
+        this.logger.log(
+          `Nuevo volumen mensual creado para usuario ${parent.id}: ${binaryPoints} en lado ${side}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error al actualizar volumen mensual: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
   private getFirstDayOfWeek(date: Date): Date {
     const day = date.getDay();
     const diff = date.getDate() - day + (day === 0 ? -6 : 1);
