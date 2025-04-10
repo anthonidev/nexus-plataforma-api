@@ -172,6 +172,8 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        photo: user.photo,
+        nickname: user.nickname,
         role: cleanRole,
         views: viewTree,
         membership: membershipInfo,

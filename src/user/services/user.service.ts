@@ -44,7 +44,16 @@ export class UserService {
     // Buscar el usuario con todas sus relaciones
     const user = await this.userRepository.findOne({
       where: criteria,
-      select: ['id', 'email', 'password', 'isActive', 'createdAt', 'updatedAt'],
+      select: [
+        'id',
+        'email',
+        'password',
+        'isActive',
+        'createdAt',
+        'updatedAt',
+        'photo',
+        'nickname',
+      ],
       relations: finalRelations,
     });
 

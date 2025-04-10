@@ -13,4 +13,12 @@ export class UpdatePersonalInfoDto {
   })
   @Transform(({ value }) => value?.trim())
   documentNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50, {
+    message: 'El apodo no puede tener más de 50 caracteres',
+  })
+  @Transform(({ value }) => value?.trim())
+  nickname?: string;
 }

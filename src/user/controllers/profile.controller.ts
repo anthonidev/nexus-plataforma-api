@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  ParseFilePipeBuilder,
+  Put,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UpdateBankInfoDto } from '../dto/update-back-info.dto';
@@ -7,6 +17,7 @@ import { UpdateContactInfoDto } from '../dto/update-contact-info.dto';
 import { UpdatePersonalInfoDto } from '../dto/update-personal-info.dto';
 import { User } from '../entities/user.entity';
 import { ProfileService } from '../services/profile.service';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('profile')
 @UseGuards(JwtAuthGuard)
@@ -51,5 +62,26 @@ export class ProfileController {
       user.id,
       updatePersonalInfoDto,
     );
+  }
+  @Put('photo')
+  @UseInterceptors(FileInterceptor('photo'))
+  updatePhoto(
+    @GetUser() user: User,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png)$/,
+        })
+        .addMaxSizeValidator({
+          maxSize: 1024 * 1024 * 2, // 2MB
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+          fileIsRequired: true,
+        }),
+    )
+    photo: Express.Multer.File,
+  ) {
+    return this.profileService.updatePhoto(user.id, photo);
   }
 }

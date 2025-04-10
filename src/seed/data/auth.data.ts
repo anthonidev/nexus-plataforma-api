@@ -24,6 +24,7 @@ export const rolData = [
       'MEMBERSHIP',
       'MEMBERSHIP_PLANS',
       'MY_MEMBERSHIP_PLAN',
+      'MY_RECONSUMPTIONS',
       'POINTS',
       'POINTS_HISTORY',
       'WEEKLY_VOLUMES',
@@ -141,6 +142,15 @@ export const vistaData = [
         parent: 'MEMBERSHIP',
         children: null,
       },
+      {
+        name: 'Mis Reconsumos',
+        url: '/mis-reconsumos',
+        order: 3,
+        icon: 'reconsumos',
+        code: 'MY_RECONSUMPTIONS',
+        parent: 'MEMBERSHIP',
+        children: null,
+      },
     ],
   },
 
@@ -182,7 +192,7 @@ export const vistaData = [
     code: 'RANKS',
     children: [
       {
-        name: 'Todos los Rangos',
+        name: 'Mi Rango',
         url: '/rangos',
         order: 1,
         icon: 'all-ranks',
@@ -191,8 +201,8 @@ export const vistaData = [
         children: null,
       },
       {
-        name: 'Mis Rangos',
-        url: '/mis-rangos',
+        name: 'Volumen',
+        url: '/rangos/volumen-mensual',
         order: 2,
         icon: 'my-ranks',
         code: 'MY_RANKS',

@@ -238,7 +238,6 @@ export class FinancePaymentApprovalService {
         }
       }
 
-      // Si es un pago de actualización de plan, actualizar el estado del upgrade a CANCELLED
       if (
         payment.paymentConfig.code === 'PLAN_UPGRADE' &&
         payment.relatedEntityType === 'membership_upgrade'
@@ -253,7 +252,6 @@ export class FinancePaymentApprovalService {
           membershipUpgrade &&
           membershipUpgrade.status === UpgradeStatus.PENDING
         ) {
-          // Actualizar el estado del upgrade a CANCELLED
           membershipUpgrade.status = UpgradeStatus.CANCELLED;
           await queryRunner.manager.save(membershipUpgrade);
 
@@ -352,7 +350,7 @@ export class FinancePaymentApprovalService {
     expirationDate.setDate(expirationDate.getDate() + 30);
 
     const nextReconsumptionDate = new Date(expirationDate);
-    nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 30);
+    nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
 
     membership.status = MembershipStatus.ACTIVE;
     membership.startDate = now;
@@ -431,7 +429,7 @@ export class FinancePaymentApprovalService {
       expirationDate.setDate(expirationDate.getDate() + 30);
 
       const nextReconsumptionDate = new Date(expirationDate);
-      nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 30);
+      nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
 
       membership.status = MembershipStatus.ACTIVE;
       membership.startDate = now;

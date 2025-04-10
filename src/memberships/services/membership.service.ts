@@ -75,6 +75,7 @@ export class MembershipService {
     PaginatedResult<MembershipReconsumption> & {
       canReconsume: boolean;
       autoRenewal: boolean;
+      reconsumptionAmount: number;
     }
   > {
     try {
@@ -100,17 +101,6 @@ export class MembershipService {
 
       const [items, totalItems] = await queryBuilder.getManyAndCount();
 
-      // Verificar si puede hacer reconsumo:
-      // 1. Que hayan pasado 30 días desde el último reconsumo o inicio de membresía
-      // 2. Que no haya reconsumos pendientes
-      const lastReconsumption = await this.reconsumptionRepository.findOne({
-        where: {
-          membership: { id: membership.id },
-          status: ReconsumptionStatus.ACTIVE,
-        },
-        order: { periodDate: 'DESC' },
-      });
-
       const pendingReconsumption = await this.reconsumptionRepository.findOne({
         where: {
           membership: { id: membership.id },
@@ -118,18 +108,12 @@ export class MembershipService {
         },
       });
 
-      let lastRelevantDate = membership.startDate;
-      if (lastReconsumption) {
-        lastRelevantDate = lastReconsumption.periodDate;
-      }
-
-      const thirtyDaysAfterLastDate = new Date(lastRelevantDate);
-      thirtyDaysAfterLastDate.setDate(thirtyDaysAfterLastDate.getDate() + 30);
-
+      const nextReconsumptionDate = new Date(membership.nextReconsumptionDate);
       const canReconsume =
-        !pendingReconsumption && new Date() >= thirtyDaysAfterLastDate;
+        !pendingReconsumption && new Date() >= nextReconsumptionDate;
 
       const autoRenewal = membership.autoRenewal;
+      const reconsumptionAmount = membership.minimumReconsumptionAmount;
 
       return {
         ...PaginationHelper.createPaginatedResponse(
@@ -139,6 +123,7 @@ export class MembershipService {
         ),
         autoRenewal,
         canReconsume,
+        reconsumptionAmount,
       };
     } catch (error) {
       this.logger.error(`Error obteniendo reconsumos: ${error.message}`);
@@ -167,7 +152,7 @@ export class MembershipService {
       });
 
       // Obtener próxima fecha de reconsumo
-      const nextReconsumptionDate = membership.nextReconsumptionDate;
+      const nextReconsumptionDate = new Date(membership.nextReconsumptionDate);
 
       // Verificar si puede hacer reconsumo
       const pendingReconsumption = await this.reconsumptionRepository.findOne({
@@ -178,6 +163,7 @@ export class MembershipService {
       });
 
       const today = new Date();
+
       const canReconsume =
         !pendingReconsumption && today >= nextReconsumptionDate;
 

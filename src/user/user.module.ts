@@ -16,6 +16,7 @@ import { UserTreeService } from './services/user-tree.service';
 import { UserService } from './services/user.service';
 import { UbigeoController } from './controllers/ubigeo.controller';
 import { UbigeoService } from './services/ubigeo.service';
+import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 
 @Module({
   controllers: [
@@ -36,6 +37,7 @@ import { UbigeoService } from './services/ubigeo.service';
       BillingInfo,
       BankInfo,
     ]),
+    CloudinaryModule,
   ],
   exports: [UserService, TypeOrmModule],
 })

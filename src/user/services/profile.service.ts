@@ -15,6 +15,7 @@ import { BillingInfo } from '../entities/billing-info.entity';
 import { ContactInfo } from '../entities/contact-info.entity';
 import { Ubigeo } from '../entities/ubigeo.entity';
 import { User } from '../entities/user.entity';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
 @Injectable()
 export class ProfileService {
@@ -31,6 +32,7 @@ export class ProfileService {
     private readonly bankInfoRepository: Repository<BankInfo>,
     @InjectRepository(Ubigeo)
     private readonly ubigeoRepository: Repository<Ubigeo>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async getUserProfile(userId: string) {
@@ -59,6 +61,8 @@ export class ProfileService {
         email: user.email,
         referralCode: user.referralCode,
         isActive: user.isActive,
+        nickname: user.nickname,
+        photo: user.photo,
         role: {
           id: user.role.id,
           code: user.role.code,
@@ -253,6 +257,61 @@ export class ProfileService {
       );
     }
   }
+  async updatePhoto(userId: string, photo: Express.Multer.File) {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'isActive', 'photo', 'cloudinaryPublicId'],
+      });
+
+      if (!user) {
+        throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+      }
+
+      // Si el usuario ya tiene una foto, eliminar la anterior de Cloudinary
+      if (user.cloudinaryPublicId) {
+        try {
+          await this.cloudinaryService.deleteImage(user.cloudinaryPublicId);
+          this.logger.log(
+            `Imagen anterior eliminada: ${user.cloudinaryPublicId}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Error al eliminar imagen anterior: ${error.message}`,
+          );
+          // Continuamos aunque falle la eliminación
+        }
+      }
+
+      // Subir la nueva foto a Cloudinary
+      const cloudinaryResponse = await this.cloudinaryService.uploadImage(
+        photo,
+        'users',
+      );
+
+      // Actualizar los campos del usuario
+      user.photo = cloudinaryResponse.url;
+      user.cloudinaryPublicId = cloudinaryResponse.publicId;
+
+      // Guardar el usuario
+      await this.userRepository.save(user);
+
+      return {
+        success: true,
+        message: 'Foto actualizada correctamente',
+        photo: user.photo,
+      };
+    } catch (error) {
+      this.logger.error(`Error actualizando foto: ${error.message}`);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        'Error al actualizar la foto de perfil',
+      );
+    }
+  }
+
   async updatePersonalInfo(
     userId: string,
     updatePersonalInfoDto: UpdatePersonalInfoDto,
@@ -261,7 +320,7 @@ export class ProfileService {
       const user = await this.userRepository.findOne({
         where: { id: userId },
         relations: ['personalInfo'],
-        select: ['id', 'isActive'],
+        select: ['id', 'isActive', 'nickname'],
       });
 
       if (!user) {
@@ -276,12 +335,21 @@ export class ProfileService {
         );
       }
 
-      // Actualizar solo el campo documentNumber
+      // Actualizar documentNumber en personalInfo
       if (updatePersonalInfoDto.documentNumber !== undefined) {
         personalInfo.documentNumber = updatePersonalInfoDto.documentNumber;
       }
 
+      // Actualizar nickname en la entidad user
+      if (updatePersonalInfoDto.nickname !== undefined) {
+        user.nickname = updatePersonalInfoDto.nickname;
+      }
+
+      // Guardar personalInfo
       await this.userRepository.manager.save(personalInfo);
+
+      // Guardar user
+      await this.userRepository.save(user);
 
       return {
         success: true,
@@ -292,6 +360,9 @@ export class ProfileService {
           documentNumber: personalInfo.documentNumber,
           gender: personalInfo.gender,
           birthDate: personalInfo.birthDate,
+        },
+        user: {
+          nickname: user.nickname,
         },
       };
     } catch (error) {

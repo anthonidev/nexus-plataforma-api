@@ -25,6 +25,7 @@ import { WithdrawalsModule } from './withdrawals/withdrawals.module';
         autoLoadEntities: true,
         // synchronize: envs.environment !== 'production',
         synchronize: true,
+        timezone: 'America/Lima',
       }),
     }),
     UserModule,
