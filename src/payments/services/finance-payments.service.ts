@@ -124,7 +124,14 @@ export class FinancePaymentsService {
     try {
       const payment = await this.paymentRepository.findOne({
         where: { id },
-        relations: ['user', 'paymentConfig', 'reviewedBy', 'images'],
+        relations: [
+          'user',
+          'paymentConfig',
+          'reviewedBy',
+          'images',
+          'user.personalInfo',
+          'user.contactInfo',
+        ],
       });
 
       if (!payment) {
