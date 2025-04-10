@@ -1031,15 +1031,12 @@ export class FinancePaymentApprovalService {
   ) {
     try {
       const now = new Date();
-      const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthStartDate = new Date(
+        Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
+      );
+      // Obtener el último día del mes correctamente - el día 0 del mes siguiente es el último día del mes actual
       const monthEndDate = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
+        Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
       );
 
       const existingVolume = await this.monthlyVolumeRankRepository.findOne({
@@ -1102,15 +1099,31 @@ export class FinancePaymentApprovalService {
     const diff = date.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(date);
     monday.setDate(diff);
+    // Asegurarse de que la fecha sea correcta, sin ajustes por zona horaria
     monday.setHours(0, 0, 0, 0);
-    return monday;
+    return new Date(
+      monday.getFullYear(),
+      monday.getMonth(),
+      monday.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
   }
 
   private getLastDayOfWeek(date: Date): Date {
     const firstDay = this.getFirstDayOfWeek(date);
-    const sunday = new Date(firstDay);
-    sunday.setDate(sunday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
+    // Crear una nueva fecha para el domingo (6 días después del lunes)
+    const sunday = new Date(
+      firstDay.getFullYear(),
+      firstDay.getMonth(),
+      firstDay.getDate() + 6,
+      23,
+      59,
+      59,
+      999,
+    );
     return sunday;
   }
 }
