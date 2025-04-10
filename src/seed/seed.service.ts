@@ -1,28 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
+import * as bcrypt from 'bcryptjs';
+import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
+import { PaymentConfig } from 'src/payments/entities/payment-config.entity';
+import { ContactInfo } from 'src/user/entities/contact-info.entity';
+import { PersonalInfo } from 'src/user/entities/personal-info.entity';
 import { Role } from 'src/user/entities/roles.entity';
 import { Ubigeo } from 'src/user/entities/ubigeo.entity';
 import { User } from 'src/user/entities/user.entity';
 import { View } from 'src/user/entities/view.entity';
 import { DataSource, In, Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { rolData, vistaData } from './data/auth.data';
+import { membershipPlansData } from './data/membership-plans.data';
+import { paymentConfigsData } from './data/payment-configs.data';
 import {
   departamentosData,
   distritosData,
   provinciasData,
 } from './data/ubigeo.data';
-import { PersonalInfo } from 'src/user/entities/personal-info.entity';
-import { ContactInfo } from 'src/user/entities/contact-info.entity';
-import { faker } from '@faker-js/faker';
-import * as bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
-import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
-import { membershipPlansData } from './data/membership-plans.data';
-import { paymentConfigsData } from './data/payment-configs.data';
-import { PaymentConfig } from 'src/payments/entities/payment-config.entity';
-import { rankData } from './data/rank.data';
+import { withdrawalConfigsData } from './data/withdrawal-config.data';
+
 import { Rank } from 'src/ranks/entities/ranks.entity';
+import { WithdrawalConfig } from 'src/withdrawals/entities/withdrawal-config.entity';
+import { rankData } from './data/rank.data';
 @Injectable()
 export class SeedService {
   private readonly logger = new Logger(SeedService.name);
@@ -36,6 +38,9 @@ export class SeedService {
     private readonly membershipPlanRepository: Repository<MembershipPlan>,
     @InjectRepository(PaymentConfig)
     private readonly paymentConfigRepository: Repository<PaymentConfig>,
+
+    @InjectRepository(WithdrawalConfig)
+    private readonly withdrawalConfigRepository: Repository<WithdrawalConfig>,
     @InjectRepository(Ubigeo)
     private readonly ubigeoRepository: Repository<Ubigeo>,
     @InjectRepository(Rank)
@@ -428,6 +433,80 @@ export class SeedService {
     } catch (error) {
       this.logger.error(
         `Error general en seedPaymentConfigs: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  async seedWithdrawalConfigs() {
+    this.logger.log('Iniciando seed de configuraciones de retiro...');
+    try {
+      const results = await Promise.all(
+        withdrawalConfigsData.map(async (configData) => {
+          try {
+            const existingConfig =
+              await this.withdrawalConfigRepository.findOne({
+                where: { code: configData.code },
+              });
+
+            if (existingConfig) {
+              this.logger.debug(
+                `Configuración de retiro existente encontrada: ${configData.code}`,
+              );
+
+              Object.assign(existingConfig, configData);
+              await this.withdrawalConfigRepository.save(existingConfig);
+
+              return { status: 'updated', code: configData.code };
+            }
+
+            const config = this.withdrawalConfigRepository.create({
+              code: configData.code,
+              name: configData.name,
+              description: configData.description,
+              requiresApproval: configData.requiresApproval,
+              isActive: configData.isActive,
+              minimumAmount: configData.minimumAmount,
+              maximumAmount: configData.maximumAmount,
+              startHour: configData.startHour,
+              endHour: configData.endHour,
+              enabledWeekDays: configData.enabledWeekDays,
+            });
+
+            await this.withdrawalConfigRepository.save(config);
+            this.logger.log(
+              `Configuración de retiro creada exitosamente: ${configData.code}`,
+            );
+            return { status: 'created', code: configData.code };
+          } catch (error) {
+            this.logger.error(
+              `Error al crear configuración de retiro ${configData.code}: ${error.message}`,
+            );
+            return {
+              status: 'error',
+              code: configData.code,
+              error: error.message,
+            };
+          }
+        }),
+      );
+
+      const created = results.filter((r) => r.status === 'created').length;
+      const updated = results.filter((r) => r.status === 'updated').length;
+      const errors = results.filter((r) => r.status === 'error').length;
+      this.logger.log(
+        `Seed de configuraciones de retiro completado. Creados: ${created}, Actualizados: ${updated}, Errores: ${errors}`,
+      );
+
+      return {
+        created,
+        updated,
+        errors,
+        details: results,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error general en seedWithdrawalConfigs: ${error.message}`,
       );
       throw error;
     }

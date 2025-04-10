@@ -1,12 +1,12 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { User } from 'src/user/entities/user.entity';
+import { Repository } from 'typeorm';
+import { FindMonthlyVolumeRankDto } from '../dto/find-monthly-volume-rank.dto';
+import { MonthlyVolumeRank } from '../entities/monthly_volume_ranks.entity';
 import { Rank } from '../entities/ranks.entity';
 import { UserRank } from '../entities/user_ranks.entity';
-import { MonthlyVolumeRank } from '../entities/monthly_volume_ranks.entity';
-import { FindMonthlyVolumeRankDto } from '../dto/find-monthly-volume-rank.dto';
 
 @Injectable()
 export class RanksService {

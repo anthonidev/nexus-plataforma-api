@@ -1,24 +1,24 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-  BeforeInsert,
-  BeforeUpdate,
-} from 'typeorm';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsNotEmpty,
-  IsString,
-  IsOptional,
-  MaxLength,
-  Matches,
-  IsNumber,
-  Min,
   IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  Min,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import {
+  BeforeInsert,
+  BeforeUpdate,
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('withdrawal_configs')
 export class WithdrawalConfig {
@@ -104,12 +104,6 @@ export class WithdrawalConfig {
   )
   @Min(0, { message: 'El monto máximo no puede ser negativo' })
   maximumAmount: number;
-
-  // Intervalo mínimo entre retiros (en días)
-  @Column({ default: 7 })
-  @IsInt()
-  @Min(0, { message: 'El intervalo entre retiros no puede ser negativo' })
-  withdrawalInterval: number;
 
   // Hora de inicio del rango diario para hacer retiros (formato 24h, 0-23)
   @Column({ default: 9 })

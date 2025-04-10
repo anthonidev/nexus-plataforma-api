@@ -24,6 +24,11 @@ export class SeedController {
     return this.seedService.seedPaymentConfigs();
   }
 
+  @Post('withdrawal-configs')
+  seedWithdrawalConfigs() {
+    return this.seedService.seedWithdrawalConfigs();
+  }
+
   @Post('ranks')
   seedRanks() {
     return this.seedService.seedRanks();

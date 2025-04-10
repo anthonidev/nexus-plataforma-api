@@ -1,19 +1,19 @@
+import { Transform } from 'class-transformer';
 import {
-  Entity,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
+import {
   Column,
-  PrimaryGeneratedColumn,
-  OneToOne,
+  Entity,
   JoinColumn,
+  OneToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from './user.entity';
-import {
-  IsString,
-  IsNotEmpty,
-  MaxLength,
-  IsOptional,
-  Matches,
-} from 'class-validator';
-import { Transform } from 'class-transformer';
 
 @Entity('bank_info')
 export class BankInfo {
