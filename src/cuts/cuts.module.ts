@@ -1,17 +1,31 @@
 import { Module } from '@nestjs/common';
-import { CutsService } from './cuts.service';
-import { CutsController } from './cuts.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CutConfiguration } from './entities/cut_configurations.entity';
 import { CutExecutionLog } from './entities/cut_execution_logs.entity';
 import { CutExecution } from './entities/cut_executions.entity';
+import { CutsController } from './controllers/cuts.controller';
+import { CutsService } from './services/cuts.service';
+import { WeeklyVolumeService } from './services/weekly-volume.service';
+import { ScheduledTasksService } from './services/scheduled-tasks.service';
+import { MembershipsModule } from 'src/memberships/memberships.module';
+import { PointsModule } from 'src/points/points.module';
+import { MonthlyVolumeService } from './services/monthly-volume.service';
+import { RanksModule } from 'src/ranks/ranks.module';
 
 @Module({
   controllers: [CutsController],
-  providers: [CutsService],
+  providers: [
+    CutsService,
+    WeeklyVolumeService,
+    MonthlyVolumeService,
+    ScheduledTasksService,
+  ],
   imports: [
     TypeOrmModule.forFeature([CutConfiguration, CutExecutionLog, CutExecution]),
+    MembershipsModule,
+    PointsModule,
+    RanksModule,
   ],
-  exports: [CutsService, TypeOrmModule],
+  exports: [CutsService, WeeklyVolumeService, TypeOrmModule],
 })
 export class CutsModule {}
