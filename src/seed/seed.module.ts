@@ -11,6 +11,7 @@ import { UserModule } from 'src/user/user.module';
 import { WithdrawalsModule } from 'src/withdrawals/withdrawals.module';
 import { SeedController } from './seed.controller';
 import { SeedService } from './seed.service';
+import { CutsModule } from 'src/cuts/cuts.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([View, Role, MembershipPlan, PaymentConfig, Rank]),
@@ -18,6 +19,7 @@ import { SeedService } from './seed.service';
     MembershipsModule,
     PaymentsModule,
     WithdrawalsModule,
+    CutsModule,
   ],
   controllers: [SeedController],
   providers: [SeedService],

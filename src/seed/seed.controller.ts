@@ -33,4 +33,9 @@ export class SeedController {
   seedRanks() {
     return this.seedService.seedRanks();
   }
+
+  @Post('cut-configs')
+  seedCutConfigurations() {
+    return this.seedService.seedCutConfigurations();
+  }
 }

@@ -25,6 +25,8 @@ import { withdrawalConfigsData } from './data/withdrawal-config.data';
 import { Rank } from 'src/ranks/entities/ranks.entity';
 import { WithdrawalConfig } from 'src/withdrawals/entities/withdrawal-config.entity';
 import { rankData } from './data/rank.data';
+import { CutConfiguration } from 'src/cuts/entities/cut_configurations.entity';
+import { cutConfigurationsData } from './data/cuts.data';
 @Injectable()
 export class SeedService {
   private readonly logger = new Logger(SeedService.name);
@@ -38,6 +40,9 @@ export class SeedService {
     private readonly membershipPlanRepository: Repository<MembershipPlan>,
     @InjectRepository(PaymentConfig)
     private readonly paymentConfigRepository: Repository<PaymentConfig>,
+
+    @InjectRepository(CutConfiguration)
+    private readonly cutConfigurationRepository: Repository<CutConfiguration>,
 
     @InjectRepository(WithdrawalConfig)
     private readonly withdrawalConfigRepository: Repository<WithdrawalConfig>,
@@ -158,7 +163,67 @@ export class SeedService {
       throw error;
     }
   }
+  async seedCutConfigurations() {
+    this.logger.log('Iniciando seed de configuraciones de corte...');
+    try {
+      const results = await Promise.all(
+        cutConfigurationsData.map(async (configData) => {
+          try {
+            const existingConfig =
+              await this.cutConfigurationRepository.findOne({
+                where: { code: configData.code },
+              });
 
+            if (existingConfig) {
+              this.logger.debug(
+                `Configuración de corte existente encontrada: ${configData.code}`,
+              );
+
+              Object.assign(existingConfig, configData);
+              await this.cutConfigurationRepository.save(existingConfig);
+
+              return { status: 'updated', code: configData.code };
+            }
+
+            const config = this.cutConfigurationRepository.create(configData);
+            await this.cutConfigurationRepository.save(config);
+            this.logger.log(
+              `Configuración de corte creada exitosamente: ${configData.code}`,
+            );
+            return { status: 'created', code: configData.code };
+          } catch (error) {
+            this.logger.error(
+              `Error al crear configuración de corte ${configData.code}: ${error.message}`,
+            );
+            return {
+              status: 'error',
+              code: configData.code,
+              error: error.message,
+            };
+          }
+        }),
+      );
+
+      const created = results.filter((r) => r.status === 'created').length;
+      const updated = results.filter((r) => r.status === 'updated').length;
+      const errors = results.filter((r) => r.status === 'error').length;
+      this.logger.log(
+        `Seed de configuraciones de corte completado. Creados: ${created}, Actualizados: ${updated}, Errores: ${errors}`,
+      );
+
+      return {
+        created,
+        updated,
+        errors,
+        details: results,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error general en seedCutConfigurations: ${error.message}`,
+      );
+      throw error;
+    }
+  }
   async seedUbigeo() {
     this.logger.log('Iniciando seed de ubigeo...');
     try {
