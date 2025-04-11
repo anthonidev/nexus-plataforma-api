@@ -11,6 +11,7 @@ import { MembershipsModule } from 'src/memberships/memberships.module';
 import { PointsModule } from 'src/points/points.module';
 import { MonthlyVolumeService } from './services/monthly-volume.service';
 import { RanksModule } from 'src/ranks/ranks.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   controllers: [CutsController],
@@ -25,6 +26,7 @@ import { RanksModule } from 'src/ranks/ranks.module';
     MembershipsModule,
     PointsModule,
     RanksModule,
+    ScheduleModule,
   ],
   exports: [CutsService, WeeklyVolumeService, TypeOrmModule],
 })

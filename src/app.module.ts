@@ -12,6 +12,7 @@ import { PointsModule } from './points/points.module';
 import { RanksModule } from './ranks/ranks.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { CutsModule } from './cuts/cuts.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { CutsModule } from './cuts/cuts.module';
     RanksModule,
     WithdrawalsModule,
     CutsModule,
+    ScheduleModule.forRoot(),
   ],
 })
 export class AppModule {}

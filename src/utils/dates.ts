@@ -111,3 +111,39 @@ export const getLastDayOfPreviousMonth = (date: Date): Date => {
 
   return lastDayOfPreviousMonth;
 };
+
+/// funcion donde paso una fecha y me devuelve la misma fecha  {startDate}  y un mes despues {endDate} y un dia despues del endDate {nextReconsumptionDate}
+
+export const getDates = (
+  date: Date,
+): { startDate: Date; endDate: Date; nextReconsumptionDate: Date } => {
+  const startDate = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    0,
+    0,
+    0,
+    0,
+  );
+  const endDate = new Date(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    date.getDate() - 1,
+    0,
+    0,
+    0,
+    0,
+  );
+  const nextReconsumptionDate = new Date(
+    endDate.getFullYear(),
+    endDate.getMonth(),
+    endDate.getDate() + 1,
+    0,
+    0,
+    0,
+    0,
+  );
+
+  return { startDate, endDate, nextReconsumptionDate };
+};

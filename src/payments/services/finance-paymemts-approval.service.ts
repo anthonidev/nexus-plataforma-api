@@ -45,6 +45,7 @@ import {
   ReconsumptionStatus,
 } from 'src/memberships/entities/membership-recosumption.entity';
 import {
+  getDates,
   getFirstDayOfMonth,
   getFirstDayOfWeek,
   getLastDayOfMonth,
@@ -583,15 +584,13 @@ export class FinancePaymentApprovalService {
     await this.processTreeVolumes(user, plan, queryRunner);
     await this.createOrUpdateUserRank(user, plan, queryRunner);
     const now = new Date();
-    const expirationDate = new Date(now);
-    expirationDate.setMonth(expirationDate.getMonth() + 1);
-    const nextReconsumptionDate = new Date(expirationDate);
-    nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
+    const dates = getDates(now);
 
     membership.status = MembershipStatus.ACTIVE;
-    membership.startDate = now;
-    membership.endDate = expirationDate;
-    membership.nextReconsumptionDate = nextReconsumptionDate;
+
+    membership.startDate = dates.startDate;
+    membership.endDate = dates.endDate;
+    membership.nextReconsumptionDate = dates.nextReconsumptionDate;
 
     await queryRunner.manager.save(membership);
 
@@ -604,8 +603,8 @@ export class FinancePaymentApprovalService {
         previousStatus: MembershipStatus.PENDING,
         newStatus: MembershipStatus.ACTIVE,
         startDate: now,
-        endDate: expirationDate,
-        nextReconsumptionDate: nextReconsumptionDate,
+        endDate: membership.endDate,
+        nextReconsumptionDate: membership.nextReconsumptionDate,
       },
     });
 
@@ -661,16 +660,13 @@ export class FinancePaymentApprovalService {
     if (membership.status === MembershipStatus.ACTIVE) {
     } else {
       const now = new Date();
-      const expirationDate = new Date(now);
-      expirationDate.setDate(expirationDate.getMonth() + 1);
-
-      const nextReconsumptionDate = new Date(expirationDate);
-      nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
+      const dates = getDates(now);
 
       membership.status = MembershipStatus.ACTIVE;
-      membership.startDate = now;
-      membership.endDate = expirationDate;
-      membership.nextReconsumptionDate = nextReconsumptionDate;
+
+      membership.startDate = dates.startDate;
+      membership.endDate = dates.endDate;
+      membership.nextReconsumptionDate = dates.nextReconsumptionDate;
     }
 
     await queryRunner.manager.save(membership);

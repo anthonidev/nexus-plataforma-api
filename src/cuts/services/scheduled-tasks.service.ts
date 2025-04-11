@@ -8,11 +8,8 @@ export class ScheduledTasksService {
 
   constructor(private readonly cutsService: CutsService) {}
 
-  /**
-   * Tarea programada para ejecutar el corte semanal de volumen
-   * Programada para ejecutarse todos los lunes a las 3:00 AM
-   */
-  @Cron('0 3 * * 1', {
+  // Modificado para ejecutarse a las 11:15 del día actual (4/11/2025)
+  @Cron('26 11 4 11 *', {
     name: 'weeklyVolumeCut',
     timeZone: 'America/Lima',
   })
@@ -29,7 +26,8 @@ export class ScheduledTasksService {
     }
   }
 
-  @Cron('0 3 1 * *', {
+  // Modificado para ejecutarse a las 11:15 del día actual (4/11/2025)
+  @Cron('26 11 4 11 *', {
     name: 'monthlyVolumeCut',
     timeZone: 'America/Lima',
   })
