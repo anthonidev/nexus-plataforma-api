@@ -40,6 +40,10 @@ import { DataSource, Repository } from 'typeorm';
 import { RejectPaymentDto } from '../dto/approval.dto';
 import { ApprovePaymentDto } from '../dto/approve-payment.dto';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
+import {
+  MembershipReconsumption,
+  ReconsumptionStatus,
+} from 'src/memberships/entities/membership-recosumption.entity';
 
 @Injectable()
 export class FinancePaymentApprovalService {
@@ -65,6 +69,9 @@ export class FinancePaymentApprovalService {
 
     @InjectRepository(MembershipUpgrade)
     private readonly membershipUpgradeRepository: Repository<MembershipUpgrade>,
+
+    @InjectRepository(MembershipReconsumption)
+    private readonly reconsumptionRepository: Repository<MembershipReconsumption>,
 
     @InjectRepository(Rank)
     private readonly rankRepository: Repository<Rank>,
@@ -126,8 +133,7 @@ export class FinancePaymentApprovalService {
           await this.processMembershipPayment(payment, queryRunner);
           break;
         case 'RECONSUMPTION':
-          // TODO: Implementar lógica para reconsumo
-          this.logger.log(`Aprobación de reconsumo no implementada aún`);
+          await this.processReconsumptionPayment(payment, queryRunner);
           break;
         case 'PLAN_UPGRADE':
           await this.processPlanUpgradePayment(payment, queryRunner);
@@ -236,9 +242,7 @@ export class FinancePaymentApprovalService {
 
           await queryRunner.manager.save(membershipHistory);
         }
-      }
-
-      if (
+      } else if (
         payment.paymentConfig.code === 'PLAN_UPGRADE' &&
         payment.relatedEntityType === 'membership_upgrade'
       ) {
@@ -270,6 +274,15 @@ export class FinancePaymentApprovalService {
 
           await queryRunner.manager.save(membershipHistory);
         }
+      } else if (
+        payment.paymentConfig.code === 'RECONSUMPTION' &&
+        payment.relatedEntityType === 'membership_reconsumption'
+      ) {
+        await this.processReconsumptionRejection(
+          payment,
+          rejectPaymentDto.rejectionReason,
+          queryRunner,
+        );
       }
 
       await queryRunner.commitTransaction();
@@ -296,7 +309,225 @@ export class FinancePaymentApprovalService {
       await queryRunner.release();
     }
   }
+  private async processReconsumptionRejection(
+    payment: Payment,
+    rejectionReason: string,
+    queryRunner: any,
+  ) {
+    if (payment.relatedEntityType !== 'membership_reconsumption') {
+      throw new BadRequestException(
+        'El pago no está relacionado a un reconsumo',
+      );
+    }
 
+    const reconsumption = await this.reconsumptionRepository.findOne({
+      where: { id: payment.relatedEntityId },
+      relations: ['membership', 'membership.user'],
+    });
+
+    if (!reconsumption) {
+      throw new NotFoundException(
+        `Reconsumo con ID ${payment.relatedEntityId} no encontrado`,
+      );
+    }
+
+    if (reconsumption.status !== ReconsumptionStatus.PENDING) {
+      throw new BadRequestException(`El reconsumo no está en estado pendiente`);
+    }
+
+    const membership = reconsumption.membership;
+
+    // Actualizar reconsumo a CANCELLED
+    reconsumption.status = ReconsumptionStatus.CANCELLED;
+    await queryRunner.manager.save(reconsumption);
+
+    // Registrar historial
+    const membershipHistory = this.membershipHistoryRepository.create({
+      membership: { id: membership.id },
+      action: MembershipAction.STATUS_CHANGED,
+      performedBy: payment.reviewedBy,
+      notes: `Reconsumo rechazado: ${rejectionReason}`,
+      changes: {
+        reconsumptionId: reconsumption.id,
+        reconsumptionStatus: {
+          previous: ReconsumptionStatus.PENDING,
+          new: ReconsumptionStatus.CANCELLED,
+        },
+        rejectionReason,
+      },
+    });
+
+    await queryRunner.manager.save(membershipHistory);
+
+    this.logger.log(
+      `Reconsumo ${reconsumption.id} rechazado: ${rejectionReason}`,
+    );
+  }
+  private async processReconsumptionPayment(
+    payment: Payment,
+    queryRunner: any,
+  ) {
+    if (payment.relatedEntityType !== 'membership_reconsumption') {
+      throw new BadRequestException(
+        'El pago no está relacionado a un reconsumo',
+      );
+    }
+
+    const reconsumption = await this.reconsumptionRepository.findOne({
+      where: { id: payment.relatedEntityId },
+      relations: ['membership', 'membership.user', 'membership.plan'],
+    });
+
+    if (!reconsumption) {
+      throw new NotFoundException(
+        `Reconsumo con ID ${payment.relatedEntityId} no encontrado`,
+      );
+    }
+
+    if (reconsumption.status !== ReconsumptionStatus.PENDING) {
+      throw new BadRequestException(`El reconsumo no está en estado pendiente`);
+    }
+
+    const membership = reconsumption.membership;
+    const user = membership.user;
+    const plan = membership.plan;
+
+    // Validar fechas para reconsumo
+    const today = new Date();
+    const nextReconsumptionDate = new Date(membership.nextReconsumptionDate);
+
+    if (today < nextReconsumptionDate) {
+      throw new BadRequestException(
+        `No es posible aprobar el reconsumo. La fecha de reconsumo (${nextReconsumptionDate.toISOString().split('T')[0]}) aún no ha llegado.`,
+      );
+    }
+
+    // Actualizar fechas de membresía
+    const oldStartDate = new Date(membership.startDate);
+    const oldEndDate = new Date(membership.endDate);
+
+    // Calcular nuevas fechas
+    const newStartDate = new Date(oldStartDate);
+    newStartDate.setMonth(newStartDate.getMonth() + 1);
+
+    const newEndDate = new Date(oldEndDate);
+    newEndDate.setMonth(newEndDate.getMonth() + 1);
+
+    const newNextReconsumptionDate = new Date(newEndDate);
+    newNextReconsumptionDate.setDate(newNextReconsumptionDate.getDate() + 1);
+
+    // Actualizar membresía
+    membership.startDate = newStartDate;
+    membership.endDate = newEndDate;
+    membership.nextReconsumptionDate = newNextReconsumptionDate;
+    await queryRunner.manager.save(membership);
+
+    // Actualizar reconsumo
+    reconsumption.status = ReconsumptionStatus.ACTIVE;
+    await queryRunner.manager.save(reconsumption);
+
+    // Procesar volúmenes del árbol con el monto de reconsumo
+    const minimumReconsumptionAmount = membership.minimumReconsumptionAmount;
+    await this.processTreeVolumesReConsumption(
+      user,
+      plan,
+      minimumReconsumptionAmount,
+      queryRunner,
+    );
+
+    // Registrar historial
+    const membershipHistory = this.membershipHistoryRepository.create({
+      membership: { id: membership.id },
+      action: MembershipAction.RENEWED,
+      performedBy: payment.reviewedBy,
+      notes: 'Reconsumo aprobado',
+      changes: {
+        previousStartDate: oldStartDate,
+        newStartDate: newStartDate,
+        previousEndDate: oldEndDate,
+        newEndDate: newEndDate,
+        previousNextReconsumptionDate: nextReconsumptionDate,
+        newNextReconsumptionDate: newNextReconsumptionDate,
+        reconsumptionAmount: reconsumption.amount,
+      },
+    });
+
+    await queryRunner.manager.save(membershipHistory);
+
+    this.logger.log(
+      `Reconsumo procesado exitosamente para la membresía ${membership.id}`,
+    );
+  }
+
+  private async processTreeVolumesReConsumption(
+    user: User,
+    plan: MembershipPlan,
+    reconsumptionAmount: number,
+    queryRunner: any,
+  ) {
+    try {
+      const parents = await this.getAllParents(user.id);
+
+      for (const parent of parents) {
+        const parentMembership = await this.membershipRepository.findOne({
+          where: {
+            user: { id: parent.id },
+            status: MembershipStatus.ACTIVE,
+          },
+          relations: ['plan'],
+        });
+
+        if (!parentMembership) {
+          this.logger.debug(
+            `El padre ${parent.id} no tiene una membresía activa, saltando`,
+          );
+          continue;
+        }
+
+        const parentPlan = parentMembership.plan;
+
+        if (
+          !parentPlan.commissionPercentage ||
+          parentPlan.commissionPercentage <= 0
+        ) {
+          this.logger.debug(
+            `El plan ${parentPlan.id} del padre no tiene configurado un porcentaje de comisión, saltando`,
+          );
+          continue;
+        }
+
+        const side = await this.determineTreeSide(parent.id, user.id);
+        if (!side) {
+          this.logger.warn(
+            `No se pudo determinar el lado del árbol para el usuario ${user.id} con respecto al padre ${parent.id}`,
+          );
+          continue;
+        }
+
+        await this.updateWeeklyVolume(
+          parent,
+          parentPlan,
+          reconsumptionAmount,
+          side,
+          queryRunner,
+        );
+
+        await this.updateMonthlyVolume(
+          parent,
+          parentPlan,
+          reconsumptionAmount,
+          side,
+          queryRunner,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error al procesar volúmenes del árbol para reconsumo: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
   private async processMembershipPayment(payment: Payment, queryRunner: any) {
     if (payment.relatedEntityType !== 'membership') {
       throw new BadRequestException(
@@ -347,7 +578,7 @@ export class FinancePaymentApprovalService {
     await this.createOrUpdateUserRank(user, plan, queryRunner);
     const now = new Date();
     const expirationDate = new Date(now);
-    expirationDate.setDate(expirationDate.getDate() + 30);
+    expirationDate.setDate(expirationDate.getMonth() + 1);
 
     const nextReconsumptionDate = new Date(expirationDate);
     nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
@@ -426,7 +657,7 @@ export class FinancePaymentApprovalService {
     } else {
       const now = new Date();
       const expirationDate = new Date(now);
-      expirationDate.setDate(expirationDate.getDate() + 30);
+      expirationDate.setDate(expirationDate.getMonth() + 1);
 
       const nextReconsumptionDate = new Date(expirationDate);
       nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
