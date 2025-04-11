@@ -266,7 +266,12 @@ export class WithdrawalsService {
       // Obtener información del usuario
       const user = await this.userRepository.findOne({
         where: { id: userId },
-        relations: ['personalInfo', 'bankInfo', 'billingInfo'],
+        relations: [
+          'personalInfo',
+          'bankInfo',
+          'billingInfo',
+          'billingInfo.ubigeo',
+        ],
       });
 
       if (!user) {
@@ -312,6 +317,7 @@ export class WithdrawalsService {
           message: 'Debes completar tu información de facturación',
         });
       } else {
+        console.log(user.billingInfo);
         if (!user.billingInfo.address) {
           missingInfo.push({
             field: 'billingAddress',
@@ -331,6 +337,7 @@ export class WithdrawalsService {
       if (missingInfo.length > 0) {
         return {
           canWithdraw: false,
+
           reason: 'Falta información necesaria para realizar retiros',
           config: this.formatConfigForResponse(withdrawalConfig),
           availablePoints: userPoints.availablePoints,
@@ -372,6 +379,9 @@ export class WithdrawalsService {
 
       return {
         canWithdraw,
+        backName: user.bankInfo?.bankName || null,
+        accountNumber: user.bankInfo?.accountNumber || null,
+        cci: user.bankInfo?.cci || null,
         reason: canWithdraw ? 'Puedes realizar un retiro' : reason,
         config: this.formatConfigForResponse(withdrawalConfig),
         availablePoints: userPoints.availablePoints,
