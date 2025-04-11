@@ -44,6 +44,12 @@ import {
   MembershipReconsumption,
   ReconsumptionStatus,
 } from 'src/memberships/entities/membership-recosumption.entity';
+import {
+  getFirstDayOfMonth,
+  getFirstDayOfWeek,
+  getLastDayOfMonth,
+  getLastDayOfWeek,
+} from 'src/utils/dates';
 
 @Injectable()
 export class FinancePaymentApprovalService {
@@ -578,8 +584,7 @@ export class FinancePaymentApprovalService {
     await this.createOrUpdateUserRank(user, plan, queryRunner);
     const now = new Date();
     const expirationDate = new Date(now);
-    expirationDate.setDate(expirationDate.getMonth() + 1);
-
+    expirationDate.setMonth(expirationDate.getMonth() + 1);
     const nextReconsumptionDate = new Date(expirationDate);
     nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
 
@@ -1202,8 +1207,8 @@ export class FinancePaymentApprovalService {
   ) {
     try {
       const now = new Date();
-      const weekStartDate = this.getFirstDayOfWeek(now);
-      const weekEndDate = this.getLastDayOfWeek(now);
+      const weekStartDate = getFirstDayOfWeek(now);
+      const weekEndDate = getLastDayOfWeek(now);
 
       const existingVolume = await this.weeklyVolumeRepository.findOne({
         where: {
@@ -1213,7 +1218,6 @@ export class FinancePaymentApprovalService {
           weekEndDate: weekEndDate,
         },
       });
-      console.log('side', side);
 
       if (existingVolume) {
         if (side == VolumeSide.LEFT) {
@@ -1262,14 +1266,9 @@ export class FinancePaymentApprovalService {
   ) {
     try {
       const now = new Date();
-      const monthStartDate = new Date(
-        Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
-      );
+      const monthStartDate = getFirstDayOfMonth(now);
       // Obtener el último día del mes correctamente - el día 0 del mes siguiente es el último día del mes actual
-      const monthEndDate = new Date(
-        Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
-      );
-
+      const monthEndDate = getLastDayOfMonth(now);
       const existingVolume = await this.monthlyVolumeRankRepository.findOne({
         where: {
           user: { id: parent.id },
@@ -1278,7 +1277,6 @@ export class FinancePaymentApprovalService {
           monthEndDate: monthEndDate,
         },
       });
-
       if (existingVolume) {
         if (side === VolumeSide.LEFT) {
           existingVolume.leftVolume =
@@ -1324,37 +1322,5 @@ export class FinancePaymentApprovalService {
       );
       throw error;
     }
-  }
-  private getFirstDayOfWeek(date: Date): Date {
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(date);
-    monday.setDate(diff);
-    // Asegurarse de que la fecha sea correcta, sin ajustes por zona horaria
-    monday.setHours(0, 0, 0, 0);
-    return new Date(
-      monday.getFullYear(),
-      monday.getMonth(),
-      monday.getDate(),
-      0,
-      0,
-      0,
-      0,
-    );
-  }
-
-  private getLastDayOfWeek(date: Date): Date {
-    const firstDay = this.getFirstDayOfWeek(date);
-    // Crear una nueva fecha para el domingo (6 días después del lunes)
-    const sunday = new Date(
-      firstDay.getFullYear(),
-      firstDay.getMonth(),
-      firstDay.getDate() + 6,
-      23,
-      59,
-      59,
-      999,
-    );
-    return sunday;
   }
 }

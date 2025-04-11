@@ -16,6 +16,12 @@ import {
   WeeklyVolume,
 } from 'src/points/entities/weekly_volumes.entity';
 import { User } from 'src/user/entities/user.entity';
+import {
+  getFirstDayOfPreviousWeek,
+  getFirstDayOfWeek,
+  getLastDayOfPreviousWeek,
+  getLastDayOfWeek,
+} from 'src/utils/dates';
 import { DataSource, Repository } from 'typeorm';
 
 @Injectable()
@@ -242,41 +248,17 @@ export class WeeklyVolumeService {
 
   private getLastWeekDates(): { start: Date; end: Date } {
     const today = new Date();
-    const currentDay = today.getDay(); // 0 = domingo, 1 = lunes, etc.
-
-    // Calcular fecha de inicio (lunes) de la semana pasada
-    const lastMonday = new Date(today);
-    lastMonday.setDate(today.getDate() - currentDay - 6); // Retroceder al lunes de la semana pasada
-    lastMonday.setHours(0, 0, 0, 0);
-
-    // Calcular fecha de fin (domingo) de la semana pasada
-    const lastSunday = new Date(lastMonday);
-    lastSunday.setDate(lastMonday.getDate() + 6);
-    lastSunday.setHours(23, 59, 59, 999);
-
     return {
-      start: lastMonday,
-      end: lastSunday,
+      start: getFirstDayOfPreviousWeek(today),
+      end: getLastDayOfPreviousWeek(today),
     };
   }
 
   private getCurrentWeekDates(): { start: Date; end: Date } {
     const today = new Date();
-    const currentDay = today.getDay(); // 0 = domingo, 1 = lunes, etc.
-
-    // Calcular fecha de inicio (lunes) de la semana actual
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
-    monday.setHours(0, 0, 0, 0);
-
-    // Calcular fecha de fin (domingo) de la semana actual
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
-
     return {
-      start: monday,
-      end: sunday,
+      start: getFirstDayOfWeek(today),
+      end: getLastDayOfWeek(today),
     };
   }
 

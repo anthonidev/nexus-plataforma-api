@@ -11,6 +11,12 @@ import {
 import { Rank } from 'src/ranks/entities/ranks.entity';
 import { UserRank } from 'src/ranks/entities/user_ranks.entity';
 import { User } from 'src/user/entities/user.entity';
+import {
+  getFirstDayOfMonth,
+  getFirstDayOfPreviousMonth,
+  getLastDayOfMonth,
+  getLastDayOfPreviousMonth,
+} from 'src/utils/dates';
 import { DataSource, Repository } from 'typeorm';
 
 @Injectable()
@@ -364,47 +370,18 @@ export class MonthlyVolumeService {
 
   private getLastMonthDates(): { start: Date; end: Date } {
     const today = new Date();
-
-    // Primer día del mes pasado
-    const firstDayLastMonth = new Date(
-      today.getFullYear(),
-      today.getMonth() - 1,
-      1,
-    );
-    firstDayLastMonth.setHours(0, 0, 0, 0);
-
-    // Último día del mes pasado
-    const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-    lastDayLastMonth.setHours(23, 59, 59, 999);
-
     return {
-      start: firstDayLastMonth,
-      end: lastDayLastMonth,
+      start: getFirstDayOfPreviousMonth(today),
+      end: getLastDayOfPreviousMonth(today),
     };
   }
 
   private getCurrentMonthDates(): { start: Date; end: Date } {
     const today = new Date();
 
-    // Primer día del mes actual
-    const firstDayCurrentMonth = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      1,
-    );
-    firstDayCurrentMonth.setHours(0, 0, 0, 0);
-
-    // Último día del mes actual
-    const lastDayCurrentMonth = new Date(
-      today.getFullYear(),
-      today.getMonth() + 1,
-      0,
-    );
-    lastDayCurrentMonth.setHours(23, 59, 59, 999);
-
     return {
-      start: firstDayCurrentMonth,
-      end: lastDayCurrentMonth,
+      start: getFirstDayOfMonth(today),
+      end: getLastDayOfMonth(today),
     };
   }
 }

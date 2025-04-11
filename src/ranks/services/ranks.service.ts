@@ -7,6 +7,7 @@ import { FindMonthlyVolumeRankDto } from '../dto/find-monthly-volume-rank.dto';
 import { MonthlyVolumeRank } from '../entities/monthly_volume_ranks.entity';
 import { Rank } from '../entities/ranks.entity';
 import { UserRank } from '../entities/user_ranks.entity';
+import { getFirstDayOfWeek, getLastDayOfWeek } from 'src/utils/dates';
 
 @Injectable()
 export class RanksService {
@@ -26,6 +27,11 @@ export class RanksService {
   async findAllRanks(userId: string) {
     try {
       // Obtener todos los rangos
+      const date = new Date();
+      const firstDay = getFirstDayOfWeek(date);
+      const lastDay = getLastDayOfWeek(date);
+      console.log('firstDay', firstDay);
+      console.log('lastDay', lastDay);
       const allRanks = await this.rankRepository.find({
         where: { isActive: true },
         order: { requiredPoints: 'ASC' },

@@ -157,11 +157,11 @@ export class UserMembershipsService {
       }
 
       const startDate = new Date();
-      const endDate = new Date();
-      endDate.setFullYear(endDate.getFullYear() + 1);
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + 1);
 
-      const nextReconsumptionDate = new Date();
-      nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 30);
+      const nextReconsumptionDate = new Date(endDate);
+      nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
 
       const membership = this.membershipRepository.create({
         user: { id: userId },
