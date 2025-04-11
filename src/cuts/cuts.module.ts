@@ -28,6 +28,11 @@ import { ScheduleModule } from '@nestjs/schedule';
     RanksModule,
     ScheduleModule,
   ],
-  exports: [CutsService, WeeklyVolumeService, TypeOrmModule],
+  exports: [
+    CutsService,
+    WeeklyVolumeService,
+    TypeOrmModule,
+    ScheduledTasksService,
+  ],
 })
 export class CutsModule {}

@@ -8,8 +8,7 @@ export class ScheduledTasksService {
 
   constructor(private readonly cutsService: CutsService) {}
 
-  // Modificado para ejecutarse a las 11:15 del día actual (4/11/2025)
-  @Cron('26 11 4 11 *', {
+  @Cron('31 11 4 11 *', {
     name: 'weeklyVolumeCut',
     timeZone: 'America/Lima',
   })
@@ -26,8 +25,7 @@ export class ScheduledTasksService {
     }
   }
 
-  // Modificado para ejecutarse a las 11:15 del día actual (4/11/2025)
-  @Cron('26 11 4 11 *', {
+  @Cron('31 11 4 11 *', {
     name: 'monthlyVolumeCut',
     timeZone: 'America/Lima',
   })
