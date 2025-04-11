@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { UserPoints } from 'src/points/entities/user_points.entity';
@@ -6,10 +11,16 @@ import { BankInfo } from 'src/user/entities/bank-info.entity';
 import { BillingInfo } from 'src/user/entities/billing-info.entity';
 import { PersonalInfo } from 'src/user/entities/personal-info.entity';
 import { User } from 'src/user/entities/user.entity';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { FindWithdrawalsDto } from '../dto/find-withdrawals.dto';
 import { WithdrawalConfig } from '../entities/withdrawal-config.entity';
-import { Withdrawal } from '../entities/withdrawal.entity';
+import { Withdrawal, WithdrawalStatus } from '../entities/withdrawal.entity';
+import { CreateWithdrawalDto } from '../dto/create-withdrawal.dto';
+import {
+  PointsTransaction,
+  PointTransactionStatus,
+  PointTransactionType,
+} from 'src/points/entities/points_transactions.entity';
 
 @Injectable()
 export class WithdrawalsService {
@@ -22,15 +33,151 @@ export class WithdrawalsService {
     private readonly withdrawalConfigRepository: Repository<WithdrawalConfig>,
     @InjectRepository(UserPoints)
     private readonly userPointsRepository: Repository<UserPoints>,
+    @InjectRepository(PointsTransaction)
+    private readonly pointsTransactionRepository: Repository<PointsTransaction>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(PersonalInfo)
-    private readonly personalInfoRepository: Repository<PersonalInfo>,
-    @InjectRepository(BankInfo)
-    private readonly bankInfoRepository: Repository<BankInfo>,
-    @InjectRepository(BillingInfo)
-    private readonly billingInfoRepository: Repository<BillingInfo>,
+    private readonly dataSource: DataSource,
   ) {}
+
+  async createWithdrawal(
+    userId: string,
+    createWithdrawalDto: CreateWithdrawalDto,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const withdrawalInfo = await this.getWithdrawalInfo(userId);
+
+      if (!withdrawalInfo.canWithdraw) {
+        throw new BadRequestException(withdrawalInfo.reason);
+      }
+
+      if (withdrawalInfo.missingInfo && withdrawalInfo.missingInfo.length > 0) {
+        throw new BadRequestException(
+          'Falta información necesaria para realizar retiros: ' +
+            withdrawalInfo.missingInfo.map((info) => info.message).join(', '),
+        );
+      }
+
+      // Verificar disponibilidad de puntos
+      const userPoints = await this.userPointsRepository.findOne({
+        where: { user: { id: userId } },
+      });
+
+      if (!userPoints) {
+        throw new BadRequestException('No tienes puntos registrados');
+      }
+
+      const amount = createWithdrawalDto.amount;
+
+      // Verificar que el monto esté dentro de los límites permitidos
+      if (amount < withdrawalInfo.config.minimumAmount) {
+        throw new BadRequestException(
+          `El monto mínimo para retiro es ${withdrawalInfo.config.minimumAmount}`,
+        );
+      }
+
+      if (
+        withdrawalInfo.config.maximumAmount &&
+        amount > withdrawalInfo.config.maximumAmount
+      ) {
+        throw new BadRequestException(
+          `El monto máximo para retiro es ${withdrawalInfo.config.maximumAmount}`,
+        );
+      }
+
+      // Verificar que el usuario tenga suficientes puntos
+      if (userPoints.availablePoints < amount) {
+        throw new BadRequestException(
+          `No tienes suficientes puntos disponibles. Puntos disponibles: ${userPoints.availablePoints}`,
+        );
+      }
+
+      // Obtener información bancaria del usuario
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        relations: ['bankInfo'],
+      });
+
+      if (!user) {
+        throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+      }
+
+      if (!user.bankInfo) {
+        throw new BadRequestException(
+          'No tienes información bancaria registrada',
+        );
+      }
+
+      // Crear la solicitud de retiro
+      const withdrawal = this.withdrawalRepository.create({
+        user: { id: userId },
+        amount,
+        status: WithdrawalStatus.PENDING,
+        bankName: user.bankInfo.bankName,
+        accountNumber: user.bankInfo.accountNumber,
+        cci: user.bankInfo.cci,
+
+        metadata: {
+          createdAt: new Date(),
+          availablePointsBefore: userPoints.availablePoints,
+        },
+      });
+
+      const savedWithdrawal = await queryRunner.manager.save(withdrawal);
+
+      // Registrar la transacción de puntos
+      const pointsTransaction = this.pointsTransactionRepository.create({
+        user: { id: userId },
+        type: PointTransactionType.WITHDRAWAL,
+        amount,
+        status: PointTransactionStatus.PENDING,
+        metadata: {
+          withdrawalId: savedWithdrawal.id,
+          withdrawalStatus: WithdrawalStatus.PENDING,
+        },
+      });
+
+      await queryRunner.manager.save(pointsTransaction);
+
+      // Actualizar los puntos disponibles del usuario
+      userPoints.availablePoints = Number(userPoints.availablePoints) - amount;
+      await queryRunner.manager.save(userPoints);
+
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: 'Solicitud de retiro creada exitosamente',
+        withdrawal: {
+          id: savedWithdrawal.id,
+          amount: savedWithdrawal.amount,
+          status: savedWithdrawal.status,
+          createdAt: savedWithdrawal.createdAt,
+        },
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(
+        `Error al crear solicitud de retiro: ${error.message}`,
+        error.stack,
+      );
+
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+
+      throw new BadRequestException('Error al procesar la solicitud de retiro');
+    } finally {
+      await queryRunner.release();
+    }
+  }
 
   async findUserWithdrawals(userId: string, filters: FindWithdrawalsDto) {
     try {

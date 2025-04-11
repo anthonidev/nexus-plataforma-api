@@ -16,9 +16,4 @@ export class CreateWithdrawalDto {
   @IsNotEmpty({ message: 'El monto es requerido' })
   @Type(() => Number)
   amount: number;
-
-  @IsString()
-  @IsOptional()
-  @Transform(({ value }) => value?.trim())
-  notes?: string;
 }
