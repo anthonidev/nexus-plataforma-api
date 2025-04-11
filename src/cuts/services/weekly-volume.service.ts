@@ -123,32 +123,40 @@ export class WeeklyVolumeService {
             continue;
           }
 
-          // 2. Determinar el lado con mayor volumen
-          let selectedSide: VolumeSide;
+          // 2. Determinar el lado con menor volumen para calcular comisiones
+          // y el lado con mayor volumen para el carryOver
+          let higherSide: VolumeSide;
+          let lowerSide: VolumeSide;
+
           if (volume.leftVolume >= volume.rightVolume) {
-            selectedSide = VolumeSide.LEFT;
+            higherSide = VolumeSide.LEFT;
+            lowerSide = VolumeSide.RIGHT;
           } else {
-            selectedSide = VolumeSide.RIGHT;
+            higherSide = VolumeSide.RIGHT;
+            lowerSide = VolumeSide.LEFT;
           }
-          volume.selectedSide = selectedSide;
+
+          // Guardar el lado con volumen menor para los cálculos
+          volume.selectedSide = lowerSide;
 
           // Calcular puntos a asignar
           const commissionPercentage =
             activeMembership.plan.commissionPercentage / 100;
           const higherVolume =
-            selectedSide === VolumeSide.LEFT
+            higherSide === VolumeSide.LEFT
               ? volume.leftVolume
               : volume.rightVolume;
           const lowerVolume =
-            selectedSide === VolumeSide.LEFT
-              ? volume.rightVolume
-              : volume.leftVolume;
+            lowerSide === VolumeSide.LEFT
+              ? volume.leftVolume
+              : volume.rightVolume;
 
           // Puntos comisionables (se calcula sobre el volumen menor)
           const pointsToAdd = lowerVolume * commissionPercentage;
 
-          // 3. Actualizar el estado del volumen
+          // 3. Actualizar el estado del volumen y marcar como pagado
           volume.status = VolumeProcessingStatus.PROCESSED;
+          volume.paidAmount = pointsToAdd;
 
           // 4. Actualizar los puntos del usuario
           let userPoints = await this.userPointsRepository.findOne({
@@ -192,16 +200,20 @@ export class WeeklyVolumeService {
 
           await queryRunner.manager.save(pointsTransaction);
 
-          // 6 y 7. Crear un nuevo volumen para la semana actual con el volumen restante
+          // 6. Calcular el volumen a trasladar (el diferencial que queda después de compensar lados)
+          const carryOverVolume = Math.max(0, higherVolume - lowerVolume);
+
+          // 7. Crear un nuevo volumen para la semana actual con el volumen restante
+          // CORRECCIÓN: Se traslada el volumen restante (carry over) al mismo lado donde estaba
           const newVolume = this.weeklyVolumeRepository.create({
             user: { id: volume.user.id },
             membershipPlan: activeMembership.plan,
-            leftVolume: selectedSide === VolumeSide.LEFT ? 0 : lowerVolume,
-            rightVolume: selectedSide === VolumeSide.RIGHT ? 0 : lowerVolume,
+            leftVolume: higherSide === VolumeSide.LEFT ? carryOverVolume : 0,
+            rightVolume: higherSide === VolumeSide.RIGHT ? carryOverVolume : 0,
             weekStartDate: currentWeekDates.start,
             weekEndDate: currentWeekDates.end,
             status: VolumeProcessingStatus.PENDING,
-            carryOverVolume: lowerVolume,
+            carryOverVolume: carryOverVolume,
           });
 
           await queryRunner.manager.save(newVolume);
