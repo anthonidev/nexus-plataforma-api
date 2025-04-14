@@ -86,17 +86,29 @@ export class GlobalAccountsSeedService {
         user.referralCode = this.generateReferralCode();
         user.role = clientRole;
         user.position = 'LEFT';
-        user.parent = masterUser;
+        
+        // Determinar quién es el padre
+        // Primera cuenta: su padre es la cuenta maestra
+        // Demás cuentas: su padre es la cuenta anterior
+        if (i === 1) {
+          user.parent = masterUser;
+        } else {
+          const previousUser = accounts[accounts.length - 1];
+          user.parent = previousUser;
+        }
+        
+        // Todas usan el código de referido de la cuenta maestra
         user.referrerCode = masterUser.referralCode;
 
         const savedUser = await queryRunner.manager.save(user);
 
-        // Actualizar la referencia leftChild en el padre si es la primera cuenta
+        // Actualizar la referencia leftChild en el padre
         if (i === 1) {
+          // Primera cuenta: hija izquierda de la cuenta maestra
           masterUser.leftChild = savedUser;
           await queryRunner.manager.save(masterUser);
         } else {
-          // Para las demás cuentas, actualizar la referencia leftChild de la cuenta anterior
+          // Demás cuentas: hija izquierda de la cuenta anterior
           const previousUser = accounts[accounts.length - 1];
           previousUser.leftChild = savedUser;
           await queryRunner.manager.save(previousUser);
