@@ -5,7 +5,12 @@ import {
   Query,
   ParseIntPipe,
   Logger,
+  UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { User } from 'src/user/entities/user.entity';
 import { Public } from 'src/auth/decorators/is-public.decorator';
 import { UserTreeService } from '../services/user-tree.service';
 
@@ -14,16 +19,6 @@ export class UserTreeController {
   private readonly logger = new Logger(UserTreeController.name);
   constructor(private readonly userTreeService: UserTreeService) {}
 
-  @Public()
-  @Get('master')
-  async getMasterUser() {
-    const masterUser = await this.userTreeService.findMasterUser();
-    return {
-      id: masterUser.id,
-      email: masterUser.email,
-      referralCode: masterUser.referralCode,
-    };
-  }
 
   @Public()
   @Get('statistics')
@@ -54,9 +49,10 @@ export class UserTreeController {
   }
 
   /**
-   * Nuevo endpoint para obtener un nodo específico con sus ancestros y descendientes
+   * Endpoint para obtener un nodo específico con sus ancestros y descendientes
+   * con validación de acceso basada en el usuario autenticado
    */
-  @Public()
+  @UseGuards(JwtAuthGuard)
   @Get('node/:nodeId')
   async getNodeWithContext(
     @Param('nodeId') nodeId: string,
@@ -64,14 +60,24 @@ export class UserTreeController {
     descendantDepth: number = 3,
     @Query('ancestorDepth', new ParseIntPipe({ optional: true }))
     ancestorDepth: number = 3,
+    @GetUser() currentUser: User,
   ) {
     const startTime = Date.now();
 
+    // Verificar si el usuario tiene acceso al nodo solicitado
+    const hasAccess = await this.userTreeService.checkUserAccess(currentUser.id, nodeId);
+    
+    if (!hasAccess) {
+      throw new ForbiddenException('No tienes permiso para ver este nodo');
+    }
+
     // Obtener información del nodo con sus ancestros y descendientes
+    // limitando los ancestros al usuario autenticado
     const nodeContext = await this.userTreeService.getNodeWithContext(
       nodeId,
       descendantDepth,
       ancestorDepth,
+      currentUser.id,
     );
 
     const duration = Date.now() - startTime;

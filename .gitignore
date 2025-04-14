@@ -1,5 +1,6 @@
 # compiled output
 prompt.txt
+usuarios.txt
 /dist
 /node_modules
 /build

@@ -151,8 +151,24 @@ export class WeeklyVolumeService {
               ? volume.leftVolume
               : volume.rightVolume;
 
-          // Puntos comisionables (se calcula sobre el volumen menor)
-          const pointsToAdd = lowerVolume * commissionPercentage;
+          // Contar referidos directos activos
+          const { directCount } = await this.countDirectReferrals(volume.user.id);
+          
+          // Aplicar límites según número de referidos directos
+          let effectiveLowerVolume = lowerVolume;
+          
+          if (directCount <= 2 && lowerVolume > 12500) {
+            effectiveLowerVolume = 12500;
+          } else if (directCount === 3 && lowerVolume > 50000) {
+            effectiveLowerVolume = 50000;
+          } else if (directCount === 4 && lowerVolume > 150000) {
+            effectiveLowerVolume = 150000;
+          } else if (directCount >= 5 && lowerVolume > 250000) {
+            effectiveLowerVolume = 250000;
+          }
+
+          // Puntos comisionables (se calcula sobre el volumen menor efectivo)
+          const pointsToAdd = effectiveLowerVolume * commissionPercentage;
 
           // 3. Actualizar el estado del volumen y marcar como pagado
           volume.status = VolumeProcessingStatus.PROCESSED;
@@ -195,6 +211,10 @@ export class WeeklyVolumeService {
               rightVolume: volume.rightVolume,
               selectedSide: volume.selectedSide,
               commissionPercentage: activeMembership.plan.commissionPercentage,
+              directReferrals: directCount,
+              originalLowerVolume: lowerVolume,
+              effectiveLowerVolume: effectiveLowerVolume,
+              limitApplied: lowerVolume !== effectiveLowerVolume
             },
           });
 
@@ -204,7 +224,7 @@ export class WeeklyVolumeService {
           const carryOverVolume = Math.max(0, higherVolume - lowerVolume);
 
           // 7. Crear un nuevo volumen para la semana actual con el volumen restante
-          // CORRECCIÓN: Se traslada el volumen restante (carry over) al mismo lado donde estaba
+          // Se traslada el volumen restante (carry over) al mismo lado donde estaba
           const newVolume = this.weeklyVolumeRepository.create({
             user: { id: volume.user.id },
             membershipPlan: activeMembership.plan,
@@ -253,6 +273,45 @@ export class WeeklyVolumeService {
       throw error;
     } finally {
       await queryRunner.release();
+    }
+  }
+
+  // Método para contar referidos directos activos
+  private async countDirectReferrals(userId: string): Promise<{directCount: number}> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['referralCode']
+      });
+      
+      if (!user || !user.referralCode) {
+        return { directCount: 0 };
+      }
+      
+      // Encontrar usuarios que tienen este usuario como referido
+      const directReferrals = await this.userRepository.find({
+        where: { referrerCode: user.referralCode }
+      });
+      
+      // Verificar cuántos tienen membresía activa
+      let activeCount = 0;
+      for (const referral of directReferrals) {
+        const activeMembership = await this.membershipRepository.findOne({
+          where: {
+            user: { id: referral.id },
+            status: MembershipStatus.ACTIVE,
+          },
+        });
+        
+        if (activeMembership) {
+          activeCount++;
+        }
+      }
+      
+      return { directCount: activeCount };
+    } catch (error) {
+      this.logger.error(`Error contando referidos directos: ${error.message}`);
+      return { directCount: 0 };
     }
   }
 

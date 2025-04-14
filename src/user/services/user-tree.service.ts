@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
@@ -44,15 +44,84 @@ export class UserTreeService {
   }
 
   /**
-   * Nuevo método para obtener un nodo con su contexto completo:
+   * Verifica si un usuario tiene acceso a un nodo específico en el árbol
+   * @param userId ID del usuario actual
+   * @param nodeId ID del nodo al que se quiere acceder
+   * @returns true si el usuario tiene acceso, false en caso contrario
+   */
+  async checkUserAccess(userId: string, nodeId: string): Promise<boolean> {
+    try {
+      // Si el usuario intenta acceder a su propio nodo, siempre tiene permiso
+      if (userId === nodeId) {
+        return true;
+      }
+
+      // Obtener el nodo del usuario actual
+      const currentUser = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'parent', 'leftChild', 'rightChild'],
+      });
+
+      if (!currentUser) {
+        return false;
+      }
+
+      // Verificar si el nodo solicitado es descendiente del usuario actual
+      return this.isDescendant(userId, nodeId);
+    } catch (error) {
+      this.logger.error(`Error al verificar acceso: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Verifica si un nodo es descendiente de otro
+   * @param ancestorId ID del posible ancestro
+   * @param descendantId ID del posible descendiente
+   * @returns true si es descendiente, false en caso contrario
+   */
+  private async isDescendant(ancestorId: string, descendantId: string): Promise<boolean> {
+    // Consulta SQL recursiva para verificar si es descendiente
+    const query = `
+      WITH RECURSIVE user_tree AS (
+        SELECT id, parent_id, left_child_id, right_child_id
+        FROM users
+        WHERE id = $1
+        UNION ALL
+        SELECT u.id, u.parent_id, u.left_child_id, u.right_child_id
+        FROM users u
+        JOIN user_tree ut ON ut.left_child_id = u.id OR ut.right_child_id = u.id
+      )
+      SELECT EXISTS (
+        SELECT 1 FROM user_tree WHERE id = $2
+      ) as is_descendant;
+    `;
+
+    const result = await this.userRepository.query(query, [ancestorId, descendantId]);
+    return result[0]?.is_descendant === true;
+  }
+
+  /**
+   * Verifica si un nodo es ancestro de otro
+   * @param descendantId ID del descendiente
+   * @param ancestorId ID del posible ancestro
+   * @returns true si es ancestro, false en caso contrario
+   */
+  private async isAncestor(descendantId: string, ancestorId: string): Promise<boolean> {
+    return this.isDescendant(ancestorId, descendantId);
+  }
+
+  /**
+   * Método para obtener un nodo con su contexto completo:
    * - El nodo mismo con sus descendientes hasta cierta profundidad
-   * - Sus ancestros hasta la raíz o una profundidad determinada
+   * - Sus ancestros hasta la raíz o una profundidad determinada, limitado por el usuario actual
    * - Opcionalmente, información sobre hermanos para navegación lateral
    */
   async getNodeWithContext(
     nodeId: string,
     descendantDepth: number = 3,
     ancestorDepth: number = 3,
+    currentUserId: string, // Usuario actualmente autenticado
   ): Promise<NodeContext> {
     // Verificar que el nodo existe
     const nodeExists = await this.userRepository.findOne({
@@ -100,12 +169,18 @@ export class UserTreeService {
     // Añadir a nuestra colección
     fetchedUsers.set(currentNode.id, this.mapUserToFlatUser(currentNode));
 
-    // Recopilar IDs de ancestros
+    // Recopilar IDs de ancestros, pero solo hasta el usuario autenticado
     let currentAncestor = currentNode.parent;
     const ancestorIds: string[] = [];
+    let reachedCurrentUser = false;
 
-    // Añadir ancestros a la lista de IDs a buscar
-    while (currentAncestor && ancestorIds.length < ancestorDepth) {
+    // Añadir ancestros a la lista de IDs a buscar, limitando hasta el usuario actual
+    while (currentAncestor && ancestorIds.length < ancestorDepth && !reachedCurrentUser) {
+      // Si llegamos al usuario actual, marcamos que ya no debemos subir más en el árbol
+      if (currentAncestor.id === currentUserId) {
+        reachedCurrentUser = true;
+      }
+      
       ancestorIds.push(currentAncestor.id);
       usersToFetch.add(currentAncestor.id);
 
@@ -118,6 +193,11 @@ export class UserTreeService {
 
       fetchedUsers.set(ancestor.id, this.mapUserToFlatUser(ancestor));
       currentAncestor = ancestor.parent;
+      
+      // Si ya alcanzamos al usuario actual, no seguimos subiendo en la jerarquía
+      if (reachedCurrentUser) {
+        break;
+      }
     }
 
     // Para los descendientes, hacemos como en getUserTreeOptimized pero con mejoras
@@ -126,7 +206,6 @@ export class UserTreeService {
 
     // Iterativamente buscamos usuarios hasta alcanzar la profundidad máxima
     for (let depth = 0; depth < descendantDepth; depth++) {
-      // Cambiado de <= a < para ser más directo
       if (descendantIdsToProcess.size === 0) break;
 
       this.logger.debug(
@@ -141,8 +220,8 @@ export class UserTreeService {
       const users = await this.userRepository
         .createQueryBuilder('user')
         .leftJoinAndSelect('user.personalInfo', 'personalInfo')
-        .leftJoinAndSelect('user.leftChild', 'leftChild') // Cambiado a leftJoinAndSelect para obtener datos completos
-        .leftJoinAndSelect('user.rightChild', 'rightChild') // Cambiado a leftJoinAndSelect para obtener datos completos
+        .leftJoinAndSelect('user.leftChild', 'leftChild') 
+        .leftJoinAndSelect('user.rightChild', 'rightChild') 
         .leftJoinAndSelect('leftChild.personalInfo', 'leftChildInfo')
         .leftJoinAndSelect('rightChild.personalInfo', 'rightChildInfo')
         .where('user.id IN (:...userIds)', { userIds })
@@ -641,27 +720,5 @@ export class UserTreeService {
       fullUsers,
       activePercentage: ((activeUsers / totalUsers) * 100).toFixed(2) + '%',
     };
-  }
-
-  /**
-   * Encuentra el usuario maestro (raíz del árbol)
-   */
-  async findMasterUser(): Promise<User> {
-    // Buscar el usuario que no tiene padre (usuario raíz)
-    const masterUser = await this.userRepository
-      .createQueryBuilder('user')
-      .leftJoinAndSelect('user.personalInfo', 'personalInfo')
-      .leftJoinAndSelect('user.leftChild', 'leftChild')
-      .leftJoinAndSelect('user.rightChild', 'rightChild')
-      .leftJoin('user.parent', 'parent')
-      .where('parent.id IS NULL')
-      .orderBy('user.createdAt', 'ASC')
-      .getOne();
-
-    if (!masterUser) {
-      throw new NotFoundException('No se encontró el usuario maestro');
-    }
-
-    return masterUser;
   }
 }

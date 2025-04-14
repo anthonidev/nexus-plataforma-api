@@ -12,21 +12,21 @@ import { User } from 'src/user/entities/user.entity';
 import { View } from 'src/user/entities/view.entity';
 import { DataSource, In, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { rolData, vistaData } from './data/auth.data';
-import { membershipPlansData } from './data/membership-plans.data';
-import { paymentConfigsData } from './data/payment-configs.data';
+import { rolData, vistaData } from '../data/auth.data';
+import { membershipPlansData } from '../data/membership-plans.data';
+import { paymentConfigsData } from '../data/payment-configs.data';
 import {
   departamentosData,
   distritosData,
   provinciasData,
-} from './data/ubigeo.data';
-import { withdrawalConfigsData } from './data/withdrawal-config.data';
+} from '../data/ubigeo.data';
 
 import { Rank } from 'src/ranks/entities/ranks.entity';
 import { WithdrawalConfig } from 'src/withdrawals/entities/withdrawal-config.entity';
-import { rankData } from './data/rank.data';
 import { CutConfiguration } from 'src/cuts/entities/cut_configurations.entity';
-import { cutConfigurationsData } from './data/cuts.data';
+import { cutConfigurationsData } from '../data/cuts.data';
+import { withdrawalConfigsData } from '../data/withdrawal-config.data';
+import { rankData } from '../data/rank.data';
 @Injectable()
 export class SeedService {
   private readonly logger = new Logger(SeedService.name);

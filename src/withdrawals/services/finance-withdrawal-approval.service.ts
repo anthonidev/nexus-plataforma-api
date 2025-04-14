@@ -52,9 +52,7 @@ export class FinanceWithdrawalApprovalService {
       });
 
       if (!withdrawal) {
-        throw new NotFoundException(
-          `Retiro con ID ${withdrawalId} no encontrado`,
-        );
+        throw new NotFoundException(`Retiro con ID ${withdrawalId} no encontrado`);
       }
 
       if (withdrawal.status !== WithdrawalStatus.PENDING) {
@@ -84,7 +82,7 @@ export class FinanceWithdrawalApprovalService {
 
       await queryRunner.manager.save(withdrawal);
 
-      // Actualizar la transacción de puntos asociada
+      // Buscar la transacción de puntos correspondiente
       const pointsTransaction = await this.pointsTransactionRepository.findOne({
         where: {
           type: PointTransactionType.WITHDRAWAL,
@@ -108,9 +106,36 @@ export class FinanceWithdrawalApprovalService {
 
         await queryRunner.manager.save(pointsTransaction);
       } else {
-        this.logger.warn(
-          `No se encontró transacción de puntos para el retiro ${withdrawalId}`,
-        );
+        // Buscar de manera más flexible si no se encuentra con el método anterior
+        const transactions = await this.pointsTransactionRepository.find({
+          where: {
+            user: { id: withdrawal.user.id },
+            type: PointTransactionType.WITHDRAWAL,
+            status: PointTransactionStatus.PENDING,
+          },
+          order: { createdAt: 'DESC' },
+          take: 1,
+        });
+
+        if (transactions.length > 0) {
+          const transaction = transactions[0];
+          transaction.status = PointTransactionStatus.COMPLETED;
+          transaction.metadata = {
+            ...transaction.metadata,
+            withdrawalId: withdrawalId.toString(),
+            withdrawalStatus: WithdrawalStatus.APPROVED,
+            approvedAt: new Date(),
+            approvedBy: reviewerId,
+            codeOperation: approveWithdrawalDto.codeOperation,
+            numberTicket: approveWithdrawalDto.numberTicket,
+          };
+
+          await queryRunner.manager.save(transaction);
+        } else {
+          this.logger.warn(
+            `No se encontró transacción de puntos para el retiro ${withdrawalId}`,
+          );
+        }
       }
 
       // Actualizar el campo totalWithdrawnPoints en UserPoints
@@ -174,9 +199,7 @@ export class FinanceWithdrawalApprovalService {
       });
 
       if (!withdrawal) {
-        throw new NotFoundException(
-          `Retiro con ID ${withdrawalId} no encontrado`,
-        );
+        throw new NotFoundException(`Retiro con ID ${withdrawalId} no encontrado`);
       }
 
       if (withdrawal.status !== WithdrawalStatus.PENDING) {
@@ -209,7 +232,7 @@ export class FinanceWithdrawalApprovalService {
 
       await queryRunner.manager.save(withdrawal);
 
-      // Actualizar la transacción de puntos asociada
+      // Buscar la transacción de puntos correspondiente
       const pointsTransaction = await this.pointsTransactionRepository.findOne({
         where: {
           type: PointTransactionType.WITHDRAWAL,
@@ -232,9 +255,35 @@ export class FinanceWithdrawalApprovalService {
 
         await queryRunner.manager.save(pointsTransaction);
       } else {
-        this.logger.warn(
-          `No se encontró transacción de puntos para el retiro ${withdrawalId}`,
-        );
+        // Buscar de manera más flexible si no se encuentra con el método anterior
+        const transactions = await this.pointsTransactionRepository.find({
+          where: {
+            user: { id: withdrawal.user.id },
+            type: PointTransactionType.WITHDRAWAL,
+            status: PointTransactionStatus.PENDING,
+          },
+          order: { createdAt: 'DESC' },
+          take: 1,
+        });
+
+        if (transactions.length > 0) {
+          const transaction = transactions[0];
+          transaction.status = PointTransactionStatus.CANCELLED;
+          transaction.metadata = {
+            ...transaction.metadata,
+            withdrawalId: withdrawalId.toString(),
+            withdrawalStatus: WithdrawalStatus.REJECTED,
+            rejectedAt: new Date(),
+            rejectedBy: reviewerId,
+            rejectionReason: rejectWithdrawalDto.rejectionReason,
+          };
+
+          await queryRunner.manager.save(transaction);
+        } else {
+          this.logger.warn(
+            `No se encontró transacción de puntos para el retiro ${withdrawalId}`,
+          );
+        }
       }
 
       // Devolver los puntos al usuario

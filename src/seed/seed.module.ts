@@ -9,9 +9,11 @@ import { Role } from 'src/user/entities/roles.entity';
 import { View } from 'src/user/entities/view.entity';
 import { UserModule } from 'src/user/user.module';
 import { WithdrawalsModule } from 'src/withdrawals/withdrawals.module';
-import { SeedController } from './seed.controller';
-import { SeedService } from './seed.service';
 import { CutsModule } from 'src/cuts/cuts.module';
+import { SeedController } from './controllers/seed.controller';
+import { SeedService } from './services/seed.service';
+import { GlobalAccountsController } from './controllers/global-accounts.controller';
+import { GlobalAccountsSeedService } from './services/global-accounts-seed.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([View, Role, MembershipPlan, PaymentConfig, Rank]),
@@ -21,7 +23,7 @@ import { CutsModule } from 'src/cuts/cuts.module';
     WithdrawalsModule,
     CutsModule,
   ],
-  controllers: [SeedController],
-  providers: [SeedService],
+  controllers: [SeedController,GlobalAccountsController],
+  providers: [SeedService,GlobalAccountsSeedService],
 })
 export class SeedModule {}

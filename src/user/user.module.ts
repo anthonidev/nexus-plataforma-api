@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProfileController } from './controllers/profile.controller';
-import { UserTreeController } from './controllers/user-tree.controller';
 import { UserController } from './controllers/user.controller';
 import { BankInfo } from './entities/bank-info.entity';
 import { BillingInfo } from './entities/billing-info.entity';
@@ -17,12 +16,14 @@ import { UserService } from './services/user.service';
 import { UbigeoController } from './controllers/ubigeo.controller';
 import { UbigeoService } from './services/ubigeo.service';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
+import { MembershipsModule } from 'src/memberships/memberships.module';
+import { UserTreeController } from './controllers/user-tree.controller';
 
 @Module({
   controllers: [
     UserController,
-    UserTreeController,
     ProfileController,
+    UserTreeController,
     UbigeoController,
   ],
   providers: [UserService, UserTreeService, ProfileService, UbigeoService],
@@ -38,6 +39,7 @@ import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
       BankInfo,
     ]),
     CloudinaryModule,
+    MembershipsModule
   ],
   exports: [UserService, TypeOrmModule],
 })
