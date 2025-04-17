@@ -19,13 +19,11 @@ export class UserTreeController {
   private readonly logger = new Logger(UserTreeController.name);
   constructor(private readonly userTreeService: UserTreeService) {}
 
-
-  @Public()
-  @Get('statistics')
-  async getTreeStatistics() {
-    return this.userTreeService.getTreeStatistics();
-  }
-
+  // @Public()
+  // @Get('statistics')
+  // async getTreeStatistics() {
+  //   return this.userTreeService.getTreeStatistics();
+  // }
   @Public()
   @Get(':userId')
   async getUserTree(
@@ -48,10 +46,6 @@ export class UserTreeController {
     };
   }
 
-  /**
-   * Endpoint para obtener un nodo específico con sus ancestros y descendientes
-   * con validación de acceso basada en el usuario autenticado
-   */
   @UseGuards(JwtAuthGuard)
   @Get('node/:nodeId')
   async getNodeWithContext(
@@ -64,15 +58,15 @@ export class UserTreeController {
   ) {
     const startTime = Date.now();
 
-    // Verificar si el usuario tiene acceso al nodo solicitado
-    const hasAccess = await this.userTreeService.checkUserAccess(currentUser.id, nodeId);
-    
+    const hasAccess = await this.userTreeService.checkUserAccess(
+      currentUser.id,
+      nodeId,
+    );
+
     if (!hasAccess) {
       throw new ForbiddenException('No tienes permiso para ver este nodo');
     }
 
-    // Obtener información del nodo con sus ancestros y descendientes
-    // limitando los ancestros al usuario autenticado
     const nodeContext = await this.userTreeService.getNodeWithContext(
       nodeId,
       descendantDepth,

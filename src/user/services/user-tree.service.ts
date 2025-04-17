@@ -1,9 +1,14 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  Membership,
+  MembershipStatus,
+} from 'src/memberships/entities/membership.entity';
+import { UserRank } from 'src/ranks/entities/user_ranks.entity';
 import { User } from 'src/user/entities/user.entity';
-import { NodeContext, TreeNode } from '../interface/tree-node.interface';
+import { In, Repository } from 'typeorm';
 import { FlatUser } from '../interface/flat-user.interface';
+import { NodeContext, TreeNode } from '../interface/tree-node.interface';
 
 @Injectable()
 export class UserTreeService {
@@ -12,11 +17,24 @@ export class UserTreeService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Membership)
+    private readonly membershipRepository: Repository<Membership>,
+    @InjectRepository(UserRank)
+    private readonly userRankRepository: Repository<UserRank>,
   ) {}
 
-  async getUserTree(userId: string, maxDepth: number = 3): Promise<TreeNode> {
+  async getUserTree(userId: string, maxDepth = 3): Promise<TreeNode> {
     try {
-      return await this.getUserTreeOptimized(userId, maxDepth);
+      const rootExists = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id'],
+      });
+
+      if (!rootExists) {
+        throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+      }
+
+      return this.getUserTreeOptimized(userId, maxDepth);
     } catch (error) {
       this.logger.warn(
         `Error al obtener árbol optimizado: ${error.message}. Usando método alternativo.`,
@@ -41,15 +59,6 @@ export class UserTreeService {
         return true;
       }
 
-      const currentUser = await this.userRepository.findOne({
-        where: { id: userId },
-        select: ['id', 'parent', 'leftChild', 'rightChild'],
-      });
-
-      if (!currentUser) {
-        return false;
-      }
-
       return this.isDescendant(userId, nodeId);
     } catch (error) {
       this.logger.error(`Error al verificar acceso: ${error.message}`);
@@ -57,7 +66,10 @@ export class UserTreeService {
     }
   }
 
-  private async isDescendant(ancestorId: string, descendantId: string): Promise<boolean> {
+  private async isDescendant(
+    ancestorId: string,
+    descendantId: string,
+  ): Promise<boolean> {
     const query = `
       WITH RECURSIVE user_tree AS (
         SELECT id, parent_id, left_child_id, right_child_id
@@ -73,20 +85,20 @@ export class UserTreeService {
       ) as is_descendant;
     `;
 
-    const result = await this.userRepository.query(query, [ancestorId, descendantId]);
+    const result = await this.userRepository.query(query, [
+      ancestorId,
+      descendantId,
+    ]);
     return result[0]?.is_descendant === true;
-  }
-
-  private async isAncestor(descendantId: string, ancestorId: string): Promise<boolean> {
-    return this.isDescendant(ancestorId, descendantId);
   }
 
   async getNodeWithContext(
     nodeId: string,
-    descendantDepth: number = 3,
-    ancestorDepth: number = 3,
+    descendantDepth = 3,
+    ancestorDepth = 3,
     currentUserId: string,
   ): Promise<NodeContext> {
+    // Verify node exists
     const nodeExists = await this.userRepository.findOne({
       where: { id: nodeId },
       select: ['id'],
@@ -96,10 +108,12 @@ export class UserTreeService {
       throw new NotFoundException(`Usuario con ID ${nodeId} no encontrado`);
     }
 
-    const usersToFetch = new Set<string>([nodeId]);
     const fetchedUsers = new Map<string, FlatUser>();
+    const userMemberships = new Map<string, any>();
+    const userRanks = new Map<string, any>();
+    const allUserIds = new Set<string>([nodeId]);
 
-    const query = this.userRepository
+    const userQuery = this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.personalInfo', 'personalInfo')
       .leftJoin('user.leftChild', 'leftChild')
@@ -118,7 +132,7 @@ export class UserTreeService {
         'parent.id',
       ]);
 
-    const currentNode = await query
+    const currentNode = await userQuery
       .where('user.id = :nodeId', { nodeId })
       .getOne();
 
@@ -128,63 +142,37 @@ export class UserTreeService {
 
     fetchedUsers.set(currentNode.id, this.mapUserToFlatUser(currentNode));
 
-    // Primero verificamos que el usuario actual sea un ancestro válido en la jerarquía
-    // Solo queremos mostrar ancestros que sean descendientes del usuario logueado
-    const isCurrentUserAncestorOfNode = await this.isDescendant(currentUserId, nodeId);
-    const isCurrentUserParentOfNode = await this.userRepository.findOne({
-      where: { id: nodeId, parent: { id: currentUserId } }
-    });
-    
-    const currentUserIsInAncestorPath = isCurrentUserAncestorOfNode || isCurrentUserParentOfNode;
+    const isCurrentUserAncestorOfNode = await this.isDescendant(
+      currentUserId,
+      nodeId,
+    );
+    const isCurrentUserParentOfNode = currentNode.parent?.id === currentUserId;
+    const currentUserIsInAncestorPath =
+      isCurrentUserAncestorOfNode || isCurrentUserParentOfNode;
 
-    if (!currentUserIsInAncestorPath) {
-      // Si el usuario actual no es un ancestro válido del nodo solicitado,
-      // no hay ancestros que mostrar porque podría exponer la estructura superior
-      const nodeTree = this.buildOptimizedTreeNode(
-        nodeId,
-        fetchedUsers,
-        0,
-        descendantDepth,
-      );
-
-      return {
-        node: nodeTree,
-        ancestors: [],
-        siblings: undefined,
-      };
-    }
-    
-    // Recopilar IDs de ancestros, pero solo hasta el usuario autenticado
-    let currentAncestor = currentNode.parent;
     const ancestorIds: string[] = [];
+    if (currentUserIsInAncestorPath && currentNode.parent) {
+      let currentAncestor = currentNode.parent;
 
-    // Añadir ancestros a la lista de IDs a buscar, limitando hasta el usuario actual
-    while (currentAncestor && ancestorIds.length < ancestorDepth) {
-      // Obtener el siguiente ancestro
-      const ancestor = await query
-        .where('user.id = :ancestorId', { ancestorId: currentAncestor.id })
-        .getOne();
+      while (currentAncestor && ancestorIds.length < ancestorDepth) {
+        const ancestor = await userQuery
+          .where('user.id = :ancestorId', { ancestorId: currentAncestor.id })
+          .getOne();
 
-      if (!ancestor) break;
+        if (!ancestor || ancestor.id === currentUserId) break;
 
-      // Si llegamos al usuario actual, detenemos la recopilación
-      if (ancestor.id === currentUserId) {
-        break;
+        const isDescendantOfCurrentUser = await this.isDescendant(
+          currentUserId,
+          ancestor.id,
+        );
+
+        if (!isDescendantOfCurrentUser && ancestor.id !== currentUserId) break;
+
+        ancestorIds.push(ancestor.id);
+        allUserIds.add(ancestor.id);
+        fetchedUsers.set(ancestor.id, this.mapUserToFlatUser(ancestor));
+        currentAncestor = ancestor.parent;
       }
-      
-      // Verificar si este ancestro es descendiente del usuario logueado
-      const isDescendantOfCurrentUser = await this.isDescendant(currentUserId, ancestor.id);
-      if (!isDescendantOfCurrentUser && ancestor.id !== currentUserId) {
-        // Si no es descendiente ni es el propio usuario, no lo incluimos
-        break;
-      }
-      
-      // Solo añadimos el ancestro si pasa las verificaciones anteriores
-      ancestorIds.push(ancestor.id);
-      usersToFetch.add(ancestor.id);
-      fetchedUsers.set(ancestor.id, this.mapUserToFlatUser(ancestor));
-      
-      currentAncestor = ancestor.parent;
     }
 
     const descendantIdsToProcess = new Set<string>([nodeId]);
@@ -192,124 +180,111 @@ export class UserTreeService {
     for (let depth = 0; depth < descendantDepth; depth++) {
       if (descendantIdsToProcess.size === 0) break;
 
-      this.logger.debug(
-        `Procesando descendientes a profundidad ${depth}, nodos: ${Array.from(descendantIdsToProcess).join(', ')}`,
-      );
-
       const userIds = Array.from(descendantIdsToProcess);
       descendantIdsToProcess.clear();
 
       const users = await this.userRepository
         .createQueryBuilder('user')
         .leftJoinAndSelect('user.personalInfo', 'personalInfo')
-        .leftJoinAndSelect('user.leftChild', 'leftChild') 
-        .leftJoinAndSelect('user.rightChild', 'rightChild') 
+        .leftJoinAndSelect('user.leftChild', 'leftChild')
+        .leftJoinAndSelect('user.rightChild', 'rightChild')
         .leftJoinAndSelect('leftChild.personalInfo', 'leftChildInfo')
         .leftJoinAndSelect('rightChild.personalInfo', 'rightChildInfo')
         .where('user.id IN (:...userIds)', { userIds })
         .getMany();
 
       for (const user of users) {
-        const flatUser = {
-          id: user.id,
-          email: user.email,
-          referralCode: user.referralCode,
-          position: user.position,
-          isActive: user.isActive,
-          firstName: user.personalInfo?.firstName,
-          lastName: user.personalInfo?.lastName,
-          leftChildId: user.leftChild?.id,
-          rightChildId: user.rightChild?.id,
-          parentId: user.parent?.id,
-        };
-
+        const flatUser = this.mapUserToFlatUser(user);
         fetchedUsers.set(user.id, flatUser);
-
-        this.logger.debug(
-          `Usuario ${user.id}: lefthild=${user.leftChild?.id}, rightChild=${user.rightChild?.id}`,
-        );
+        allUserIds.add(user.id);
 
         if (user.leftChild) {
-          const leftChild = {
-            id: user.leftChild.id,
-            email: user.leftChild.email,
-            referralCode: user.leftChild.referralCode,
-            position: user.leftChild.position,
-            isActive: user.leftChild.isActive,
-            firstName: user.leftChild.personalInfo?.firstName,
-            lastName: user.leftChild.personalInfo?.lastName,
-            leftChildId: undefined,
-            rightChildId: undefined,
-            parentId: user.id,
-          };
-
-          fetchedUsers.set(user.leftChild.id, leftChild);
+          fetchedUsers.set(
+            user.leftChild.id,
+            this.mapUserToFlatUser(user.leftChild),
+          );
           descendantIdsToProcess.add(user.leftChild.id);
+          allUserIds.add(user.leftChild.id);
         }
 
         if (user.rightChild) {
-          const rightChild = {
-            id: user.rightChild.id,
-            email: user.rightChild.email,
-            referralCode: user.rightChild.referralCode,
-            position: user.rightChild.position,
-            isActive: user.rightChild.isActive,
-            firstName: user.rightChild.personalInfo?.firstName,
-            lastName: user.rightChild.personalInfo?.lastName,
-            leftChildId: undefined,
-            rightChildId: undefined,
-            parentId: user.id,
-          };
-
-          fetchedUsers.set(user.rightChild.id, rightChild);
+          fetchedUsers.set(
+            user.rightChild.id,
+            this.mapUserToFlatUser(user.rightChild),
+          );
           descendantIdsToProcess.add(user.rightChild.id);
+          allUserIds.add(user.rightChild.id);
         }
       }
     }
 
-    const currentUser = fetchedUsers.get(nodeId);
+    const userIdsArray = Array.from(allUserIds);
 
-    if (currentUser.leftChildId) {
-      this.logger.debug(
-        `El nodo ${nodeId} tiene hijo izquierdo: ${currentUser.leftChildId}`,
-      );
-      if (!fetchedUsers.has(currentUser.leftChildId)) {
-        const leftChild = await query
-          .where('user.id = :childId', { childId: currentUser.leftChildId })
-          .getOne();
+    const memberships = await this.membershipRepository.find({
+      where: {
+        user: { id: In(userIdsArray) },
+        status: MembershipStatus.ACTIVE,
+      },
+      relations: ['plan', 'user'],
+    });
 
-        if (leftChild) {
-          fetchedUsers.set(leftChild.id, this.mapUserToFlatUser(leftChild));
-          if (descendantDepth > 1) descendantIdsToProcess.add(leftChild.id);
-        }
-      }
-    }
+    this.logger.log(
+      `Encontradas ${memberships.length} membresías activas para ${userIdsArray.length} usuarios`,
+    );
 
-    if (currentUser.rightChildId) {
-      this.logger.debug(
-        `El nodo ${nodeId} tiene hijo derecho: ${currentUser.rightChildId}`,
-      );
-      if (!fetchedUsers.has(currentUser.rightChildId)) {
-        const rightChild = await query
-          .where('user.id = :childId', { childId: currentUser.rightChildId })
-          .getOne();
+    const ranks = await this.userRankRepository.find({
+      where: {
+        user: { id: In(userIdsArray) },
+      },
+      relations: ['currentRank', 'highestRank', 'user'],
+    });
 
-        if (rightChild) {
-          fetchedUsers.set(rightChild.id, this.mapUserToFlatUser(rightChild));
-          if (descendantDepth > 1) descendantIdsToProcess.add(rightChild.id);
-        }
-      }
-    }
+    this.logger.log(
+      `Encontrados ${ranks.length} registros de rangos para ${userIdsArray.length} usuarios`,
+    );
+
+    memberships.forEach((membership) => {
+      userMemberships.set(membership.user.id, {
+        plan: {
+          name: membership.plan.name,
+        },
+        status: membership.status,
+        startDate: membership.startDate,
+        endDate: membership.endDate,
+      });
+    });
+
+    ranks.forEach((userRank) => {
+      userRanks.set(userRank.user.id, {
+        currentRank: userRank.currentRank
+          ? {
+              name: userRank.currentRank.name,
+              code: userRank.currentRank.code,
+            }
+          : null,
+        highestRank: userRank.highestRank
+          ? {
+              name: userRank.highestRank.name,
+              code: userRank.highestRank.code,
+            }
+          : null,
+      });
+    });
 
     const nodeTree = this.buildOptimizedTreeNode(
       nodeId,
       fetchedUsers,
+      userMemberships,
+      userRanks,
       0,
       descendantDepth,
     );
 
     const ancestors: TreeNode[] = ancestorIds.map((ancestorId, index) => {
       const user = fetchedUsers.get(ancestorId);
+      const membership = userMemberships.get(ancestorId);
+      const rank = userRanks.get(ancestorId);
+
       return {
         id: user.id,
         email: user.email,
@@ -321,6 +296,8 @@ export class UserTreeService {
             ? `${user.firstName} ${user.lastName}`
             : undefined,
         depth: index,
+        membership,
+        rank,
       };
     });
 
@@ -353,14 +330,13 @@ export class UserTreeService {
     }
 
     if (!currentUserIsInAncestorPath) {
-      // Ya retornamos antes si el usuario no está en la jerarquía
       return {
         node: nodeTree,
         ancestors: [],
         siblings: Object.keys(siblings).length > 0 ? siblings : undefined,
       };
     }
-    
+
     return {
       node: nodeTree,
       ancestors,
@@ -383,18 +359,10 @@ export class UserTreeService {
     };
   }
 
-  async getUserTreeOptimized(
-    userId: string,
-    maxDepth: number = 3,
-  ): Promise<TreeNode> {
-    const rootExists = await this.userRepository.findOne({
-      where: { id: userId },
-      select: ['id'],
-    });
-
-    if (!rootExists) {
-      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
-    }
+  async getUserTreeOptimized(userId: string, maxDepth = 3): Promise<TreeNode> {
+    const fetchedUsers = new Map<string, FlatUser>();
+    const allUserIds = new Set<string>([userId]);
+    const usersToFetch = new Set<string>([userId]);
 
     const query = this.userRepository
       .createQueryBuilder('user')
@@ -415,9 +383,6 @@ export class UserTreeService {
         'parent.id',
       ]);
 
-    const usersToFetch = new Set<string>([userId]);
-    const fetchedUsers = new Map<string, FlatUser>();
-
     for (let depth = 0; depth <= maxDepth; depth++) {
       if (usersToFetch.size === 0) break;
 
@@ -432,8 +397,14 @@ export class UserTreeService {
         fetchedUsers.set(user.id, this.mapUserToFlatUser(user));
 
         if (depth < maxDepth) {
-          if (user.leftChild?.id) usersToFetch.add(user.leftChild.id);
-          if (user.rightChild?.id) usersToFetch.add(user.rightChild.id);
+          if (user.leftChild?.id) {
+            usersToFetch.add(user.leftChild.id);
+            allUserIds.add(user.leftChild.id);
+          }
+          if (user.rightChild?.id) {
+            usersToFetch.add(user.rightChild.id);
+            allUserIds.add(user.rightChild.id);
+          }
         }
       }
     }
@@ -444,12 +415,83 @@ export class UserTreeService {
       );
     }
 
-    return this.buildOptimizedTreeNode(userId, fetchedUsers, 0, maxDepth);
+    this.logger.log(
+      `Recopilados ${allUserIds.size} usuarios para el árbol con profundidad ${maxDepth}`,
+    );
+
+    const userIdsArray = Array.from(allUserIds);
+
+    try {
+      const memberships = await this.membershipRepository.find({
+        where: {
+          user: { id: In(userIdsArray) },
+          status: MembershipStatus.ACTIVE,
+        },
+        relations: ['plan', 'user'],
+      });
+
+      const userMemberships = new Map<string, any>();
+      memberships.forEach((membership) => {
+        userMemberships.set(membership.user.id, {
+          plan: {
+            name: membership.plan.name,
+          },
+          status: membership.status,
+          startDate: membership.startDate,
+          endDate: membership.endDate,
+        });
+      });
+
+      this.logger.log(`Encontradas ${memberships.length} membresías activas`);
+
+      const ranks = await this.userRankRepository.find({
+        where: {
+          user: { id: In(userIdsArray) },
+        },
+        relations: ['currentRank', 'highestRank', 'user'],
+      });
+
+      const userRanks = new Map<string, any>();
+      ranks.forEach((userRank) => {
+        userRanks.set(userRank.user.id, {
+          currentRank: userRank.currentRank
+            ? {
+                name: userRank.currentRank.name,
+                code: userRank.currentRank.code,
+              }
+            : null,
+          highestRank: userRank.highestRank
+            ? {
+                name: userRank.highestRank.name,
+                code: userRank.highestRank.code,
+              }
+            : null,
+        });
+      });
+
+      this.logger.log(`Encontrados ${ranks.length} registros de rangos`);
+
+      return this.buildOptimizedTreeNode(
+        userId,
+        fetchedUsers,
+        userMemberships,
+        userRanks,
+        0,
+        maxDepth,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error al obtener información de membresía y rango: ${error.message}`,
+      );
+      throw error;
+    }
   }
 
   private buildOptimizedTreeNode(
     userId: string,
     userMap: Map<string, FlatUser>,
+    membershipMap: Map<string, any>,
+    rankMap: Map<string, any>,
     currentDepth: number,
     maxDepth: number,
   ): TreeNode {
@@ -462,24 +504,8 @@ export class UserTreeService {
       return null;
     }
 
-    if (currentDepth >= maxDepth) {
-      return {
-        id: user.id,
-        email: user.email,
-        referralCode: user.referralCode,
-        position: user.position,
-        isActive: user.isActive,
-        fullName:
-          user.firstName && user.lastName
-            ? `${user.firstName} ${user.lastName}`
-            : undefined,
-        depth: currentDepth,
-      };
-    }
-
-    this.logger.debug(
-      `Construyendo nodo ${userId} (profundidad ${currentDepth}), hijos izq: ${user.leftChildId}, der: ${user.rightChildId}`,
-    );
+    const membership = membershipMap.get(userId);
+    const rank = rankMap.get(userId);
 
     const treeNode: TreeNode = {
       id: user.id,
@@ -492,43 +518,34 @@ export class UserTreeService {
           ? `${user.firstName} ${user.lastName}`
           : undefined,
       depth: currentDepth,
-      children: {},
+      membership,
+      rank,
     };
 
-    if (user.leftChildId) {
-      if (userMap.has(user.leftChildId)) {
+    if (currentDepth < maxDepth) {
+      treeNode.children = {};
+
+      if (user.leftChildId && userMap.has(user.leftChildId)) {
         treeNode.children.left = this.buildOptimizedTreeNode(
           user.leftChildId,
           userMap,
+          membershipMap,
+          rankMap,
           currentDepth + 1,
           maxDepth,
         );
-      } else {
-        this.logger.warn(
-          `Hijo izquierdo ${user.leftChildId} del nodo ${userId} no encontrado en el mapa`,
-        );
       }
-    }
 
-    if (user.rightChildId) {
-      if (userMap.has(user.rightChildId)) {
+      if (user.rightChildId && userMap.has(user.rightChildId)) {
         treeNode.children.right = this.buildOptimizedTreeNode(
           user.rightChildId,
           userMap,
+          membershipMap,
+          rankMap,
           currentDepth + 1,
           maxDepth,
         );
-      } else {
-        this.logger.warn(
-          `Hijo derecho ${user.rightChildId} del nodo ${userId} no encontrado en el mapa`,
-        );
       }
-    }
-
-    if (!treeNode.children.left && !treeNode.children.right) {
-      this.logger.debug(
-        `Nodo ${userId} no tiene hijos en el mapa. Verificando si realmente no tiene hijos.`,
-      );
     }
 
     return treeNode;
@@ -539,20 +556,6 @@ export class UserTreeService {
     currentDepth: number,
     maxDepth: number,
   ): Promise<TreeNode> {
-    if (currentDepth >= maxDepth) {
-      return {
-        id: user.id,
-        email: user.email,
-        referralCode: user.referralCode,
-        position: user.position,
-        isActive: user.isActive,
-        fullName: user.personalInfo
-          ? `${user.personalInfo.firstName} ${user.personalInfo.lastName}`
-          : undefined,
-        depth: currentDepth,
-      };
-    }
-
     if (!user.email) {
       user = await this.userRepository.findOne({
         where: { id: user.id },
@@ -560,25 +563,19 @@ export class UserTreeService {
       });
     }
 
-    const leftChildId = user.leftChild?.id;
-    const rightChildId = user.rightChild?.id;
-
-    let leftChild = null;
-    let rightChild = null;
-
-    if (leftChildId) {
-      leftChild = await this.userRepository.findOne({
-        where: { id: leftChildId },
-        relations: ['personalInfo'],
-      });
-    }
-
-    if (rightChildId) {
-      rightChild = await this.userRepository.findOne({
-        where: { id: rightChildId },
-        relations: ['personalInfo'],
-      });
-    }
+    const [membership, userRank] = await Promise.all([
+      this.membershipRepository.findOne({
+        where: {
+          user: { id: user.id },
+          status: MembershipStatus.ACTIVE,
+        },
+        relations: ['plan'],
+      }),
+      this.userRankRepository.findOne({
+        where: { user: { id: user.id } },
+        relations: ['currentRank', 'highestRank'],
+      }),
+    ]);
 
     const treeNode: TreeNode = {
       id: user.id,
@@ -590,65 +587,91 @@ export class UserTreeService {
         ? `${user.personalInfo.firstName} ${user.personalInfo.lastName}`
         : undefined,
       depth: currentDepth,
-      children: {},
+      membership: membership
+        ? {
+            plan: {
+              name: membership.plan.name,
+            },
+            status: membership.status,
+            startDate: membership.startDate,
+            endDate: membership.endDate,
+          }
+        : undefined,
+      rank: userRank
+        ? {
+            currentRank: userRank.currentRank
+              ? {
+                  name: userRank.currentRank.name,
+                  code: userRank.currentRank.code,
+                }
+              : null,
+            highestRank: userRank.highestRank
+              ? {
+                  name: userRank.highestRank.name,
+                  code: userRank.highestRank.code,
+                }
+              : null,
+          }
+        : undefined,
     };
 
-    if (leftChild) {
-      treeNode.children.left = await this.buildTreeNode(
-        leftChild,
-        currentDepth + 1,
-        maxDepth,
+    if (currentDepth >= maxDepth) {
+      return treeNode;
+    }
+
+    treeNode.children = {};
+
+    const leftChildId = user.leftChild?.id;
+    const rightChildId = user.rightChild?.id;
+
+    const childPromises = [];
+
+    if (leftChildId) {
+      childPromises.push(
+        this.userRepository
+          .findOne({
+            where: { id: leftChildId },
+            relations: ['personalInfo'],
+          })
+          .then((leftChild) => {
+            if (leftChild) {
+              return this.buildTreeNode(
+                leftChild,
+                currentDepth + 1,
+                maxDepth,
+              ).then((node) => {
+                treeNode.children.left = node;
+              });
+            }
+          }),
       );
     }
 
-    if (rightChild) {
-      treeNode.children.right = await this.buildTreeNode(
-        rightChild,
-        currentDepth + 1,
-        maxDepth,
+    if (rightChildId) {
+      childPromises.push(
+        this.userRepository
+          .findOne({
+            where: { id: rightChildId },
+            relations: ['personalInfo'],
+          })
+          .then((rightChild) => {
+            if (rightChild) {
+              return this.buildTreeNode(
+                rightChild,
+                currentDepth + 1,
+                maxDepth,
+              ).then((node) => {
+                treeNode.children.right = node;
+              });
+            }
+          }),
       );
+    }
+
+    if (childPromises.length > 0) {
+      await Promise.all(childPromises);
     }
 
     return treeNode;
-  }
-
-  async getTreeStatistics(): Promise<any> {
-    const totalUsers = await this.userRepository.count();
-    const activeUsers = await this.userRepository.count({
-      where: { isActive: true },
-    });
-
-    const leafUsers = await this.userRepository
-      .createQueryBuilder('user')
-      .leftJoin('user.leftChild', 'leftChild')
-      .leftJoin('user.rightChild', 'rightChild')
-      .where('leftChild.id IS NULL AND rightChild.id IS NULL')
-      .getCount();
-
-    const singleChildUsers = await this.userRepository
-      .createQueryBuilder('user')
-      .leftJoin('user.leftChild', 'leftChild')
-      .leftJoin('user.rightChild', 'rightChild')
-      .where(
-        '(leftChild.id IS NULL AND rightChild.id IS NOT NULL) OR (leftChild.id IS NOT NULL AND rightChild.id IS NULL)',
-      )
-      .getCount();
-
-    const fullUsers = await this.userRepository
-      .createQueryBuilder('user')
-      .leftJoin('user.leftChild', 'leftChild')
-      .leftJoin('user.rightChild', 'rightChild')
-      .where('leftChild.id IS NOT NULL AND rightChild.id IS NOT NULL')
-      .getCount();
-
-    return {
-      totalUsers,
-      activeUsers,
-      inactiveUsers: totalUsers - activeUsers,
-      leafUsers,
-      singleChildUsers,
-      fullUsers,
-      activePercentage: ((activeUsers / totalUsers) * 100).toFixed(2) + '%',
-    };
   }
 }

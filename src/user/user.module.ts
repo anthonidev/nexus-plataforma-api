@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProfileController } from './controllers/profile.controller';
 import { UserController } from './controllers/user.controller';
@@ -18,6 +18,8 @@ import { UbigeoService } from './services/ubigeo.service';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 import { MembershipsModule } from 'src/memberships/memberships.module';
 import { UserTreeController } from './controllers/user-tree.controller';
+
+import { RanksModule } from 'src/ranks/ranks.module';
 
 @Module({
   controllers: [
@@ -39,7 +41,8 @@ import { UserTreeController } from './controllers/user-tree.controller';
       BankInfo,
     ]),
     CloudinaryModule,
-    MembershipsModule
+    forwardRef(() => MembershipsModule),
+    forwardRef(() => RanksModule),
   ],
   exports: [UserService, TypeOrmModule],
 })

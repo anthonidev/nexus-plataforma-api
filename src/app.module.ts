@@ -14,6 +14,7 @@ import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { CutsModule } from './cuts/cuts.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { SystemModule } from './system/system.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     CutsModule,
     ScheduleModule.forRoot(),
     DashboardModule,
+    SystemModule,
   ],
 })
 export class AppModule {}

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from 'src/user/user.module';
 import { RanksController } from './controllers/ranks.controller';
@@ -12,7 +12,7 @@ import { RanksService } from './services/ranks.service';
   providers: [RanksService],
   imports: [
     TypeOrmModule.forFeature([Rank, UserRank, MonthlyVolumeRank]),
-    UserModule,
+    forwardRef(() => UserModule),
   ],
   exports: [RanksService, TypeOrmModule],
 })

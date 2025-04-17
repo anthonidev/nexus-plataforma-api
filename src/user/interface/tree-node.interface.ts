@@ -10,6 +10,24 @@ export interface TreeNode {
     left?: TreeNode;
     right?: TreeNode;
   };
+  membership?: {
+    plan: {
+      name: string;
+    };
+    status: string;
+    startDate: Date;
+    endDate: Date;
+  };
+  rank?: {
+    currentRank: {
+      name: string;
+      code: string;
+    } | null;
+    highestRank: {
+      name: string;
+      code: string;
+    } | null;
+  };
 }
 
 export interface NodeContext {

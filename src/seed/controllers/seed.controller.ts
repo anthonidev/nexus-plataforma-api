@@ -9,6 +9,17 @@ export class SeedController {
     return this.seedService.seedAll();
   }
 
+  @Post('all')
+  seedAll() {
+    this.seedService.seedUsers();
+    this.seedService.seedMembershipPlans();
+    this.seedService.seedPaymentConfigs();
+    this.seedService.seedWithdrawalConfigs();
+    this.seedService.seedRanks();
+    this.seedService.seedCutConfigurations();
+    return { message: 'All seed data has been executed' };
+  }
+
   @Post('users')
   seedUsers() {
     return this.seedService.seedUsers();
