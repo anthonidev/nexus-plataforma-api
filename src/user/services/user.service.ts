@@ -10,9 +10,9 @@ import {
   PaginationHelper,
 } from 'src/common/helpers/pagination.helper';
 import { FindOptionsWhere, Repository } from 'typeorm';
-import { User } from '../entities/user.entity';
-import { Role } from '../entities/roles.entity';
 import { FindUsersDto } from '../dto/find-users.dto';
+import { Role } from '../entities/roles.entity';
+import { User } from '../entities/user.entity';
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
@@ -26,7 +26,6 @@ export class UserService {
     criteria: FindOptionsWhere<User>,
     relations: string[] = [],
   ): Promise<User> {
-    // Relaciones por defecto si no se especifican
     const defaultRelations = [
       'role',
       'personalInfo',
@@ -38,10 +37,8 @@ export class UserService {
       'parent',
     ];
 
-    // Usar las relaciones proporcionadas o las predeterminadas si no se especifican
     const finalRelations = relations.length > 0 ? relations : defaultRelations;
 
-    // Buscar el usuario con todas sus relaciones
     const user = await this.userRepository.findOne({
       where: criteria,
       select: [

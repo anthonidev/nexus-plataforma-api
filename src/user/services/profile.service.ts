@@ -1,10 +1,12 @@
 import {
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { Repository } from 'typeorm';
 import { UpdateBankInfoDto } from '../dto/update-back-info.dto';
 import { UpdateBillingInfoDto } from '../dto/update-billing-info.dto';
@@ -15,7 +17,6 @@ import { BillingInfo } from '../entities/billing-info.entity';
 import { ContactInfo } from '../entities/contact-info.entity';
 import { Ubigeo } from '../entities/ubigeo.entity';
 import { User } from '../entities/user.entity';
-import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
 @Injectable()
 export class ProfileService {
@@ -100,7 +101,6 @@ export class ProfileService {
 
       let contactInfo = user.contactInfo;
 
-      // Si hay un ubigeo, verificar que exista
       if (updateContactInfoDto.ubigeoId) {
         const ubigeo = await this.ubigeoRepository.findOne({
           where: { id: updateContactInfoDto.ubigeoId },
@@ -114,7 +114,6 @@ export class ProfileService {
       }
 
       if (!contactInfo) {
-        // Crear nuevo contactInfo si no existe
         contactInfo = this.contactInfoRepository.create({
           ...updateContactInfoDto,
           ubigeo: updateContactInfoDto.ubigeoId
@@ -123,7 +122,6 @@ export class ProfileService {
           user,
         });
       } else {
-        // Actualizar contactInfo existente
         this.contactInfoRepository.merge(contactInfo, {
           ...updateContactInfoDto,
           ubigeo: updateContactInfoDto.ubigeoId
@@ -166,7 +164,6 @@ export class ProfileService {
 
       let billingInfo = user.billingInfo;
 
-      // Si hay un ubigeo, verificar que exista
       if (updateBillingInfoDto.ubigeoId) {
         const ubigeo = await this.ubigeoRepository.findOne({
           where: { id: updateBillingInfoDto.ubigeoId },
@@ -180,7 +177,6 @@ export class ProfileService {
       }
 
       if (!billingInfo) {
-        // Crear nueva billingInfo si no existe
         billingInfo = this.billingInfoRepository.create({
           ...updateBillingInfoDto,
           ubigeo: updateBillingInfoDto.ubigeoId
@@ -189,7 +185,6 @@ export class ProfileService {
           user,
         });
       } else {
-        // Actualizar billingInfo existente
         this.billingInfoRepository.merge(billingInfo, {
           ...updateBillingInfoDto,
           ubigeo: updateBillingInfoDto.ubigeoId
@@ -230,13 +225,11 @@ export class ProfileService {
       let bankInfo = user.bankInfo;
 
       if (!bankInfo) {
-        // Crear nueva bankInfo si no existe
         bankInfo = this.bankInfoRepository.create({
           ...updateBankInfoDto,
           user,
         });
       } else {
-        // Actualizar bankInfo existente
         this.bankInfoRepository.merge(bankInfo, updateBankInfoDto);
       }
 
@@ -268,7 +261,6 @@ export class ProfileService {
         throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
       }
 
-      // Si el usuario ya tiene una foto, eliminar la anterior de Cloudinary
       if (user.cloudinaryPublicId) {
         try {
           await this.cloudinaryService.deleteImage(user.cloudinaryPublicId);
@@ -279,21 +271,17 @@ export class ProfileService {
           this.logger.error(
             `Error al eliminar imagen anterior: ${error.message}`,
           );
-          // Continuamos aunque falle la eliminación
         }
       }
 
-      // Subir la nueva foto a Cloudinary
       const cloudinaryResponse = await this.cloudinaryService.uploadImage(
         photo,
         'users',
       );
 
-      // Actualizar los campos del usuario
       user.photo = cloudinaryResponse.url;
       user.cloudinaryPublicId = cloudinaryResponse.publicId;
 
-      // Guardar el usuario
       await this.userRepository.save(user);
 
       return {
@@ -320,7 +308,7 @@ export class ProfileService {
       const user = await this.userRepository.findOne({
         where: { id: userId },
         relations: ['personalInfo'],
-        select: ['id', 'isActive', 'nickname'],
+        select: ['id', 'isActive', 'nickname', 'email'],
       });
 
       if (!user) {
@@ -335,20 +323,33 @@ export class ProfileService {
         );
       }
 
-      // Actualizar documentNumber en personalInfo
+      if (
+        updatePersonalInfoDto.email !== undefined &&
+        updatePersonalInfoDto.email !== user.email
+      ) {
+        const existingUserWithEmail = await this.userRepository.findOne({
+          where: { email: updatePersonalInfoDto.email },
+        });
+
+        if (existingUserWithEmail) {
+          throw new ConflictException(
+            'El correo electrónico ya está en uso por otro usuario',
+          );
+        }
+
+        user.email = updatePersonalInfoDto.email;
+      }
+
       if (updatePersonalInfoDto.documentNumber !== undefined) {
         personalInfo.documentNumber = updatePersonalInfoDto.documentNumber;
       }
 
-      // Actualizar nickname en la entidad user
       if (updatePersonalInfoDto.nickname !== undefined) {
         user.nickname = updatePersonalInfoDto.nickname;
       }
 
-      // Guardar personalInfo
       await this.userRepository.manager.save(personalInfo);
 
-      // Guardar user
       await this.userRepository.save(user);
 
       return {
@@ -363,11 +364,15 @@ export class ProfileService {
         },
         user: {
           nickname: user.nickname,
+          email: user.email,
         },
       };
     } catch (error) {
       this.logger.error(`Error actualizando personalInfo: ${error.message}`);
-      if (error instanceof NotFoundException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException(

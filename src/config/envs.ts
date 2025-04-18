@@ -1,5 +1,5 @@
-import * as joi from 'joi';
 import * as dotenv from 'dotenv';
+import * as joi from 'joi';
 dotenv.config();
 
 interface Envvars {
@@ -14,6 +14,8 @@ interface Envvars {
   CLOUDINARY_CLOUD_NAME: string;
   CLOUDINARY_API_KEY: string;
   CLOUDINARY_API_SECRET: string;
+  RESEND_API_KEY: string;
+  FRONTEND_URL: string;
 }
 
 const envVarsSchema = joi
@@ -29,6 +31,8 @@ const envVarsSchema = joi
     CLOUDINARY_CLOUD_NAME: joi.string().required(),
     CLOUDINARY_API_KEY: joi.string().required(),
     CLOUDINARY_API_SECRET: joi.string().required(),
+    RESEND_API_KEY: joi.string().required(),
+    FRONTEND_URL: joi.string().required(),
   })
   .unknown(true);
 
@@ -55,4 +59,6 @@ export const envs = {
   cloudinaryCloudName: envVars.CLOUDINARY_CLOUD_NAME,
   cloudinaryApiKey: envVars.CLOUDINARY_API_KEY,
   cloudinaryApiSecret: envVars.CLOUDINARY_API_SECRET,
+  resendApiKey: envVars.RESEND_API_KEY,
+  frontendUrl: envVars.FRONTEND_URL,
 };

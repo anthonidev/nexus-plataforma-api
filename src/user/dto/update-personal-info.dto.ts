@@ -1,5 +1,11 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, MaxLength, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdatePersonalInfoDto {
   @IsString()
@@ -21,4 +27,9 @@ export class UpdatePersonalInfoDto {
   })
   @Transform(({ value }) => value?.trim())
   nickname?: string;
+
+  @IsEmail({}, { message: 'El correo debe tener un formato válido' })
+  @IsOptional()
+  @Transform(({ value }) => value?.toLowerCase().trim())
+  email?: string;
 }

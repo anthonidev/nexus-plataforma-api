@@ -7,10 +7,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { RegisterDto } from 'src/user/dto/create-user.dto';
-import { AuthService } from './auth.service';
-import { Public } from './decorators/is-public.decorator';
-import { LoginDto } from './dto/login.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { AuthService } from '../services/auth.service';
+import { LoginDto } from '../dto/login.dto';
+import { RefreshTokenDto } from '../dto/refresh-token.dto';
+import { Public } from '../decorators/is-public.decorator';
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
