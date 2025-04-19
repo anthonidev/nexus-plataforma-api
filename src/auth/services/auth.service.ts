@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { compare } from 'bcryptjs';
 import { envs } from 'src/config/envs';
+import { MailService } from 'src/mail/mail.service';
 import {
   Membership,
   MembershipStatus,
@@ -61,6 +62,7 @@ export class AuthService {
     private membershipRepository: Repository<Membership>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
+    private readonly mailService: MailService,
   ) {}
   private cleanView(view: View): CleanView {
     const {
@@ -137,7 +139,6 @@ export class AuthService {
       throw new UnauthorizedException('El rol asociado está inactivo');
     }
 
-    // Get user's membership information
     const membershipInfo = await this.getUserMembershipInfo(user.id);
 
     const roleViews = await this.viewRepository
@@ -254,11 +255,8 @@ export class AuthService {
             `No se encontró un usuario con el código de referido ${registerDto.referrerCode}`,
           );
         }
-
         const position = registerDto.position || 'LEFT';
-
         await this.findAvailablePosition(referrer, position, user);
-
         user.referrerCode = registerDto.referrerCode;
       }
 
@@ -288,10 +286,8 @@ export class AuthService {
       contactInfo.user = savedUser;
       await queryRunner.manager.save(contactInfo);
 
-      // Confirmar transacción
       await queryRunner.commitTransaction();
 
-      // Generar token de autenticación
       const payload = {
         email: savedUser.email,
         sub: savedUser.id,
@@ -301,6 +297,11 @@ export class AuthService {
           name: role.name,
         },
       };
+      await this.sendWelcomeEmail(
+        savedUser.email,
+        personalInfo.firstName,
+        personalInfo.lastName,
+      );
 
       return {
         user: {
@@ -317,7 +318,6 @@ export class AuthService {
         }),
       };
     } catch (error) {
-      // Revertir transacción en caso de error
       await queryRunner.rollbackTransaction();
 
       if (
@@ -330,7 +330,6 @@ export class AuthService {
 
       throw new InternalServerErrorException('Error al registrar el usuario');
     } finally {
-      // Liberar el queryRunner
       await queryRunner.release();
     }
   }
@@ -343,15 +342,12 @@ export class AuthService {
     preferredPosition: 'LEFT' | 'RIGHT',
     user: User,
   ): Promise<void> {
-    // Verificar disponibilidad en la posición preferida
     if (preferredPosition === 'LEFT') {
       if (!parent.leftChild) {
-        // Posición disponible, asignar directamente
         user.parent = parent;
         user.position = 'LEFT';
         return;
       } else {
-        // Posición ocupada, buscar recursivamente en el hijo izquierdo
         const leftChild = await this.userRepository.findOne({
           where: { id: parent.leftChild.id },
           relations: ['leftChild', 'rightChild'],
@@ -361,12 +357,10 @@ export class AuthService {
     } else {
       // RIGHT
       if (!parent.rightChild) {
-        // Posición disponible, asignar directamente
         user.parent = parent;
         user.position = 'RIGHT';
         return;
       } else {
-        // Posición ocupada, buscar recursivamente en el hijo derecho
         const rightChild = await this.userRepository.findOne({
           where: { id: parent.rightChild.id },
           relations: ['leftChild', 'rightChild'],
@@ -377,5 +371,54 @@ export class AuthService {
   }
   private generateReferralCode(): string {
     return uuidv4().substring(0, 8).toUpperCase();
+  }
+  private async sendWelcomeEmail(
+    email: string,
+    firstName: string,
+    lastName: string,
+  ) {
+    await this.mailService.sendMail({
+      to: email,
+      subject: '¡Bienvenido a Nexus Platform!',
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+          <div style="background-color: #0a8043; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">¡Bienvenido a Nexus Platform!</h1>
+          </div>
+          
+          <div style="padding: 20px; background-color: #fff; border-radius: 0 0 8px 8px;">
+            <p style="font-size: 16px; line-height: 1.6;">Hola <strong>${firstName} ${lastName}</strong>,</p>
+            
+            <p style="font-size: 16px; line-height: 1.6;">¡Gracias por unirte a nuestra plataforma! Estamos muy contentos de tenerte como miembro de nuestra comunidad.</p>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Con tu cuenta de Nexus Platform podrás:</p>
+            
+            <ul style="font-size: 16px; line-height: 1.6;">
+              <li>Acceder a planes de membresía exclusivos</li>
+              <li>Construir tu red de referidos</li>
+              <li>Obtener beneficios y comisiones</li>
+              <li>Seguir tu progreso en tiempo real</li>
+            </ul>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos.</p>
+            
+            <div style="margin-top: 40px; text-align: center;">
+              <a href="${envs.frontendUrl}/login" style="background-color: #0a8043; color: white; text-decoration: none; padding: 12px 25px; border-radius: 4px; font-weight: bold;">Ingresar a mi cuenta</a>
+            </div>
+            
+            <p style="margin-top: 40px; font-size: 16px; line-height: 1.6;">¡Te deseamos mucho éxito!</p>
+            
+            <p style="font-size: 16px; line-height: 1.6;">
+              Saludos,<br>
+              El equipo de Nexus Platform
+            </p>
+          </div>
+          
+          <div style="text-align: center; padding-top: 20px; font-size: 12px; color: #888;">
+            <p>Este es un mensaje automático, por favor no respondas a este correo.</p>
+          </div>
+        </div>
+      `,
+    });
   }
 }
