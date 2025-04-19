@@ -8,7 +8,7 @@ export class ScheduledTasksService {
 
   constructor(private readonly cutsService: CutsService) {}
 
-  @Cron('45 14 11 4 *', {
+  @Cron('0 3 * * 1', {
     name: 'weeklyVolumeCut',
     timeZone: 'America/Lima',
   })
@@ -25,7 +25,7 @@ export class ScheduledTasksService {
     }
   }
 
-  @Cron('45 14 11 4 *', {
+  @Cron('0 3 1 * *', {
     name: 'monthlyVolumeCut',
     timeZone: 'America/Lima',
   })
