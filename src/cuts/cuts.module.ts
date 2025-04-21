@@ -12,6 +12,7 @@ import { PointsModule } from 'src/points/points.module';
 import { MonthlyVolumeService } from './services/monthly-volume.service';
 import { RanksModule } from 'src/ranks/ranks.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MailModule } from 'src/mail/mail.module';
 
 @Module({
   controllers: [CutsController],
@@ -27,6 +28,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     PointsModule,
     RanksModule,
     ScheduleModule,
+    MailModule
   ],
   exports: [
     CutsService,

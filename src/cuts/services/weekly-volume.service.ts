@@ -23,10 +23,12 @@ import {
   getLastDayOfWeek,
 } from 'src/utils/dates';
 import { DataSource, Repository } from 'typeorm';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class WeeklyVolumeService {
   private readonly logger = new Logger(WeeklyVolumeService.name);
+  private readonly reportRecipients = ['softwaretoni21@gmail.com', 'tonirodriguez110@gmail.com'];
 
   constructor(
     @InjectRepository(WeeklyVolume)
@@ -40,6 +42,7 @@ export class WeeklyVolumeService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
+    private readonly mailService: MailService,
   ) {}
 
   async processWeeklyVolumes(): Promise<{
@@ -55,10 +58,8 @@ export class WeeklyVolumeService {
     try {
       this.logger.log('Iniciando procesamiento de volúmenes semanales');
 
-      // 1. Obtener la fecha de inicio y fin de la semana pasada
       const lastWeekDates = this.getLastWeekDates();
 
-      // Obtener todos los volúmenes pendientes de la semana pasada
       const pendingVolumes = await this.weeklyVolumeRepository.find({
         where: {
           status: VolumeProcessingStatus.PENDING,
@@ -82,13 +83,10 @@ export class WeeklyVolumeService {
       let failed = 0;
       let totalPoints = 0;
 
-      // Obtener las fechas para el nuevo periodo (semana actual)
       const currentWeekDates = this.getCurrentWeekDates();
 
-      // Procesar cada volumen
       for (const volume of pendingVolumes) {
         try {
-          // Verificar si el usuario tiene un plan activo
           const activeMembership = await this.membershipRepository.findOne({
             where: {
               user: { id: volume.user.id },
@@ -108,7 +106,6 @@ export class WeeklyVolumeService {
             continue;
           }
 
-          // Verificar si el usuario tiene hijos en ambos lados (no necesariamente directos)
           const hasLeftLeg = await this.checkLeg(volume.user.id, 'LEFT');
           const hasRightLeg = await this.checkLeg(volume.user.id, 'RIGHT');
 
@@ -123,8 +120,6 @@ export class WeeklyVolumeService {
             continue;
           }
 
-          // 2. Determinar el lado con menor volumen para calcular comisiones
-          // y el lado con mayor volumen para el carryOver
           let higherSide: VolumeSide;
           let lowerSide: VolumeSide;
 
@@ -136,10 +131,8 @@ export class WeeklyVolumeService {
             lowerSide = VolumeSide.LEFT;
           }
 
-          // Guardar el lado con volumen menor para los cálculos
           volume.selectedSide = lowerSide;
 
-          // Calcular puntos a asignar
           const commissionPercentage =
             activeMembership.plan.commissionPercentage / 100;
           const higherVolume =
@@ -151,10 +144,8 @@ export class WeeklyVolumeService {
               ? volume.leftVolume
               : volume.rightVolume;
 
-          // Contar referidos directos activos
           const { directCount } = await this.countDirectReferrals(volume.user.id);
           
-          // Aplicar límites según número de referidos directos
           let effectiveLowerVolume = lowerVolume;
           
           if (directCount <= 2 && lowerVolume > 12500) {
@@ -164,6 +155,8 @@ export class WeeklyVolumeService {
           } else if (directCount === 4 && lowerVolume > 150000) {
             effectiveLowerVolume = 150000;
           } else if (directCount >= 5 && lowerVolume > 250000) {
+            effectiveLowerVolume = 250000;
+          } else {
             effectiveLowerVolume = 250000;
           }
 
@@ -259,6 +252,16 @@ export class WeeklyVolumeService {
         `Procesamiento de volúmenes completado. Procesados: ${processed}, Exitosos: ${successful}, Fallidos: ${failed}, Puntos totales: ${totalPoints}`,
       );
 
+      // Enviar reporte por email
+      await this.sendWeeklyVolumeReport({
+        processed,
+        successful,
+        failed,
+        totalPoints,
+        weekStartDate: lastWeekDates.start,
+        weekEndDate: lastWeekDates.end
+      });
+
       return {
         processed,
         successful,
@@ -273,6 +276,75 @@ export class WeeklyVolumeService {
       throw error;
     } finally {
       await queryRunner.release();
+    }
+  }
+
+  private async sendWeeklyVolumeReport(reportData: {
+    processed: number;
+    successful: number;
+    failed: number;
+    totalPoints: number;
+    weekStartDate: Date;
+    weekEndDate: Date;
+  }): Promise<void> {
+    try {
+      const formattedStartDate = reportData.weekStartDate.toISOString().split('T')[0];
+      const formattedEndDate = reportData.weekEndDate.toISOString().split('T')[0];
+      
+      const subject = `Reporte de Procesamiento de Volúmenes Semanales: ${formattedStartDate} al ${formattedEndDate}`;
+      
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+          <h1 style="color: #0066cc; border-bottom: 1px solid #eee; padding-bottom: 10px;">Reporte de Procesamiento de Volúmenes Semanales</h1>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>Período:</strong> ${formattedStartDate} al ${formattedEndDate}</p>
+            <p><strong>Fecha de ejecución:</strong> ${new Date().toLocaleString()}</p>
+          </div>
+          
+          <h2 style="color: #333;">Resumen de Procesamiento</h2>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background-color: #f2f2f2;">
+              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Métrica</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Valor</th>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">Volúmenes Procesados</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${reportData.processed}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">Procesamiento Exitoso</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${reportData.successful}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">Procesamientos Fallidos</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${reportData.failed}</td>
+            </tr>
+            <tr style="background-color: #e6f7ff;">
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Total de Puntos Distribuidos</strong></td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>${reportData.totalPoints.toFixed(2)}</strong></td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">Tasa de Éxito</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${reportData.processed > 0 ? ((reportData.successful / reportData.processed) * 100).toFixed(2) : 0}%</td>
+            </tr>
+          </table>
+          
+          <p style="color: #666; font-style: italic; margin-top: 30px;">Este es un correo automático generado por el sistema de procesamiento de volúmenes de Nexus Platform. Por favor no responda a este correo.</p>
+        </div>
+      `;
+      
+      await this.mailService.sendMail({
+        to: this.reportRecipients,
+        subject,
+        html
+      });
+      
+      this.logger.log(`Reporte de volúmenes semanales enviado a: ${this.reportRecipients.join(', ')}`);
+    } catch (error) {
+      this.logger.error(`Error al enviar reporte por email: ${error.message}`);
+      // No lanzamos el error para que no interrumpa el flujo principal
     }
   }
 
