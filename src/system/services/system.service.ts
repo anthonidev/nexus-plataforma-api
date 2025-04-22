@@ -41,6 +41,7 @@ export class SystemService {
     private readonly userRankRepository: Repository<UserRank>,
     private readonly dataSource: DataSource,
   ) {}
+
   async activateUserWithPlan(email: string, planCode: string) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -82,7 +83,6 @@ export class SystemService {
       const now = new Date();
       const dates = getDates(now);
 
-      // 5. Crear membresía
       const membership = this.membershipRepository.create({
         user: { id: user.id },
         plan: { id: plan.id },
@@ -178,6 +178,124 @@ export class SystemService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(`Error en activación directa: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async changeUserPlan(email: string, planCode: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const user = await this.userRepository.findOne({
+        where: { email: email.toLowerCase().trim() },
+      });
+
+      if (!user) {
+        throw new NotFoundException(`Usuario con email ${email} no encontrado`);
+      }
+
+      const existingMembership = await this.membershipRepository.findOne({
+        where: {
+          user: { id: user.id },
+          status: MembershipStatus.ACTIVE,
+        },
+        relations: ['plan'],
+      });
+
+      if (!existingMembership) {
+        throw new BadRequestException(
+          `El usuario ${email} no tiene una membresía activa`,
+        );
+      }
+
+      const planName = this.getPlanNameByCode(planCode);
+      const newPlan = await this.membershipPlanRepository.findOne({
+        where: { name: planName },
+      });
+
+      if (!newPlan) {
+        throw new NotFoundException(
+          `Plan con código ${planCode} no encontrado`,
+        );
+      }
+
+      if (existingMembership.plan.id === newPlan.id) {
+        throw new BadRequestException(
+          `El usuario ya tiene el plan ${newPlan.name}`,
+        );
+      }
+
+      const previousPlan = {
+        id: existingMembership.plan.id,
+        name: existingMembership.plan.name,
+      };
+
+      existingMembership.plan = newPlan;
+      existingMembership.paidAmount = newPlan.price;
+      await queryRunner.manager.save(existingMembership);
+
+      const userPoints = await this.userPointsRepository.findOne({
+        where: { user: { id: user.id } },
+      });
+
+      if (userPoints) {
+        userPoints.membershipPlan = newPlan;
+        await queryRunner.manager.save(userPoints);
+      }
+
+      const userRank = await this.userRankRepository.findOne({
+        where: { user: { id: user.id } },
+      });
+
+      if (userRank) {
+        userRank.membershipPlan = newPlan;
+        await queryRunner.manager.save(userRank);
+      }
+
+      const membershipHistory = this.membershipHistoryRepository.create({
+        membership: { id: existingMembership.id },
+        action: MembershipAction.UPGRADED,
+        notes: 'Plan cambiado directamente por administrador',
+        changes: {
+          previousPlanId: previousPlan.id,
+          previousPlanName: previousPlan.name,
+          newPlanId: newPlan.id,
+          newPlanName: newPlan.name,
+          directUpgrade: true,
+        },
+      });
+
+      await queryRunner.manager.save(membershipHistory);
+
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: `Plan cambiado exitosamente para el usuario ${email} de ${previousPlan.name} a ${newPlan.name}`,
+        data: {
+          userId: user.id,
+          email: user.email,
+          previousPlan: previousPlan,
+          newPlan: {
+            id: newPlan.id,
+            name: newPlan.name,
+            price: newPlan.price,
+          },
+          membership: {
+            id: existingMembership.id,
+            startDate: existingMembership.startDate,
+            endDate: existingMembership.endDate,
+            nextReconsumptionDate: existingMembership.nextReconsumptionDate,
+          },
+        },
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error en cambio de plan: ${error.message}`);
       throw error;
     } finally {
       await queryRunner.release();

@@ -13,4 +13,11 @@ export class SystemController {
       activationDto.planCode,
     );
   }
+  @Post('change-plan')
+  changeUserPlan(@Body() changePlanDto: DirectActivationDto) {
+    return this.systemService.changeUserPlan(
+      changePlanDto.email,
+      changePlanDto.planCode,
+    );
+  }
 }
