@@ -8,10 +8,12 @@ import { ProductImage } from './entities/product-image.entity';
 import { ProductStockHistory } from './entities/product-stock-history.entity';
 import { Product } from './entities/products.entity';
 import { EcommerceService } from './services/ecommerce.service';
+import { ProductService } from './services/product.service';
+import { ProductController } from './controllers/product.controller';
 
 @Module({
-  controllers: [EcommerceController],
-  providers: [EcommerceService],
+  controllers: [EcommerceController, ProductController],
+  providers: [EcommerceService, ProductService],
   imports: [
     TypeOrmModule.forFeature([
       Product,
