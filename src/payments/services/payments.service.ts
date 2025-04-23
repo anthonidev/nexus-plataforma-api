@@ -40,7 +40,6 @@ export class PaymentsService {
       const queryBuilder = this.paymentRepository
         .createQueryBuilder('payment')
         .leftJoinAndSelect('payment.paymentConfig', 'paymentConfig')
-        .leftJoinAndSelect('payment.reviewedBy', 'reviewer')
         .where('payment.user.id = :userId', { userId });
 
       if (paymentConfigId) {
@@ -60,7 +59,6 @@ export class PaymentsService {
       }
 
       if (endDate) {
-        // Ajustar la fecha final para incluir todo el día
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
 
@@ -74,7 +72,6 @@ export class PaymentsService {
         .skip((page - 1) * limit)
         .take(limit);
 
-      // Seleccionar solo los campos necesarios para el listado
       queryBuilder.select([
         'payment.id',
         'payment.amount',
@@ -83,23 +80,17 @@ export class PaymentsService {
         'payment.reviewedAt',
         'payment.relatedEntityType',
         'payment.relatedEntityId',
-        'paymentConfig.id',
         'paymentConfig.name',
-        'paymentConfig.code',
-        'reviewer.id',
-        'reviewer.email',
       ]);
 
       const [items, totalItems] = await queryBuilder.getManyAndCount();
 
-      // Obtener todos los PaymentConfigs activos
       const paymentConfigs = await this.paymentConfigRepository.find({
         where: { isActive: true },
-        select: ['id', 'name', 'code', 'description'],
+        select: ['id', 'name'],
         order: { name: 'ASC' },
       });
 
-      // Crear una respuesta paginada con metadatos extendidos
       const paginationResponse = PaginationHelper.createPaginatedResponse(
         items,
         totalItems,
@@ -123,19 +114,60 @@ export class PaymentsService {
     try {
       const payment = await this.paymentRepository.findOne({
         where: { id },
-        relations: ['user', 'paymentConfig', 'reviewedBy', 'images'],
+        relations: [
+          'user',
+          'paymentConfig',
+          'reviewedBy',
+          'images',
+          'user.personalInfo',
+        ],
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          reviewedAt: true,
+          isArchived: true,
+
+          metadata: {
+            field1: true,
+          },
+          rejectionReason: true,
+          paymentConfig: {
+            name: true,
+          },
+          user: {
+            id: true,
+            email: true,
+            personalInfo: {
+              firstName: true,
+              lastName: true,
+              documentNumber: true,
+            },
+          },
+          reviewedBy: {
+            email: true,
+          },
+          images: {
+            id: true,
+            url: true,
+            bankName: true,
+            amount: true,
+            transactionDate: true,
+            transactionReference: true,
+          },
+        },
       });
 
       if (!payment) {
         throw new NotFoundException(`Pago con ID ${id} no encontrado`);
       }
 
-      // Verificar que el pago pertenezca al usuario actual
       if (payment.user.id !== userId) {
         throw new UnauthorizedException('No tienes permiso para ver este pago');
       }
 
-      // Eliminar información sensible
       delete payment.user.password;
 
       if (payment.reviewedBy) {
