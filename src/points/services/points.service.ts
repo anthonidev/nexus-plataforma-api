@@ -53,13 +53,11 @@ export class PointsService {
       }
 
       return {
-        id: userPoints.id,
         availablePoints: userPoints.availablePoints,
         totalEarnedPoints: userPoints.totalEarnedPoints,
         totalWithdrawnPoints: userPoints.totalWithdrawnPoints,
         membershipPlan: userPoints.membershipPlan
           ? {
-              id: userPoints.membershipPlan.id,
               name: userPoints.membershipPlan.name,
             }
           : null,
@@ -89,7 +87,6 @@ export class PointsService {
 
       const queryBuilder = this.pointsTransactionRepository
         .createQueryBuilder('transaction')
-        .leftJoinAndSelect('transaction.membershipPlan', 'membershipPlan')
         .where('transaction.user.id = :userId', { userId });
 
       if (type) {
@@ -147,7 +144,6 @@ export class PointsService {
 
       const queryBuilder = this.weeklyVolumeRepository
         .createQueryBuilder('weeklyVolume')
-        .leftJoinAndSelect('weeklyVolume.membershipPlan', 'membershipPlan')
         .where('weeklyVolume.user.id = :userId', { userId });
 
       if (status) {

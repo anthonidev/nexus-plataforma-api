@@ -696,6 +696,22 @@ export class FinancePaymentApprovalService {
         'Costo de actualización': priceDifference,
       },
     });
+    const userPoints = await this.userPointsRepository.findOne({
+      where: { user: { id: user.id } },
+    });
+    if (userPoints) {
+      userPoints.membershipPlan = toPlan;
+      await queryRunner.manager.save(userPoints);
+    } else {
+      const newUserPoints = this.userPointsRepository.create({
+        user: { id: user.id },
+        membershipPlan: toPlan,
+        availablePoints: 0,
+        totalEarnedPoints: 0,
+        totalWithdrawnPoints: 0,
+      });
+      await queryRunner.manager.save(newUserPoints);
+    }
 
     await queryRunner.manager.save(membershipHistory);
   }
