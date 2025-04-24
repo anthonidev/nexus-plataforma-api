@@ -186,8 +186,7 @@ export class UserMembershipsService {
         relatedEntityType: 'membership',
         relatedEntityId: savedMembership.id,
         metadata: {
-          planId: plan.id,
-          planName: plan.name,
+          'Nombre del plan': plan.name,
         },
       });
 
@@ -257,10 +256,9 @@ export class UserMembershipsService {
         action: MembershipAction.CREATED,
         notes: createDto.notes || 'Solicitud de membresía creada',
         metadata: {
-          planId: plan.id,
-          planName: plan.name,
-          paymentId: savedPayment.id,
-          imagesCount: uploadedImages.length,
+          'Nombre del plan': plan.name,
+          'Monto del pago': createDto.totalAmount,
+          'Cantidad de imágenes': uploadedImages.length,
         },
       });
 
@@ -417,11 +415,8 @@ export class UserMembershipsService {
         relatedEntityType: 'membership_upgrade',
         relatedEntityId: savedUpgrade.id,
         metadata: {
-          membershipId: currentMembership.id,
-          fromPlanId: currentMembership.plan.id,
-          fromPlanName: currentMembership.plan.name,
-          toPlanId: newPlan.id,
-          toPlanName: newPlan.name,
+          'Plan Actual': currentMembership.plan.name,
+          'Plan Nuevo': newPlan.name,
         },
       });
 
@@ -491,16 +486,14 @@ export class UserMembershipsService {
         action: MembershipAction.UPGRADED,
         notes: updateDto.notes || 'Solicitud de actualización de membresía',
         changes: {
-          fromPlanId: currentMembership.plan.id,
-          fromPlanName: currentMembership.plan.name,
-          toPlanId: newPlan.id,
-          toPlanName: newPlan.name,
-          upgradeCost,
+          'Plan Actual': currentMembership.plan.name,
+          'Plan Nuevo': newPlan.name,
+          'Monto del pago': updateDto.totalAmount,
         },
         metadata: {
-          upgradeId: savedUpgrade.id,
-          paymentId: savedPayment.id,
-          imagesCount: uploadedImages.length,
+          'Nombre del plan': newPlan.name,
+          'Monto del pago': updateDto.totalAmount,
+          'Cantidad de imágenes': uploadedImages.length,
         },
       });
 

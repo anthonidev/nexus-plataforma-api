@@ -130,7 +130,6 @@ export class Payment {
   @IsBoolean()
   isArchived: boolean;
 
-  // Relación con la entidad a la que pertenece este pago (opcional)
   @Column({ nullable: true })
   @IsOptional()
   @IsString()
@@ -141,31 +140,17 @@ export class Payment {
   @IsNumber()
   relatedEntityId: number;
 
-  // Metadatos adicionales (pueden ser útiles para guardar info específica del tipo de pago)
   @Column({ type: 'json', nullable: true })
   @IsOptional()
   metadata: Record<string, any>;
 
-  // Campos para registro de transacciones
-  @Column({ nullable: true })
-  @IsOptional()
-  @IsString()
-  transactionId: string;
-
-  @Column({ nullable: true })
-  @IsOptional()
-  @IsString()
-  paymentMethod: string;
-
   @BeforeInsert()
   @BeforeUpdate()
   validatePayment() {
-    // Si el pago está rechazado, debe haber una razón
     if (this.status === PaymentStatus.REJECTED && !this.rejectionReason) {
       throw new Error('Se requiere una razón para rechazar el pago');
     }
 
-    // Si el pago está aprobado o rechazado, debe tener reviewedBy y reviewedAt
     if (
       (this.status === PaymentStatus.APPROVED ||
         this.status === PaymentStatus.REJECTED) &&

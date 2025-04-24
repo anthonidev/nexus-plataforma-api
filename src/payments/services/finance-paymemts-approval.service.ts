@@ -7,6 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
 import {
+  MembershipReconsumption,
+  ReconsumptionStatus,
+} from 'src/memberships/entities/membership-recosumption.entity';
+import {
   Membership,
   MembershipStatus,
 } from 'src/memberships/entities/membership.entity';
@@ -36,14 +40,6 @@ import {
 import { Rank } from 'src/ranks/entities/ranks.entity';
 import { UserRank } from 'src/ranks/entities/user_ranks.entity';
 import { User } from 'src/user/entities/user.entity';
-import { DataSource, Repository } from 'typeorm';
-import { RejectPaymentDto } from '../dto/approval.dto';
-import { ApprovePaymentDto } from '../dto/approve-payment.dto';
-import { Payment, PaymentStatus } from '../entities/payment.entity';
-import {
-  MembershipReconsumption,
-  ReconsumptionStatus,
-} from 'src/memberships/entities/membership-recosumption.entity';
 import {
   getDates,
   getFirstDayOfMonth,
@@ -51,6 +47,10 @@ import {
   getLastDayOfMonth,
   getLastDayOfWeek,
 } from 'src/utils/dates';
+import { DataSource, Repository } from 'typeorm';
+import { RejectPaymentDto } from '../dto/approval.dto';
+import { ApprovePaymentDto } from '../dto/approve-payment.dto';
+import { Payment, PaymentStatus } from '../entities/payment.entity';
 
 @Injectable()
 export class FinancePaymentApprovalService {
@@ -242,8 +242,8 @@ export class FinancePaymentApprovalService {
             performedBy: reviewer,
             notes: `Membresía inactivada por rechazo de pago: ${rejectPaymentDto.rejectionReason}`,
             changes: {
-              previousStatus: MembershipStatus.PENDING,
-              newStatus: MembershipStatus.INACTIVE,
+              'Estado actual': 'Pendiente',
+              'Nuevo estado': 'Inactivo',
             },
           });
 
@@ -273,9 +273,10 @@ export class FinancePaymentApprovalService {
             performedBy: reviewer,
             notes: `Actualización de plan cancelada por rechazo de pago: ${rejectPaymentDto.rejectionReason}`,
             changes: {
-              previousUpgradeStatus: UpgradeStatus.PENDING,
-              newUpgradeStatus: UpgradeStatus.CANCELLED,
-              upgradeId: membershipUpgrade.id,
+              'Estado actual': 'Pendiente',
+              'Nuevo estado': 'Cancelado',
+              'Plan anterior': membershipUpgrade.fromPlan.name,
+              'Plan nuevo': membershipUpgrade.toPlan.name,
             },
           });
 
@@ -355,12 +356,9 @@ export class FinancePaymentApprovalService {
       performedBy: payment.reviewedBy,
       notes: `Reconsumo rechazado: ${rejectionReason}`,
       changes: {
-        reconsumptionId: reconsumption.id,
-        reconsumptionStatus: {
-          previous: ReconsumptionStatus.PENDING,
-          new: ReconsumptionStatus.CANCELLED,
-        },
-        rejectionReason,
+        'Estado actual': 'Pendiente',
+        'Nuevo estado': 'Cancelado',
+        'Reconsumo rechazado': rejectionReason,
       },
     });
 
@@ -449,13 +447,17 @@ export class FinancePaymentApprovalService {
       performedBy: payment.reviewedBy,
       notes: 'Reconsumo aprobado',
       changes: {
-        previousStartDate: oldStartDate,
-        newStartDate: newStartDate,
-        previousEndDate: oldEndDate,
-        newEndDate: newEndDate,
-        previousNextReconsumptionDate: nextReconsumptionDate,
-        newNextReconsumptionDate: newNextReconsumptionDate,
-        reconsumptionAmount: reconsumption.amount,
+        'Fecha anterior de inicio': oldStartDate.toISOString().split('T')[0],
+        'Fecha nueva de inicio': newStartDate.toISOString().split('T')[0],
+        'Fecha anterior de fin': oldEndDate.toISOString().split('T')[0],
+        'Fecha nueva de fin': newEndDate.toISOString().split('T')[0],
+        'Fecha anterior de reconsumo': nextReconsumptionDate
+          .toISOString()
+          .split('T')[0],
+        'Fecha nueva de reconsumo': newNextReconsumptionDate
+          .toISOString()
+          .split('T')[0],
+        'Monto de reconsumo': reconsumption.amount,
       },
     });
 
@@ -544,7 +546,7 @@ export class FinancePaymentApprovalService {
 
     const membership = await this.membershipRepository.findOne({
       where: { id: payment.relatedEntityId },
-      relations: ['user', 'plan'],
+      relations: ['user', 'plan', 'user.personalInfo'],
     });
 
     if (!membership) {
@@ -600,11 +602,13 @@ export class FinancePaymentApprovalService {
       performedBy: payment.reviewedBy,
       notes: 'Membresía activada por aprobación de pago',
       changes: {
-        previousStatus: MembershipStatus.PENDING,
-        newStatus: MembershipStatus.ACTIVE,
-        startDate: now,
-        endDate: membership.endDate,
-        nextReconsumptionDate: membership.nextReconsumptionDate,
+        'Estado anterior': 'Pendiente',
+        'Nuevo estado': 'Activo',
+        'Fecha de inicio': membership.startDate.toISOString().split('T')[0],
+        'Fecha de fin': membership.endDate.toISOString().split('T')[0],
+        'Próxima fecha de reconsumo': membership.nextReconsumptionDate
+          .toISOString()
+          .split('T')[0],
       },
     });
 
@@ -620,7 +624,13 @@ export class FinancePaymentApprovalService {
 
     const membershipUpgrade = await this.membershipUpgradeRepository.findOne({
       where: { id: payment.relatedEntityId },
-      relations: ['membership', 'fromPlan', 'toPlan', 'membership.user'],
+      relations: [
+        'membership',
+        'fromPlan',
+        'toPlan',
+        'membership.user',
+        'membership.user.personalInfo',
+      ],
     });
 
     if (!membershipUpgrade) {
@@ -681,11 +691,9 @@ export class FinancePaymentApprovalService {
       performedBy: payment.reviewedBy,
       notes: 'Plan actualizado exitosamente',
       changes: {
-        previousPlanId: fromPlan.id,
-        previousPlanName: fromPlan.name,
-        newPlanId: toPlan.id,
-        newPlanName: toPlan.name,
-        upgradeCost: priceDifference,
+        'Plan anterior': fromPlan.name,
+        'Plan nuevo': toPlan.name,
+        'Costo de actualización': priceDifference,
       },
     });
 
@@ -774,20 +782,15 @@ export class FinancePaymentApprovalService {
         amount: directBonus,
         status: PointTransactionStatus.COMPLETED,
         metadata: {
-          referredUserId: user.id,
-          isUpgrade: true,
-          fromPlan: {
-            id: fromPlan.id,
-            name: fromPlan.name,
-            price: fromPlan.price,
-          },
-          toPlan: {
-            id: toPlan.id,
-            name: toPlan.name,
-            price: toPlan.price,
-          },
-          priceDifference: priceDifference,
-          commissionPercentage: referrerPlan.directCommissionAmount,
+          'Usuario referido':
+            user.personalInfo.firstName + ' ' + user.personalInfo.lastName,
+          'Es actualización': 'Sí',
+          'Plan anterior': fromPlan.name,
+          'Precio anterior': fromPlan.price,
+          'Plan nuevo': toPlan.name,
+          'Precio nuevo': toPlan.price,
+          'Diferencia de precio': priceDifference,
+          'Comisión directa': referrerPlan.directCommissionAmount,
         },
       });
 
@@ -999,11 +1002,11 @@ export class FinancePaymentApprovalService {
         amount: directBonus,
         status: PointTransactionStatus.COMPLETED,
         metadata: {
-          referredUserId: user.id,
-          planId: plan.id,
-          planName: plan.name,
-          planPrice: plan.price,
-          commissionPercentage: referrerPlan.directCommissionAmount,
+          'Usuario referido':
+            user.personalInfo.firstName + ' ' + user.personalInfo.lastName,
+          'Nombre del plan': plan.name,
+          'Precio del plan': plan.price,
+          'Comisión directa': referrerPlan.directCommissionAmount,
         },
       });
 

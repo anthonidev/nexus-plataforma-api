@@ -1,14 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { Repository } from 'typeorm';
-import {
-  PaginationHelper,
-  PaginatedResult,
-} from 'src/common/helpers/pagination.helper';
-import { Payment } from '../entities/payment.entity';
-import { PaymentImage } from '../entities/payment-image.entity';
-import { PaymentConfig } from '../entities/payment-config.entity';
 import { FindPaymentsDto } from '../dto/find-payments.dto';
+import { PaymentConfig } from '../entities/payment-config.entity';
+import { PaymentImage } from '../entities/payment-image.entity';
+import { Payment } from '../entities/payment.entity';
 
 @Injectable()
 export class FinancePaymentsService {
@@ -33,13 +30,16 @@ export class FinancePaymentsService {
         paymentConfigId,
         status,
         order = 'DESC',
+        search,
       } = filters;
 
       const queryBuilder = this.paymentRepository
         .createQueryBuilder('payment')
         .leftJoinAndSelect('payment.paymentConfig', 'paymentConfig')
         .leftJoinAndSelect('payment.reviewedBy', 'reviewer')
-        .leftJoinAndSelect('payment.user', 'user');
+        .leftJoinAndSelect('payment.user', 'user')
+        .leftJoinAndSelect('user.personalInfo', 'personalInfo')
+        .leftJoinAndSelect('user.contactInfo', 'contactInfo');
 
       if (paymentConfigId) {
         queryBuilder.andWhere('payment.paymentConfig.id = :paymentConfigId', {
@@ -56,9 +56,14 @@ export class FinancePaymentsService {
           startDate: new Date(startDate),
         });
       }
+      if (search) {
+        queryBuilder.andWhere(
+          '(personalInfo.firstName LIKE :search OR personalInfo.lastName LIKE :search OR user.email LIKE :search OR personalInfo.documentNumber LIKE :search)',
+          { search: `%${search}%` },
+        );
+      }
 
       if (endDate) {
-        // Ajustar la fecha final para incluir todo el día
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
 
@@ -72,35 +77,32 @@ export class FinancePaymentsService {
         .skip((page - 1) * limit)
         .take(limit);
 
-      // Seleccionar solo los campos necesarios para el listado
       queryBuilder.select([
         'payment.id',
         'payment.amount',
         'payment.status',
         'payment.createdAt',
         'payment.reviewedAt',
-        'payment.relatedEntityType',
-        'payment.relatedEntityId',
-        'paymentConfig.id',
         'paymentConfig.name',
-        'paymentConfig.code',
         'reviewer.id',
         'reviewer.email',
         'user.id',
+        'user.photo',
         'user.email',
-        'user.referralCode',
+        'personalInfo.firstName',
+        'personalInfo.lastName',
+        'personalInfo.documentNumber',
+        'contactInfo.phone',
       ]);
 
       const [items, totalItems] = await queryBuilder.getManyAndCount();
 
-      // Obtener todos los PaymentConfigs activos
       const paymentConfigs = await this.paymentConfigRepository.find({
         where: { isActive: true },
-        select: ['id', 'name', 'code', 'description'],
+        select: ['id', 'name'],
         order: { name: 'ASC' },
       });
 
-      // Crear una respuesta paginada con metadatos extendidos
       const paginationResponse = PaginationHelper.createPaginatedResponse(
         items,
         totalItems,
@@ -132,17 +134,57 @@ export class FinancePaymentsService {
           'user.personalInfo',
           'user.contactInfo',
         ],
+        select: {
+          id: true,
+          user: {
+            email: true,
+            personalInfo: {
+              firstName: true,
+              lastName: true,
+              documentNumber: true,
+            },
+            contactInfo: {
+              phone: true,
+            },
+          },
+          paymentConfig: {
+            name: true,
+          },
+          amount: true,
+          status: true,
+
+          codeOperation: true,
+          banckName: true,
+          dateOperation: true,
+          numberTicket: true,
+
+          rejectionReason: true,
+          images: {
+            id: true,
+            url: true,
+            bankName: true,
+            amount: true,
+            transactionDate: true,
+            transactionReference: true,
+          },
+
+          createdAt: true,
+          updatedAt: true,
+          reviewedBy: {
+            email: true,
+          },
+
+          reviewedAt: true,
+          isArchived: true,
+
+          metadata: {
+            field1: true,
+          },
+        },
       });
 
       if (!payment) {
         throw new NotFoundException(`Pago con ID ${id} no encontrado`);
-      }
-
-      // Eliminar información sensible
-      delete payment.user.password;
-
-      if (payment.reviewedBy) {
-        delete payment.reviewedBy.password;
       }
 
       return payment;

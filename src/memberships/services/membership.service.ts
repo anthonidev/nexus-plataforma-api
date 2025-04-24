@@ -47,7 +47,6 @@ export class MembershipService {
       const queryBuilder = this.membershipHistoryRepository
         .createQueryBuilder('history')
         .leftJoinAndSelect('history.membership', 'membership')
-        .leftJoinAndSelect('history.performedBy', 'performedBy')
         .where('membership.id = :membershipId', { membershipId: membership.id })
         .orderBy('history.createdAt', order)
         .skip((page - 1) * limit)

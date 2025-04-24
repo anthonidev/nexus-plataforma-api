@@ -1,7 +1,13 @@
-import { Transform, Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsNumber, IsOptional } from 'class-validator';
-import { PaymentStatus } from '../entities/payment.entity';
+import { Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { PaginationDto } from 'src/common/dto/paginationDto';
+import { PaymentStatus } from '../entities/payment.entity';
 
 export class FindPaymentsDto extends PaginationDto {
   @IsOptional()
@@ -16,6 +22,10 @@ export class FindPaymentsDto extends PaginationDto {
   @IsOptional()
   @IsDateString()
   startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @IsOptional()
   @IsDateString()
