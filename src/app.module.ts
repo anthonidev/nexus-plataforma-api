@@ -3,20 +3,22 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { envs } from './config/envs';
 import { UserModule } from './user/user.module';
 
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
-import { SeedModule } from './seed/seed.module';
-import { MembershipsModule } from './memberships/memberships.module';
-import { PaymentsModule } from './payments/payments.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { CutsModule } from './cuts/cuts.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { EcommerceModule } from './ecommerce/ecommerce.module';
+import { MailModule } from './mail/mail.module';
+import { MembershipsModule } from './memberships/memberships.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PointsModule } from './points/points.module';
 import { RanksModule } from './ranks/ranks.module';
-import { WithdrawalsModule } from './withdrawals/withdrawals.module';
-import { CutsModule } from './cuts/cuts.module';
-import { ScheduleModule } from '@nestjs/schedule';
-import { DashboardModule } from './dashboard/dashboard.module';
+import { SeedModule } from './seed/seed.module';
 import { SystemModule } from './system/system.module';
-import { MailModule } from './mail/mail.module';
-import { EcommerceModule } from './ecommerce/ecommerce.module';
+import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 
 @Module({
   imports: [
@@ -44,11 +46,13 @@ import { EcommerceModule } from './ecommerce/ecommerce.module';
     RanksModule,
     WithdrawalsModule,
     CutsModule,
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     DashboardModule,
     SystemModule,
     MailModule,
     EcommerceModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
