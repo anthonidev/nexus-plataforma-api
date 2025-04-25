@@ -243,4 +243,20 @@ export class CutsService {
 
     return endDate;
   }
+
+  async validarHijos(): Promise<any> {
+    const left = await this.weeklyVolumeService.validarHijos(
+      '467ecd94-405a-431c-8395-2f0e8d9aecfd',
+      'LEFT',
+    );
+    const right = await this.weeklyVolumeService.validarHijos(
+      '467ecd94-405a-431c-8395-2f0e8d9aecfd',
+      'RIGHT',
+    );
+    const cant = await this.weeklyVolumeService.cantidadRef(
+      '467ecd94-405a-431c-8395-2f0e8d9aecfd',
+    );
+
+    return { left, right, cant };
+  }
 }

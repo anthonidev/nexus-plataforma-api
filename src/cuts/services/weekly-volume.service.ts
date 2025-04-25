@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { MailService } from 'src/mail/mail.service';
 import {
   Membership,
   MembershipStatus,
@@ -23,7 +24,6 @@ import {
   getLastDayOfWeek,
 } from 'src/utils/dates';
 import { DataSource, Repository } from 'typeorm';
-import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class WeeklyVolumeService {
@@ -102,8 +102,43 @@ export class WeeklyVolumeService {
             this.logger.warn(
               `Usuario ${volume.user.id} no tiene una membresía activa`,
             );
-            volume.status = VolumeProcessingStatus.PROCESSED;
+            volume.status = VolumeProcessingStatus.CANCELLED;
+            volume.metadata = {
+              Razón: 'Membresía inactiva',
+              'Procesado en': new Date().toISOString().split('T')[0],
+              'Volumen izquierdo': volume.leftVolume,
+              'Volumen derecho': volume.rightVolume,
+            };
             await queryRunner.manager.save(volume);
+
+            const existingNextWeekVolume =
+              await this.weeklyVolumeRepository.findOne({
+                where: {
+                  user: { id: volume.user.id },
+                  weekStartDate: currentWeekDates.start,
+                  weekEndDate: currentWeekDates.end,
+                },
+              });
+
+            if (existingNextWeekVolume) {
+              this.logger.log(
+                `Ya existe un volumen para la siguiente semana para el usuario ${volume.user.id}`,
+              );
+            } else {
+              const newVolume = this.weeklyVolumeRepository.create({
+                user: { id: volume.user.id },
+                membershipPlan: volume.membershipPlan,
+                leftVolume: 0,
+                rightVolume: 0,
+                weekStartDate: currentWeekDates.start,
+                weekEndDate: currentWeekDates.end,
+                status: VolumeProcessingStatus.PENDING,
+                carryOverVolume: 0,
+              });
+
+              await queryRunner.manager.save(newVolume);
+            }
+
             processed++;
             failed++;
             continue;
@@ -116,8 +151,90 @@ export class WeeklyVolumeService {
             this.logger.warn(
               `Usuario ${volume.user.id} no tiene hijos en ambos lados`,
             );
-            volume.status = VolumeProcessingStatus.PROCESSED;
+
+            // Cambiar a CANCELLED en lugar de PROCESSED
+            volume.status = VolumeProcessingStatus.CANCELLED;
+
+            // Añadir metadatos sobre la razón
+            volume.metadata = {
+              Razón:
+                !hasLeftLeg && !hasRightLeg
+                  ? 'No tiene directos activos en ninguna pierna'
+                  : !hasLeftLeg
+                    ? 'No tiene directo activo en la pierna izquierda'
+                    : 'No tiene directo activo en la pierna derecha',
+
+              'Procesado en': new Date().toISOString().split('T')[0],
+              'Volumen izquierdo': volume.leftVolume,
+              'Volumen derecho': volume.rightVolume,
+            };
+
             await queryRunner.manager.save(volume);
+
+            // Calcular el volumen a trasladar igual que en el caso normal: el diferencial que queda después de comparar lados
+            let higherSide: VolumeSide;
+            let lowerSide: VolumeSide;
+            let carryOverVolume = 0;
+
+            if (volume.leftVolume >= volume.rightVolume) {
+              higherSide = VolumeSide.LEFT;
+              lowerSide = VolumeSide.RIGHT;
+              carryOverVolume = Math.max(
+                0,
+                volume.leftVolume - volume.rightVolume,
+              );
+            } else {
+              higherSide = VolumeSide.RIGHT;
+              lowerSide = VolumeSide.LEFT;
+              carryOverVolume = Math.max(
+                0,
+                volume.rightVolume - volume.leftVolume,
+              );
+            }
+
+            // Verificar si ya existe un volumen para la siguiente semana
+            const existingNextWeekVolume =
+              await this.weeklyVolumeRepository.findOne({
+                where: {
+                  user: { id: volume.user.id },
+                  weekStartDate: currentWeekDates.start,
+                  weekEndDate: currentWeekDates.end,
+                },
+              });
+
+            if (existingNextWeekVolume) {
+              // Si ya existe, actualizar sumando el volumen trasladado al lado correspondiente
+              if (higherSide === VolumeSide.LEFT) {
+                existingNextWeekVolume.leftVolume =
+                  Number(existingNextWeekVolume.leftVolume) + carryOverVolume;
+              } else {
+                existingNextWeekVolume.rightVolume =
+                  Number(existingNextWeekVolume.rightVolume) + carryOverVolume;
+              }
+
+              existingNextWeekVolume.carryOverVolume =
+                Number(existingNextWeekVolume.carryOverVolume) +
+                carryOverVolume;
+
+              await queryRunner.manager.save(existingNextWeekVolume);
+            } else {
+              // Si no existe, crear uno nuevo
+              const newVolume = this.weeklyVolumeRepository.create({
+                user: { id: volume.user.id },
+                membershipPlan: activeMembership.plan,
+                leftVolume:
+                  higherSide === VolumeSide.LEFT ? carryOverVolume : 0,
+                rightVolume:
+                  higherSide === VolumeSide.RIGHT ? carryOverVolume : 0,
+                weekStartDate: currentWeekDates.start,
+                weekEndDate: currentWeekDates.end,
+                status: VolumeProcessingStatus.PENDING,
+                carryOverVolume: carryOverVolume,
+              });
+
+              await queryRunner.manager.save(newVolume);
+            }
+
             processed++;
             failed++;
             continue;
@@ -153,26 +270,23 @@ export class WeeklyVolumeService {
 
           let effectiveLowerVolume = lowerVolume;
 
-          if (directCount <= 2 && lowerVolume > 12500) {
+          if (directCount >= 2 && lowerVolume > 12500) {
             effectiveLowerVolume = 12500;
-          } else if (directCount === 3 && lowerVolume > 50000) {
+          } else if (directCount >= 3 && lowerVolume > 50000) {
             effectiveLowerVolume = 50000;
-          } else if (directCount === 4 && lowerVolume > 150000) {
+          } else if (directCount >= 4 && lowerVolume > 150000) {
             effectiveLowerVolume = 150000;
           } else if (directCount >= 5 && lowerVolume > 250000) {
             effectiveLowerVolume = 250000;
           } else {
-            effectiveLowerVolume = 250000;
+            effectiveLowerVolume = lowerVolume;
           }
 
-          // Puntos comisionables (se calcula sobre el volumen menor efectivo)
           const pointsToAdd = effectiveLowerVolume * commissionPercentage;
 
-          // 3. Actualizar el estado del volumen y marcar como pagado
           volume.status = VolumeProcessingStatus.PROCESSED;
           volume.paidAmount = pointsToAdd;
 
-          // 4. Actualizar los puntos del usuario
           let userPoints = await this.userPointsRepository.findOne({
             where: { user: { id: volume.user.id } },
           });
@@ -194,7 +308,6 @@ export class WeeklyVolumeService {
 
           await queryRunner.manager.save(userPoints);
 
-          // 5. Crear una transacción de puntos
           const pointsTransaction = this.pointsTransactionRepository.create({
             user: { id: volume.user.id },
             membershipPlan: activeMembership.plan,
@@ -202,62 +315,64 @@ export class WeeklyVolumeService {
             type: PointTransactionType.BINARY_COMMISSION,
             status: PointTransactionStatus.COMPLETED,
             metadata: {
-              'Inicio de semana': volume.weekStartDate
-                .toISOString()
-                .split('T')[0],
-              'Fin de semana': volume.weekEndDate.toISOString().split('T')[0],
-              'Volumen Izquierdo': volume.leftVolume,
-              'Volumen Derecho': volume.rightVolume,
-              'Volumen seleccionado':
+              'Fecha de inicio de semana': volume.weekStartDate,
+              'Fecha de fin de semana': volume.weekEndDate,
+              'Volumen izquierdo': volume.leftVolume,
+              'Volumen derecho': volume.rightVolume,
+              'Selección de lado':
                 volume.selectedSide === VolumeSide.LEFT
                   ? 'Izquierdo'
                   : 'Derecho',
-              Comisión: pointsToAdd,
               'Porcentaje de comisión':
                 activeMembership.plan.commissionPercentage,
-              Directos: directCount,
-              'Volumen menor': lowerVolume,
-              'Volumen menor efectivo': effectiveLowerVolume,
+              'Directos activos': directCount,
+              'Volumen efectivo menor': effectiveLowerVolume,
+              'Volumen menor original': lowerVolume,
+              'Limite aplicado':
+                lowerVolume !== effectiveLowerVolume
+                  ? 'Limite aplicado'
+                  : 'Sin limite',
             },
           });
+          volume.metadata = {
+            Razón: 'Comisión binaria procesada',
+            'Procesado en': new Date().toISOString().split('T')[0],
+            'Volumen izquierdo': volume.leftVolume,
+            'Volumen derecho': volume.rightVolume,
+            'Comisión procesada': pointsToAdd,
+          };
 
           await queryRunner.manager.save(pointsTransaction);
 
-          // 6. Calcular el volumen a trasladar (el diferencial que queda después de compensar lados)
           const carryOverVolume = Math.max(0, higherVolume - lowerVolume);
 
-          // 7. Crear un nuevo volumen para la semana actual con el volumen restante
-          // Se traslada el volumen restante (carry over) al mismo lado donde estaba
-          const existingVolume = await this.weeklyVolumeRepository.findOne({
-            where: {
-              user: { id: volume.user.id },
-              weekStartDate: currentWeekDates.start,
-              weekEndDate: currentWeekDates.end,
-              status: VolumeProcessingStatus.PENDING,
-            },
-          });
+          const existingNextWeekVolume =
+            await this.weeklyVolumeRepository.findOne({
+              where: {
+                user: { id: volume.user.id },
+                weekStartDate: currentWeekDates.start,
+                weekEndDate: currentWeekDates.end,
+              },
+            });
 
-          if (existingVolume) {
-            // Si ya existe un volumen para la semana actual, actualizar sumando los puntos
+          if (existingNextWeekVolume) {
             if (higherSide === VolumeSide.LEFT) {
-              existingVolume.leftVolume =
-                Number(existingVolume.leftVolume) + carryOverVolume;
+              existingNextWeekVolume.leftVolume =
+                Number(existingNextWeekVolume.leftVolume) + carryOverVolume;
             } else {
-              existingVolume.rightVolume =
-                Number(existingVolume.rightVolume) + carryOverVolume;
+              existingNextWeekVolume.rightVolume =
+                Number(existingNextWeekVolume.rightVolume) + carryOverVolume;
             }
 
-            // Actualizar el valor de carryOverVolume
-            existingVolume.carryOverVolume =
-              Number(existingVolume.carryOverVolume) + carryOverVolume;
+            existingNextWeekVolume.carryOverVolume =
+              Number(existingNextWeekVolume.carryOverVolume) + carryOverVolume;
 
-            await queryRunner.manager.save(existingVolume);
+            await queryRunner.manager.save(existingNextWeekVolume);
 
             this.logger.log(
-              `Volumen existente actualizado para usuario ${volume.user.id} con carry over adicional de ${carryOverVolume}`,
+              `Actualizado volumen existente para la siguiente semana: ID ${existingNextWeekVolume.id}, sumando carryOver: ${carryOverVolume}`,
             );
           } else {
-            // Si no existe, crear un nuevo volumen para la semana actual
             const newVolume = this.weeklyVolumeRepository.create({
               user: { id: volume.user.id },
               membershipPlan: activeMembership.plan,
@@ -271,13 +386,8 @@ export class WeeklyVolumeService {
             });
 
             await queryRunner.manager.save(newVolume);
-
-            this.logger.log(
-              `Nuevo volumen semanal creado para usuario ${volume.user.id} con carry over de ${carryOverVolume}`,
-            );
           }
 
-          // Guardar el volumen procesado
           await queryRunner.manager.save(volume);
 
           successful++;
@@ -298,7 +408,6 @@ export class WeeklyVolumeService {
         `Procesamiento de volúmenes completado. Procesados: ${processed}, Exitosos: ${successful}, Fallidos: ${failed}, Puntos totales: ${totalPoints}`,
       );
 
-      // Enviar reporte por email
       await this.sendWeeklyVolumeReport({
         processed,
         successful,
@@ -400,7 +509,6 @@ export class WeeklyVolumeService {
     }
   }
 
-  // Método para contar referidos directos activos
   private async countDirectReferrals(
     userId: string,
   ): Promise<{ directCount: number }> {
@@ -441,8 +549,6 @@ export class WeeklyVolumeService {
     }
   }
 
-  // Métodos auxiliares
-
   private getLastWeekDates(): { start: Date; end: Date } {
     const today = new Date();
     return {
@@ -463,25 +569,162 @@ export class WeeklyVolumeService {
     userId: string,
     side: 'LEFT' | 'RIGHT',
   ): Promise<boolean> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: [side === 'LEFT' ? 'leftChild' : 'rightChild'],
-    });
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'referralCode'],
+        relations: ['leftChild', 'rightChild'],
+      });
 
-    if (!user) return false;
+      if (!user || !user.referralCode) return false;
 
-    const child = side === 'LEFT' ? user.leftChild : user.rightChild;
+      const rootChildId =
+        side === 'LEFT' ? user.leftChild?.id : user.rightChild?.id;
 
-    if (!child) return false;
+      if (!rootChildId) return false;
 
-    // Verificar si el hijo tiene membresía activa
-    const activeMembership = await this.membershipRepository.findOne({
-      where: {
-        user: { id: child.id },
-        status: MembershipStatus.ACTIVE,
-      },
-    });
+      const descendantsQuery = `
+        WITH RECURSIVE descendants AS (
+          -- Nodo inicial
+          SELECT id FROM users WHERE id = $1
+          
+          UNION ALL
+          
+          -- Unir con todos los descendientes
+          SELECT u.id 
+          FROM users u
+          JOIN descendants d ON 
+            u.parent_id = d.id
+        )
+        SELECT id FROM descendants;
+      `;
 
-    return !!activeMembership;
+      const descendants = await this.userRepository.query(descendantsQuery, [
+        rootChildId,
+      ]);
+
+      if (!descendants || descendants.length === 0) return false;
+
+      const descendantIds = descendants.map((d) => d.id);
+
+      const activeMembershipsQuery = `
+        SELECT COUNT(*) as count
+        FROM users u
+        JOIN memberships m ON m.user_id = u.id
+        WHERE u.id = ANY($1) 
+          AND u."referrerCode" = $2
+          AND m.status = 'ACTIVE';
+      `;
+
+      const result = await this.userRepository.query(activeMembershipsQuery, [
+        descendantIds,
+        user.referralCode,
+      ]);
+
+      return parseInt(result[0]?.count || '0') > 0;
+    } catch (error) {
+      this.logger.error(
+        `Error al verificar pierna ${side} para usuario ${userId}: ${error.message}`,
+      );
+      return false;
+    }
+  }
+
+  async validarHijos(userId: string, side: 'LEFT' | 'RIGHT') {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'referralCode'],
+        relations: ['leftChild', 'rightChild'],
+      });
+
+      if (!user || !user.referralCode) return false;
+
+      const rootChildId =
+        side === 'LEFT' ? user.leftChild?.id : user.rightChild?.id;
+
+      if (!rootChildId) return false;
+
+      const descendantsQuery = `
+        WITH RECURSIVE descendants AS (
+          -- Nodo inicial
+          SELECT id FROM users WHERE id = $1
+          
+          UNION ALL
+          
+          -- Unir con todos los descendientes
+          SELECT u.id 
+          FROM users u
+          JOIN descendants d ON 
+            u.parent_id = d.id
+        )
+        SELECT id FROM descendants;
+      `;
+
+      const descendants = await this.userRepository.query(descendantsQuery, [
+        rootChildId,
+      ]);
+
+      if (!descendants || descendants.length === 0) return false;
+
+      const descendantIds = descendants.map((d) => d.id);
+
+      const activeMembershipsQuery = `
+        SELECT COUNT(*) as count
+        FROM users u
+        JOIN memberships m ON m.user_id = u.id
+        WHERE u.id = ANY($1) 
+          AND u."referrerCode" = $2
+          AND m.status = 'ACTIVE';
+      `;
+
+      const result = await this.userRepository.query(activeMembershipsQuery, [
+        descendantIds,
+        user.referralCode,
+      ]);
+
+      return parseInt(result[0]?.count || '0') > 0;
+    } catch (error) {
+      this.logger.error(
+        `Error al verificar pierna ${side} para usuario ${userId}: ${error.message}`,
+      );
+      return false;
+    }
+  }
+
+  async cantidadRef(userId: string): Promise<{ directCount: number }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['referralCode'],
+      });
+
+      if (!user || !user.referralCode) {
+        return { directCount: 0 };
+      }
+
+      const directReferrals = await this.userRepository.find({
+        where: { referrerCode: user.referralCode },
+      });
+
+      let activeCount = 0;
+      for (const referral of directReferrals) {
+        const activeMembership = await this.membershipRepository.findOne({
+          where: {
+            user: { id: referral.id },
+            status: MembershipStatus.ACTIVE,
+          },
+        });
+
+        if (activeMembership) {
+          activeCount++;
+        }
+      }
+
+      return { directCount: activeCount };
+    } catch (error) {
+      this.logger.error(`Error contando referidos directos: ${error.message}`);
+      return { directCount: 0 };
+    }
   }
 }
