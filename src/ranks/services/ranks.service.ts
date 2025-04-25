@@ -2,12 +2,12 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { User } from 'src/user/entities/user.entity';
+import { getFirstDayOfWeek, getLastDayOfWeek } from 'src/utils/dates';
 import { Repository } from 'typeorm';
 import { FindMonthlyVolumeRankDto } from '../dto/find-monthly-volume-rank.dto';
 import { MonthlyVolumeRank } from '../entities/monthly_volume_ranks.entity';
 import { Rank } from '../entities/ranks.entity';
 import { UserRank } from '../entities/user_ranks.entity';
-import { getFirstDayOfWeek, getLastDayOfWeek } from 'src/utils/dates';
 
 @Injectable()
 export class RanksService {
@@ -26,7 +26,6 @@ export class RanksService {
 
   async findAllRanks(userId: string) {
     try {
-      // Obtener todos los rangos
       const date = new Date();
       const firstDay = getFirstDayOfWeek(date);
       const lastDay = getLastDayOfWeek(date);
@@ -37,7 +36,6 @@ export class RanksService {
         order: { requiredPoints: 'ASC' },
       });
 
-      // Obtener información del rango actual del usuario
       const userRank = await this.userRankRepository.findOne({
         where: { user: { id: userId } },
         relations: ['currentRank', 'highestRank', 'membershipPlan'],
@@ -52,7 +50,6 @@ export class RanksService {
         throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
       }
 
-      // Preparar respuesta
       return {
         ranks: allRanks,
         userRank: userRank

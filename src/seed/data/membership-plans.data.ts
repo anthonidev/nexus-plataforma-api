@@ -1,9 +1,9 @@
 export const membershipPlansData = [
   {
     name: 'Ejecutivo',
-    price: 235.0,
+    price: 470.0,
     checkAmount: 0.0,
-    binaryPoints: 235,
+    binaryPoints: 470,
     commissionPercentage: 0.0,
     directCommissionAmount: 10.0,
     products: ['1 Colágeno Renew', '1 kit de Afiliación'],
