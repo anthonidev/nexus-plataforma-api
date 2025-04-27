@@ -46,7 +46,7 @@ export class WeeklyVolumeService {
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   async processWeeklyVolumes(): Promise<{
     processed: number;
@@ -171,28 +171,9 @@ export class WeeklyVolumeService {
 
             await queryRunner.manager.save(volume);
 
-            // Calcular el volumen a trasladar igual que en el caso normal: el diferencial que queda después de comparar lados
-            let higherSide: VolumeSide;
-            let lowerSide: VolumeSide;
-            let carryOverVolume = 0;
 
-            if (volume.leftVolume >= volume.rightVolume) {
-              higherSide = VolumeSide.LEFT;
-              lowerSide = VolumeSide.RIGHT;
-              carryOverVolume = Math.max(
-                0,
-                volume.leftVolume - volume.rightVolume,
-              );
-            } else {
-              higherSide = VolumeSide.RIGHT;
-              lowerSide = VolumeSide.LEFT;
-              carryOverVolume = Math.max(
-                0,
-                volume.rightVolume - volume.leftVolume,
-              );
-            }
+            let carryOverVolume = volume.leftVolume + volume.rightVolume;
 
-            // Verificar si ya existe un volumen para la siguiente semana
             const existingNextWeekVolume =
               await this.weeklyVolumeRepository.findOne({
                 where: {
@@ -203,18 +184,21 @@ export class WeeklyVolumeService {
               });
 
             if (existingNextWeekVolume) {
-              // Si ya existe, actualizar sumando el volumen trasladado al lado correspondiente
-              if (higherSide === VolumeSide.LEFT) {
-                existingNextWeekVolume.leftVolume =
-                  Number(existingNextWeekVolume.leftVolume) + carryOverVolume;
-              } else {
-                existingNextWeekVolume.rightVolume =
-                  Number(existingNextWeekVolume.rightVolume) + carryOverVolume;
-              }
-
               existingNextWeekVolume.carryOverVolume =
                 Number(existingNextWeekVolume.carryOverVolume) +
                 carryOverVolume;
+              existingNextWeekVolume.leftVolume =
+                Number(existingNextWeekVolume.leftVolume) + carryOverVolume;
+              existingNextWeekVolume.rightVolume =
+                Number(existingNextWeekVolume.rightVolume) + carryOverVolume;
+              existingNextWeekVolume.status = VolumeProcessingStatus.PENDING;
+              existingNextWeekVolume.metadata = {
+                Razón: 'Volumen procesado por falta de hijos',
+                'Procesado en': new Date().toISOString().split('T')[0],
+                'Volumen izquierdo': existingNextWeekVolume.leftVolume,
+                'Volumen derecho': existingNextWeekVolume.rightVolume,
+                "Volumen transferido": carryOverVolume,
+              };
 
               await queryRunner.manager.save(existingNextWeekVolume);
             } else {
@@ -222,14 +206,19 @@ export class WeeklyVolumeService {
               const newVolume = this.weeklyVolumeRepository.create({
                 user: { id: volume.user.id },
                 membershipPlan: activeMembership.plan,
-                leftVolume:
-                  higherSide === VolumeSide.LEFT ? carryOverVolume : 0,
-                rightVolume:
-                  higherSide === VolumeSide.RIGHT ? carryOverVolume : 0,
+                leftVolume: volume.leftVolume,
+                rightVolume: volume.rightVolume,
                 weekStartDate: currentWeekDates.start,
                 weekEndDate: currentWeekDates.end,
                 status: VolumeProcessingStatus.PENDING,
                 carryOverVolume: carryOverVolume,
+                metadata: {
+                  Razón: 'Volumen procesado por falta de hijos',
+                  'Procesado en': new Date().toISOString().split('T')[0],
+                  'Volumen izquierdo': volume.leftVolume,
+                  'Volumen derecho': volume.rightVolume,
+                  "Volumen transferido": carryOverVolume,
+                },
               });
 
               await queryRunner.manager.save(newVolume);
@@ -270,18 +259,18 @@ export class WeeklyVolumeService {
 
           let effectiveLowerVolume = lowerVolume;
 
-          if (directCount >= 2 && lowerVolume > 12500) {
-            effectiveLowerVolume = 12500;
-          } else if (directCount >= 3 && lowerVolume > 50000) {
-            effectiveLowerVolume = 50000;
-          } else if (directCount >= 4 && lowerVolume > 150000) {
-            effectiveLowerVolume = 150000;
-          } else if (directCount >= 5 && lowerVolume > 250000) {
-            effectiveLowerVolume = 250000;
+          if (directCount >= 5) {
+            effectiveLowerVolume = Math.min(lowerVolume, 250000);
+          } else if (directCount >= 4) {
+            effectiveLowerVolume = Math.min(lowerVolume, 150000);
+          } else if (directCount >= 3) {
+            effectiveLowerVolume = Math.min(lowerVolume, 50000);
+          } else if (directCount >= 2) {
+            effectiveLowerVolume = Math.min(lowerVolume, 12500);
           } else {
+            // Con 0 o 1 referidos, no hay límite (o usamos el valor original)
             effectiveLowerVolume = lowerVolume;
           }
-
           const pointsToAdd = effectiveLowerVolume * commissionPercentage;
 
           volume.status = VolumeProcessingStatus.PROCESSED;
