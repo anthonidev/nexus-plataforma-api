@@ -23,7 +23,7 @@ import {
   getLastDayOfPreviousWeek,
   getLastDayOfWeek,
 } from 'src/utils/dates';
-import { DataSource, Repository } from 'typeorm';
+import { Between, DataSource, Repository } from 'typeorm';
 
 @Injectable()
 export class WeeklyVolumeService {
@@ -439,48 +439,189 @@ export class WeeklyVolumeService {
         .toISOString()
         .split('T')[0];
 
-      const subject = `Reporte de Procesamiento de Volúmenes Semanales: ${formattedStartDate} al ${formattedEndDate}`;
+      // Obtener información adicional para el reporte
+      const topEarners = await this.getTopEarnersForWeek(
+        reportData.weekStartDate,
+        reportData.weekEndDate,
+        5, // Limitar a los 5 principales
+      );
+
+      const weeklyStats = await this.getWeeklyStats(
+        reportData.weekStartDate,
+        reportData.weekEndDate,
+      );
+
+      const subject = `Reporte de Comisiones Binarias: ${formattedStartDate} al ${formattedEndDate}`;
+
+      const successRate = reportData.processed > 0
+        ? ((reportData.successful / reportData.processed) * 100).toFixed(2)
+        : 0;
+
+      const avgPointsPerUser = reportData.successful > 0
+        ? (reportData.totalPoints / reportData.successful).toFixed(2)
+        : 0;
 
       const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
-          <h1 style="color: #0066cc; border-bottom: 1px solid #eee; padding-bottom: 10px;">Reporte de Procesamiento de Volúmenes Semanales</h1>
-          
-          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>Período:</strong> ${formattedStartDate} al ${formattedEndDate}</p>
-            <p><strong>Fecha de ejecución:</strong> ${new Date().toLocaleString()}</p>
-          </div>
-          
-          <h2 style="color: #333;">Resumen de Procesamiento</h2>
-          
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-            <tr style="background-color: #f2f2f2;">
-              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Métrica</th>
-              <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Valor</th>
-            </tr>
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Reporte Semanal de Comisiones</title>
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #333;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; margin-bottom: 20px;">
             <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;">Volúmenes Procesados</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${reportData.processed}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;">Procesamiento Exitoso</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${reportData.successful}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;">Procesamientos Fallidos</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${reportData.failed}</td>
-            </tr>
-            <tr style="background-color: #e6f7ff;">
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Total de Puntos Distribuidos</strong></td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>${reportData.totalPoints.toFixed(2)}</strong></td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;">Tasa de Éxito</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">${reportData.processed > 0 ? ((reportData.successful / reportData.processed) * 100).toFixed(2) : 0}%</td>
+              <td style="padding: 20px;">
+                <h1 style="color: #0a8043; margin: 0; padding: 0; font-size: 24px;">Reporte de Comisiones Binarias</h1>
+                <p style="font-size: 16px; color: #666; margin-top: 5px;">
+                  <strong>Período:</strong> ${formattedStartDate} al ${formattedEndDate}
+                </p>
+              </td>
             </tr>
           </table>
           
-          <p style="color: #666; font-style: italic; margin-top: 30px;">Este es un correo automático generado por el sistema de procesamiento de volúmenes de Nexus Platform. Por favor no responda a este correo.</p>
-        </div>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 0 0 20px 0;">
+                <h2 style="color: #0a8043; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
+                  Resumen Ejecutivo
+                </h2>
+                
+                <table width="100%" cellpadding="10" cellspacing="0" style="border-collapse: collapse; margin-bottom: 20px;">
+                  <tr>
+                    <td width="50%" style="background-color: #effaf5; border-radius: 4px; padding: 15px;">
+                      <p style="font-size: 28px; font-weight: bold; margin: 0; color: #0a8043;">${reportData.totalPoints.toFixed(2)}</p>
+                      <p style="font-size: 14px; margin: 5px 0 0 0; color: #666;">Total puntos distribuidos</p>
+                    </td>
+                    <td width="50%" style="background-color: #f8f9fa; border-radius: 4px; padding: 15px;">
+                      <p style="font-size: 28px; font-weight: bold; margin: 0; color: #0a8043;">${reportData.successful}</p>
+                      <p style="font-size: 14px; margin: 5px 0 0 0; color: #666;">Usuarios recompensados</p>
+                    </td>
+                  </tr>
+                </table>
+                
+                <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin-bottom: 30px;">
+                  <tr>
+                    <td width="33%" style="padding: 0 10px 0 0;">
+                      <div style="background-color: #f8f9fa; border-radius: 4px; padding: 15px; height: 100%;">
+                        <p style="font-size: 18px; font-weight: bold; margin: 0; color: #0a8043;">${avgPointsPerUser}</p>
+                        <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">Promedio de puntos por usuario</p>
+                      </div>
+                    </td>
+                    <td width="33%" style="padding: 0 10px;">
+                      <div style="background-color: #f8f9fa; border-radius: 4px; padding: 15px; height: 100%;">
+                        <p style="font-size: 18px; font-weight: bold; margin: 0; color: #0a8043;">${successRate}%</p>
+                        <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">Tasa de éxito</p>
+                      </div>
+                    </td>
+                    <td width="33%" style="padding: 0 0 0 10px;">
+                      <div style="background-color: #f8f9fa; border-radius: 4px; padding: 15px; height: 100%;">
+                        <p style="font-size: 18px; font-weight: bold; margin: 0; color: ${reportData.failed > 0 ? '#dc3545' : '#0a8043'}">${reportData.failed}</p>
+                        <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">Procesamientos fallidos</p>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+  
+                ${weeklyStats ? `
+                <h2 style="color: #0a8043; font-size: 18px; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
+                  Métricas Semanales
+                </h2>
+                <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin-bottom: 30px;">
+                  <tr>
+                    <td width="33%" style="padding: 0 10px 0 0;">
+                      <div style="background-color: #f8f9fa; border-radius: 4px; padding: 15px; height: 100%;">
+                        <p style="font-size: 18px; font-weight: bold; margin: 0; color: #0a8043;">${weeklyStats.totalVolume.toFixed(2)}</p>
+                        <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">Volumen total generado</p>
+                      </div>
+                    </td>
+                    <td width="33%" style="padding: 0 10px;">
+                      <div style="background-color: #f8f9fa; border-radius: 4px; padding: 15px; height: 100%;">
+                        <p style="font-size: 18px; font-weight: bold; margin: 0; color: #0a8043;">${weeklyStats.leftVolume.toFixed(2)}</p>
+                        <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">Volumen izquierdo total</p>
+                      </div>
+                    </td>
+                    <td width="33%" style="padding: 0 0 0 10px;">
+                      <div style="background-color: #f8f9fa; border-radius: 4px; padding: 15px; height: 100%;">
+                        <p style="font-size: 18px; font-weight: bold; margin: 0; color: #0a8043;">${weeklyStats.rightVolume.toFixed(2)}</p>
+                        <p style="font-size: 12px; margin: 5px 0 0 0; color: #666;">Volumen derecho total</p>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+                ` : ''}
+  
+                ${topEarners.length > 0 ? `
+                <h2 style="color: #0a8043; font-size: 18px; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
+                  Top ${topEarners.length} Comisiones
+                </h2>
+                <table width="100%" cellpadding="10" cellspacing="0" style="border-collapse: collapse; margin-bottom: 30px;">
+                  <tr style="background-color: #effaf5; font-weight: bold;">
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #dee2e6;">Usuario</th>
+                    <th style="text-align: right; padding: 10px; border-bottom: 1px solid #dee2e6;">Puntos</th>
+                    <th style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">Volumen Izq.</th>
+                    <th style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">Volumen Der.</th>
+                  </tr>
+                  ${topEarners.map((earner, index) => `
+                  <tr style="background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
+                    <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">${earner.user}</td>
+                    <td style="text-align: right; padding: 10px; border-bottom: 1px solid #dee2e6; font-weight: bold;">${earner.points.toFixed(2)}</td>
+                    <td style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">${earner.leftVolume.toFixed(2)}</td>
+                    <td style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">${earner.rightVolume.toFixed(2)}</td>
+                  </tr>
+                  `).join('')}
+                </table>
+                ` : ''}
+                
+                <h2 style="color: #0a8043; font-size: 18px; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
+                  Detalles del Procesamiento
+                </h2>
+                <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse: collapse; margin-bottom: 20px;">
+                  <tr style="background-color: #effaf5; font-weight: bold;">
+                    <th style="text-align: left; padding: 10px; border: 1px solid #dee2e6;">Métrica</th>
+                    <th style="text-align: right; padding: 10px; border: 1px solid #dee2e6;">Valor</th>
+                  </tr>
+                  <tr style="background-color: #f8f9fa;">
+                    <td style="padding: 10px; border: 1px solid #dee2e6;">Volúmenes a procesar</td>
+                    <td style="text-align: right; padding: 10px; border: 1px solid #dee2e6;">${reportData.processed}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px; border: 1px solid #dee2e6;">Procesamientos exitosos</td>
+                    <td style="text-align: right; padding: 10px; border: 1px solid #dee2e6;">${reportData.successful}</td>
+                  </tr>
+                  <tr style="background-color: #f8f9fa;">
+                    <td style="padding: 10px; border: 1px solid #dee2e6;">Procesamientos fallidos</td>
+                    <td style="text-align: right; padding: 10px; border: 1px solid #dee2e6;">${reportData.failed}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px; border: 1px solid #dee2e6;"><strong>Total de puntos distribuidos</strong></td>
+                    <td style="text-align: right; padding: 10px; border: 1px solid #dee2e6;"><strong>${reportData.totalPoints.toFixed(2)}</strong></td>
+                  </tr>
+                  <tr style="background-color: #f8f9fa;">
+                    <td style="padding: 10px; border: 1px solid #dee2e6;">Tasa de éxito</td>
+                    <td style="text-align: right; padding: 10px; border: 1px solid #dee2e6;">${successRate}%</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+          
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; margin-top: 30px;">
+            <tr>
+              <td style="padding: 20px; text-align: center; color: #6c757d;">
+                <p style="font-size: 14px; margin: 0;">
+                  Este es un correo automático generado por el sistema de Nexus Platform.<br>
+                  Por favor no responda a este correo.
+                </p>
+                <p style="font-size: 12px; margin: 10px 0 0 0;">
+                  © ${new Date().getFullYear()} Nexus Platform. Todos los derechos reservados.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
       `;
 
       await this.mailService.sendMail({
@@ -495,6 +636,80 @@ export class WeeklyVolumeService {
     } catch (error) {
       this.logger.error(`Error al enviar reporte por email: ${error.message}`);
       // No lanzamos el error para que no interrumpa el flujo principal
+    }
+  }
+
+  // Método para obtener los usuarios con mayores comisiones de la semana
+  private async getTopEarnersForWeek(
+    startDate: Date,
+    endDate: Date,
+    limit: number = 5
+  ): Promise<Array<{ user: string; points: number; leftVolume: number; rightVolume: number }>> {
+    try {
+      // Obtener las transacciones de puntos del tipo comisión binaria en el período
+      const transactions = await this.pointsTransactionRepository.find({
+        where: {
+          type: PointTransactionType.BINARY_COMMISSION,
+          status: PointTransactionStatus.COMPLETED,
+          createdAt: Between(startDate, endDate),
+        },
+        relations: ['user', 'user.personalInfo'],
+        order: { amount: 'DESC' },
+        take: limit,
+      });
+
+      return transactions.map(transaction => {
+        const userName = transaction.user.personalInfo
+          ? `${transaction.user.personalInfo.firstName} ${transaction.user.personalInfo.lastName}`
+          : transaction.user.email;
+
+        const metadata = transaction.metadata || {};
+
+        return {
+          user: userName,
+          points: transaction.amount,
+          leftVolume: metadata['Volumen izquierdo'] || 0,
+          rightVolume: metadata['Volumen derecho'] || 0,
+        };
+      });
+    } catch (error) {
+      this.logger.error(`Error al obtener top earners: ${error.message}`);
+      return [];
+    }
+  }
+
+  // Método para obtener estadísticas semanales
+  private async getWeeklyStats(
+    startDate: Date,
+    endDate: Date
+  ): Promise<{ totalVolume: number; leftVolume: number; rightVolume: number } | null> {
+    try {
+      const query = `
+        SELECT 
+          SUM(wv."leftVolume" + wv."rightVolume") as "totalVolume",
+          SUM(wv."leftVolume") as "leftVolume",
+          SUM(wv."rightVolume") as "rightVolume"
+        FROM weekly_volumes wv
+        WHERE wv."weekStartDate" = $1 AND wv."weekEndDate" = $2
+      `;
+
+      const result = await this.weeklyVolumeRepository.query(query, [
+        startDate,
+        endDate,
+      ]);
+
+      if (result && result[0]) {
+        return {
+          totalVolume: parseFloat(result[0].totalVolume) || 0,
+          leftVolume: parseFloat(result[0].leftVolume) || 0,
+          rightVolume: parseFloat(result[0].rightVolume) || 0,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error(`Error al obtener estadísticas semanales: ${error.message}`);
+      return null;
     }
   }
 
