@@ -16,6 +16,7 @@ import {
   Membership,
   MembershipStatus,
 } from 'src/memberships/entities/membership.entity';
+import { NotificationFactory } from 'src/notifications/factory/notification.factory';
 import { RegisterDto } from 'src/user/dto/create-user.dto';
 import { ContactInfo } from 'src/user/entities/contact-info.entity';
 import { PersonalInfo } from 'src/user/entities/personal-info.entity';
@@ -63,7 +64,8 @@ export class AuthService {
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
     private readonly mailService: MailService,
-  ) {}
+    private readonly notificationFactory: NotificationFactory,
+  ) { }
   private cleanView(view: View): CleanView {
     const {
       id,
@@ -163,9 +165,9 @@ export class AuthService {
       role: cleanRole,
       membership: membershipInfo.hasMembership
         ? {
-            planId: membershipInfo.plan.id,
-            planName: membershipInfo.plan.name,
-          }
+          planId: membershipInfo.plan.id,
+          planName: membershipInfo.plan.name,
+        }
         : null,
     };
 
@@ -302,6 +304,22 @@ export class AuthService {
         personalInfo.firstName,
         personalInfo.lastName,
       );
+
+      // Agregar notificación si hay un referidor
+      if (registerDto.referrerCode) {
+        const referrer = await this.userRepository.findOne({
+          where: { referralCode: registerDto.referrerCode },
+        });
+
+        if (referrer) {
+          // Enviar notificación al referidor
+          await this.notificationFactory.referralRegistered(
+            referrer.id,
+            `${personalInfo.firstName} ${personalInfo.lastName}`,
+            savedUser.id
+          );
+        }
+      }
 
       return {
         user: {

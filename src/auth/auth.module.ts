@@ -15,6 +15,8 @@ import { PasswordResetService } from './services/password-reset.service';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { ChangePasswordController } from './controllers/change-password.controller';
 import { ChangePasswordService } from './services/change-password.service';
+import { NotificationsModule } from 'src/notifications/notifications.module';
+
 @Module({
   imports: [
     PassportModule,
@@ -26,6 +28,7 @@ import { ChangePasswordService } from './services/change-password.service';
     TypeOrmModule.forFeature([PasswordResetToken]),
     MembershipsModule,
     MailModule,
+    NotificationsModule,
   ],
   providers: [
     AuthService,
@@ -41,4 +44,4 @@ import { ChangePasswordService } from './services/change-password.service';
   ],
   exports: [AuthService, TypeOrmModule],
 })
-export class AuthModule {}
+export class AuthModule { }

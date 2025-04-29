@@ -5,6 +5,7 @@ import { Notification } from './entities/notification.entity';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsService } from './notifications.service';
+import { NotificationFactory } from './factory/notification.factory';
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { NotificationsService } from './notifications.service';
     EventEmitterModule.forRoot(),
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationsGateway],
-  exports: [NotificationsService],
+  providers: [NotificationsService, NotificationsGateway, NotificationFactory],
+  exports: [NotificationsService, TypeOrmModule, EventEmitterModule, NotificationsGateway, NotificationFactory],
 })
-export class NotificationsModule {}
+export class NotificationsModule { }
