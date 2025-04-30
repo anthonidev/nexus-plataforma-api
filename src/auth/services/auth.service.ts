@@ -171,12 +171,20 @@ export class AuthService {
         : null,
     };
 
+    // Fetch user's personal info to get firstName and lastName
+    const userWithPersonalInfo = await this.userRepository.findOne({
+      where: { id: user.id },
+      relations: ['personalInfo'],
+    });
+
     return {
       user: {
         id: user.id,
         email: user.email,
         photo: user.photo,
         nickname: user.nickname,
+        firstName: userWithPersonalInfo?.personalInfo?.firstName,
+        lastName: userWithPersonalInfo?.personalInfo?.lastName,
         role: cleanRole,
         views: viewTree,
         membership: membershipInfo,

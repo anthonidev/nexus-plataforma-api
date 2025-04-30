@@ -13,7 +13,7 @@ import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import { Public } from '../decorators/is-public.decorator';
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)

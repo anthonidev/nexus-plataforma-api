@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MembershipsModule } from 'src/memberships/memberships.module';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 import { PointsModule } from 'src/points/points.module';
 import { RanksModule } from 'src/ranks/ranks.module';
 import { UserModule } from 'src/user/user.module';
@@ -10,10 +11,15 @@ import { PaymentsController } from './controllers/payments.controller';
 import { PaymentConfig } from './entities/payment-config.entity';
 import { PaymentImage } from './entities/payment-image.entity';
 import { Payment } from './entities/payment.entity';
+import { BaseApprovalService } from './services/base-approval.service';
+import { DirectBonusService } from './services/direct-bonus.service';
 import { FinancePaymentApprovalService } from './services/finance-paymemts-approval.service';
 import { FinancePaymentsService } from './services/finance-payments.service';
+import { MembershipPaymentService } from './services/membership-payment.service';
 import { PaymentsService } from './services/payments.service';
-import { NotificationsModule } from 'src/notifications/notifications.module';
+import { PlanUpgradeService } from './services/plan-upgrade.service';
+import { ReconsumptionService } from './services/reconsumption.service';
+import { TreeVolumeService } from './services/tree-volumen.service';
 
 @Module({
   controllers: [
@@ -24,6 +30,12 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
   providers: [
     PaymentsService,
     FinancePaymentsService,
+    BaseApprovalService,
+    DirectBonusService,
+    TreeVolumeService,
+    MembershipPaymentService,
+    PlanUpgradeService,
+    ReconsumptionService,
     FinancePaymentApprovalService,
   ],
   imports: [

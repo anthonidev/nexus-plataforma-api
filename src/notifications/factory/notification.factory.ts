@@ -85,7 +85,7 @@ export class NotificationFactory {
   ) {
     return this.send(NotificationType.PAYMENT_APPROVED, userId, {
       metadata: { amount, paymentId, paymentType },
-      actionUrl: `/payments/${paymentId}`,
+      actionUrl: `/mis-pagos/detalle/${paymentId}`,
     });
   }
 
@@ -97,7 +97,7 @@ export class NotificationFactory {
   ) {
     return this.send(NotificationType.PAYMENT_REJECTED, userId, {
       metadata: { amount, paymentId, reason },
-      actionUrl: `/payments/${paymentId}`,
+      actionUrl: `/mis-pagos/detalle/${paymentId}`,
     });
   }
 
