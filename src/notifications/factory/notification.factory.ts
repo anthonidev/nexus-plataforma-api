@@ -1,15 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { NotificationType } from '../entities/notification.entity';
 import { NotificationsService } from '../notifications.service';
 import { createNotificationPayload } from '../utils/notification.utils';
-import { NotificationType } from '../entities/notification.entity';
 
 @Injectable()
 export class NotificationFactory {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(private readonly notificationsService: NotificationsService) { }
 
-  /**
-   * Envía una notificación basada en el tipo y los parámetros proporcionados
-   */
   async send(
     type: NotificationType,
     userId: string,
@@ -22,7 +19,6 @@ export class NotificationFactory {
     } = {},
   ) {
     try {
-      // Obtener el payload base de la notificación
       const notificationPayload = createNotificationPayload(type, {
         userId,
         metadata: params.metadata,
@@ -30,7 +26,6 @@ export class NotificationFactory {
         imageUrl: params.imageUrl,
       });
 
-      // Permitir sobrescribir el título y mensaje si se proporciona
       if (params.title) {
         notificationPayload.title = params.title;
       }
@@ -39,23 +34,21 @@ export class NotificationFactory {
         notificationPayload.message = params.message;
       }
 
-      // Enviar la notificación
       return await this.notificationsService.create(notificationPayload);
     } catch (error) {
       console.error(
         `Error sending notification: ${error.message}`,
         error.stack,
       );
-      // Retornar el error sin lanzarlo para no interrumpir el flujo principal
       return { error: error.message };
     }
   }
 
-  // Métodos específicos para cada tipo de notificación
 
   async volumeAdded(userId: string, amount: number, side: 'LEFT' | 'RIGHT') {
     return this.send(NotificationType.VOLUME_ADDED, userId, {
       metadata: { amount, side },
+      actionUrl: '/volumenes-semanales',
     });
   }
 

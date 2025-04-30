@@ -13,6 +13,7 @@ import { Payment } from './entities/payment.entity';
 import { FinancePaymentApprovalService } from './services/finance-paymemts-approval.service';
 import { FinancePaymentsService } from './services/finance-payments.service';
 import { PaymentsService } from './services/payments.service';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
   controllers: [
@@ -31,6 +32,7 @@ import { PaymentsService } from './services/payments.service';
     MembershipsModule,
     PointsModule,
     RanksModule,
+    NotificationsModule,
   ],
   exports: [
     PaymentsService,
@@ -39,4 +41,4 @@ import { PaymentsService } from './services/payments.service';
     FinancePaymentApprovalService,
   ],
 })
-export class PaymentsModule {}
+export class PaymentsModule { }

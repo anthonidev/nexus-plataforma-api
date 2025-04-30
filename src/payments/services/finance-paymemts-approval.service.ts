@@ -51,6 +51,7 @@ import { DataSource, Repository } from 'typeorm';
 import { RejectPaymentDto } from '../dto/approval.dto';
 import { ApprovePaymentDto } from '../dto/approve-payment.dto';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
+import { NotificationFactory } from 'src/notifications/factory/notification.factory';
 
 @Injectable()
 export class FinancePaymentApprovalService {
@@ -86,8 +87,9 @@ export class FinancePaymentApprovalService {
     private readonly userRankRepository: Repository<UserRank>,
     @InjectRepository(MonthlyVolumeRank)
     private readonly monthlyVolumeRankRepository: Repository<MonthlyVolumeRank>,
+    private readonly notificationFactory: NotificationFactory,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async approvePayment(
     paymentId: number,
@@ -266,7 +268,6 @@ export class FinancePaymentApprovalService {
           membershipUpgrade.status = UpgradeStatus.CANCELLED;
           await queryRunner.manager.save(membershipUpgrade);
 
-          // Registro histórico
           const membershipHistory = this.membershipHistoryRepository.create({
             membership: { id: membershipUpgrade.membership.id },
             action: MembershipAction.STATUS_CHANGED,
@@ -292,6 +293,12 @@ export class FinancePaymentApprovalService {
           queryRunner,
         );
       }
+      await this.notificationFactory.paymentRejected(
+        payment.user.id,
+        payment.amount,
+        payment.id,
+        payment.rejectionReason
+      );
 
       await queryRunner.commitTransaction();
 
@@ -712,6 +719,12 @@ export class FinancePaymentApprovalService {
       });
       await queryRunner.manager.save(newUserPoints);
     }
+    await this.notificationFactory.paymentApproved(
+      payment.user.id,
+      payment.amount,
+      payment.id,
+      payment.paymentConfig.name
+    );
 
     await queryRunner.manager.save(membershipHistory);
   }
@@ -811,6 +824,7 @@ export class FinancePaymentApprovalService {
       });
 
       await queryRunner.manager.save(pointsTransaction);
+
 
       this.logger.log(
         `Bono directo por upgrade procesado: ${directBonus} puntos para el usuario ${referrer.id}`,
@@ -1025,6 +1039,7 @@ export class FinancePaymentApprovalService {
           'Comisión directa': referrerPlan.directCommissionAmount,
         },
       });
+
 
       await queryRunner.manager.save(pointsTransaction);
 
