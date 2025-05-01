@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { PaginationDto } from 'src/common/dto/paginationDto';
 import { NotificationType } from '../entities/notification.entity';
 
 export class CreateNotificationDto {
@@ -46,17 +47,10 @@ export class MarkAsReadDto {
   ids: number[];
 }
 
-export class FindNotificationsDto {
+export class FindNotificationsDto extends PaginationDto {
   @IsOptional()
   @IsEnum(NotificationType)
   type?: NotificationType;
-
   @IsOptional()
   isRead?: boolean;
-
-  @IsOptional()
-  limit?: number = 20;
-
-  @IsOptional()
-  page?: number = 1;
 }

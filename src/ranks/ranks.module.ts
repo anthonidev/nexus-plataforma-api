@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MembershipsModule } from 'src/memberships/memberships.module';
 import { UserModule } from 'src/user/user.module';
 import { RanksController } from './controllers/ranks.controller';
 import { MonthlyVolumeRank } from './entities/monthly_volume_ranks.entity';
@@ -13,7 +14,8 @@ import { RanksService } from './services/ranks.service';
   imports: [
     TypeOrmModule.forFeature([Rank, UserRank, MonthlyVolumeRank]),
     forwardRef(() => UserModule),
+    MembershipsModule,
   ],
   exports: [RanksService, TypeOrmModule],
 })
-export class RanksModule {}
+export class RanksModule { }

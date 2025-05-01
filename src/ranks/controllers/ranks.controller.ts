@@ -9,7 +9,7 @@ import { RanksService } from '../services/ranks.service';
 @Controller('ranks')
 @UseGuards(JwtAuthGuard)
 export class RanksController {
-  constructor(private readonly ranksService: RanksService) {}
+  constructor(private readonly ranksService: RanksService) { }
 
   @Get()
   findAll(@GetUser() user: User) {

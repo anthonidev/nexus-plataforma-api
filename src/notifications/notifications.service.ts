@@ -49,7 +49,7 @@ export class NotificationsService {
     userId: string,
     findNotificationsDto: FindNotificationsDto,
   ) {
-    const { limit = 20, page = 1, type, isRead } = findNotificationsDto;
+    const { limit = 10, page = 1, type, isRead } = findNotificationsDto;
 
     const queryBuilder = this.notificationRepository
       .createQueryBuilder('notification')
