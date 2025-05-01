@@ -21,12 +21,10 @@ export class RanksService {
     private readonly monthlyVolumeRankRepository: Repository<MonthlyVolumeRank>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-
   ) { }
 
   async findAllRanks(userId: string) {
     try {
-
       const allRanks = await this.rankRepository.find({
         where: { isActive: true },
         order: { requiredPoints: 'ASC' },
@@ -41,7 +39,7 @@ export class RanksService {
 
       const userRank = await this.userRankRepository.findOne({
         where: { user: { id: userId } },
-        relations: ['currentRank', 'highestRank',],
+        relations: ['currentRank', 'highestRank'],
         select: {
           id: true,
           currentRank: { id: true, name: true, code: true },
@@ -64,6 +62,8 @@ export class RanksService {
 
       const currentMonthVolume = await this.getCurrentMonthlyVolume(userId);
       const totalVolume = currentMonthVolume ? currentMonthVolume.totalVolume : 0;
+      const leftVolume = currentMonthVolume ? currentMonthVolume.leftVolume : 0;
+      const rightVolume = currentMonthVolume ? currentMonthVolume.rightVolume : 0;
 
       let nextRank = null;
       let rankProgress = {
@@ -74,23 +74,20 @@ export class RanksService {
         totalDirects,
         requiredDirects: 0,
         currentVolume: totalVolume,
+        leftVolume,
+        rightVolume,
         requiredVolume: 0,
-
       };
 
       if (userRank && userRank.currentRank) {
-        const currentRankIndex = allRanks.findIndex(
-          rank => rank.id === userRank.currentRank.id
-        );
+        // Determinar el próximo rango basado en los requisitos, no por la posición en la lista
+        nextRank = this.determineNextRank(allRanks, userRank.currentRank.id, totalVolume, totalDirects);
 
-        if (currentRankIndex < allRanks.length - 1) {
-          nextRank = allRanks[currentRankIndex + 1];
-
+        if (nextRank) {
           rankProgress.requiredDirects = nextRank.requiredDirects;
           rankProgress.requiredVolume = nextRank.requiredPoints;
           rankProgress.directsProgress = Math.min(totalDirects, nextRank.requiredDirects);
           rankProgress.volumeProgress = Math.min(totalVolume, nextRank.requiredPoints);
-
         }
       }
 
@@ -104,12 +101,39 @@ export class RanksService {
             progress: rankProgress,
           }
           : null,
-
       };
     } catch (error) {
       this.logger.error(`Error al obtener rangos: ${error.message}`);
       throw error;
     }
+  }
+
+  // Método para determinar correctamente el próximo rango
+  private determineNextRank(
+    allRanks: Rank[],
+    currentRankId: number,
+    totalVolume: number,
+    totalDirects: number
+  ): Rank | null {
+    // Ordenar los rangos por requisitos de puntos (de menor a mayor)
+    const sortedRanks = [...allRanks].sort((a, b) => a.requiredPoints - b.requiredPoints);
+
+    const currentRankIndex = sortedRanks.findIndex(rank => rank.id === currentRankId);
+    if (currentRankIndex === -1 || currentRankIndex === sortedRanks.length - 1) {
+      return null; // No hay rango siguiente o el rango actual no se encontró
+    }
+
+    // Buscar el próximo rango que no cumple con los requisitos
+    for (let i = currentRankIndex + 1; i < sortedRanks.length; i++) {
+      const rank = sortedRanks[i];
+      // Si no cumple con los requisitos de volumen o directos, es el próximo rango a alcanzar
+      if (totalVolume < rank.requiredPoints || totalDirects < rank.requiredDirects) {
+        return rank;
+      }
+    }
+
+    // Si ya cumple con todos los rangos, retornar el último
+    return sortedRanks[sortedRanks.length - 1];
   }
 
   private async countDirectsInLeg(userId: string, side: 'LEFT' | 'RIGHT'): Promise<number> {
@@ -206,7 +230,7 @@ export class RanksService {
       const queryBuilder = this.monthlyVolumeRankRepository
         .createQueryBuilder('monthlyVolume')
         .leftJoinAndSelect('monthlyVolume.assignedRank', 'assignedRank')
-        .where('monthlyVolume.user.id = :userId', { userId });
+        .where('monthlyVolume.user.id = :userId', { userId })
 
       if (status) {
         queryBuilder.andWhere('monthlyVolume.status = :status', { status });
