@@ -18,7 +18,7 @@ export class NotificationsService {
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async create(
     createNotificationDto: CreateNotificationDto,

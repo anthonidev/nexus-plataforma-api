@@ -141,12 +141,7 @@ export class PlanUpgradeService {
             await queryRunner.manager.save(newUserPoints);
         }
 
-        await this.notificationFactory.paymentApproved(
-            payment.user.id,
-            payment.amount,
-            payment.id,
-            payment.paymentConfig.name
-        );
+
 
         await queryRunner.manager.save(membershipHistory);
     }
@@ -180,6 +175,18 @@ export class PlanUpgradeService {
                     currentRank: bronzeRank,
                     highestRank: bronzeRank,
                 });
+                try {
+                    await this.notificationFactory.rankAchieved(
+                        user.id,
+                        bronzeRank.name,
+                        bronzeRank.code
+                    )
+                } catch (notificationError) {
+                    this.logger.error(
+                        `Error al enviar notificación de aprobación: ${notificationError.message}`,
+                        notificationError.stack,
+                    );
+                }
 
                 await queryRunner.manager.save(newUserRank);
             }

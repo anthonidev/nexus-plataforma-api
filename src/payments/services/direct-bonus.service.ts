@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
 import { Membership, MembershipStatus } from 'src/memberships/entities/membership.entity';
+import { NotificationFactory } from 'src/notifications/factory/notification.factory';
 import { PointsTransaction, PointTransactionStatus, PointTransactionType } from 'src/points/entities/points_transactions.entity';
 import { UserPoints } from 'src/points/entities/user_points.entity';
 import { User } from 'src/user/entities/user.entity';
@@ -20,6 +21,8 @@ export class DirectBonusService {
         private readonly userPointsRepository: Repository<UserPoints>,
         @InjectRepository(PointsTransaction)
         private readonly pointsTransactionRepository: Repository<PointsTransaction>,
+        private readonly notificationFactory: NotificationFactory,
+
     ) { }
 
     async processDirectBonus(
@@ -30,7 +33,7 @@ export class DirectBonusService {
         try {
             const referrer = await this.userRepository.findOne({
                 where: { referralCode: user.referrerCode },
-                relations: ['role'],
+                relations: ['role', 'personalInfo'],
             });
 
             if (!referrer) {
@@ -75,10 +78,8 @@ export class DirectBonusService {
             });
 
             if (referrerPoints) {
-                referrerPoints.availablePoints =
-                    Number(referrerPoints.availablePoints) + directBonus;
-                referrerPoints.totalEarnedPoints =
-                    Number(referrerPoints.totalEarnedPoints) + directBonus;
+                referrerPoints.availablePoints = Number(referrerPoints.availablePoints) + directBonus;
+                referrerPoints.totalEarnedPoints = Number(referrerPoints.totalEarnedPoints) + directBonus;
                 await queryRunner.manager.save(referrerPoints);
             } else {
                 const newReferrerPoints = this.userPointsRepository.create({
@@ -105,6 +106,19 @@ export class DirectBonusService {
                     'Comisión directa': referrerPlan.directCommissionAmount,
                 },
             });
+            try {
+                await this.notificationFactory.directBonus(
+                    referrer.id,
+                    directBonus,
+                    user.personalInfo.firstName + ' ' + user.personalInfo.lastName,
+                    user.id,
+                )
+            } catch (notificationError) {
+                this.logger.error(
+                    `Error al enviar notificación de rechazo: ${notificationError.message}`,
+                    notificationError.stack,
+                );
+            }
 
             await queryRunner.manager.save(pointsTransaction);
 
@@ -214,6 +228,19 @@ export class DirectBonusService {
                     'Comisión directa': referrerPlan.directCommissionAmount,
                 },
             });
+            try {
+                await this.notificationFactory.directBonus(
+                    referrer.id,
+                    directBonus,
+                    user.personalInfo.firstName + ' ' + user.personalInfo.lastName,
+                    user.id,
+                )
+            } catch (notificationError) {
+                this.logger.error(
+                    `Error al enviar notificación de rechazo: ${notificationError.message}`,
+                    notificationError.stack,
+                );
+            }
 
             await queryRunner.manager.save(pointsTransaction);
 

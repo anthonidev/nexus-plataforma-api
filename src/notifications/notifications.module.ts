@@ -14,6 +14,6 @@ import { NotificationFactory } from './factory/notification.factory';
   ],
   controllers: [NotificationsController],
   providers: [NotificationsService, NotificationsGateway, NotificationFactory],
-  exports: [NotificationsService, TypeOrmModule, EventEmitterModule, NotificationsGateway, NotificationFactory],
+  exports: [NotificationsService, TypeOrmModule, NotificationFactory, NotificationsGateway, EventEmitterModule],
 })
 export class NotificationsModule { }

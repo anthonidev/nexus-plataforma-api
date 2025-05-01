@@ -62,7 +62,7 @@ export class NotificationFactory {
   async rankAchieved(userId: string, rankName: string, rankCode: string) {
     return this.send(NotificationType.RANK_ACHIEVED, userId, {
       metadata: { rankName, rankCode },
-      actionUrl: '/dashboard/ranks',
+      actionUrl: '/rangos',
     });
   }
 
@@ -159,7 +159,7 @@ export class NotificationFactory {
   ) {
     return this.send(NotificationType.DIRECT_BONUS, userId, {
       metadata: { amount, referralName, referralId },
-      actionUrl: '/dashboard/earnings',
+      actionUrl: '/historial-puntos',
     });
   }
 

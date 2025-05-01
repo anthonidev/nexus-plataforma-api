@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
 import { Membership, MembershipStatus } from 'src/memberships/entities/membership.entity';
 import { MembershipAction, MembershipHistory } from 'src/memberships/entities/membership_history.entity';
+import { NotificationFactory } from 'src/notifications/factory/notification.factory';
 import { UserPoints } from 'src/points/entities/user_points.entity';
 import { Rank } from 'src/ranks/entities/ranks.entity';
 import { UserRank } from 'src/ranks/entities/user_ranks.entity';
@@ -35,6 +36,7 @@ export class MembershipPaymentService {
 
         private readonly directBonusService: DirectBonusService,
         private readonly treeVolumeService: TreeVolumeService,
+        private readonly notificationFactory: NotificationFactory,
 
         private readonly dataSource: DataSource,
     ) { }
@@ -147,8 +149,19 @@ export class MembershipPaymentService {
                     currentRank: bronzeRank,
                     highestRank: bronzeRank,
                 });
-
                 await queryRunner.manager.save(newUserRank);
+                try {
+                    await this.notificationFactory.rankAchieved(
+                        user.id,
+                        bronzeRank.name,
+                        bronzeRank.code
+                    )
+                } catch (notificationError) {
+                    this.logger.error(
+                        `Error al enviar notificación de aprobación: ${notificationError.message}`,
+                        notificationError.stack,
+                    );
+                }
             }
 
             this.logger.log(`UserRank creado/actualizado para usuario ${user.id}`);

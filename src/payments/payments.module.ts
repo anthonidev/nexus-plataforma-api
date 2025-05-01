@@ -11,7 +11,6 @@ import { PaymentsController } from './controllers/payments.controller';
 import { PaymentConfig } from './entities/payment-config.entity';
 import { PaymentImage } from './entities/payment-image.entity';
 import { Payment } from './entities/payment.entity';
-import { BaseApprovalService } from './services/base-approval.service';
 import { DirectBonusService } from './services/direct-bonus.service';
 import { FinancePaymentApprovalService } from './services/finance-paymemts-approval.service';
 import { FinancePaymentsService } from './services/finance-payments.service';
@@ -30,7 +29,6 @@ import { TreeVolumeService } from './services/tree-volumen.service';
   providers: [
     PaymentsService,
     FinancePaymentsService,
-    BaseApprovalService,
     DirectBonusService,
     TreeVolumeService,
     MembershipPaymentService,
