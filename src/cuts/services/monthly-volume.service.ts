@@ -35,7 +35,7 @@ export class MonthlyVolumeService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async processMonthlyVolumes(): Promise<{
     processed: number;
@@ -50,10 +50,8 @@ export class MonthlyVolumeService {
     try {
       this.logger.log('Iniciando procesamiento de volúmenes mensuales');
 
-      // 1. Obtener la fecha de inicio y fin del mes pasado
       const lastMonthDates = this.getLastMonthDates();
 
-      // Obtener todos los volúmenes pendientes del mes pasado
       const pendingVolumes = await this.monthlyVolumeRepository.find({
         where: {
           status: MonthlyVolumeStatus.PENDING,
@@ -67,7 +65,6 @@ export class MonthlyVolumeService {
         `Encontrados ${pendingVolumes.length} volúmenes pendientes para procesar`,
       );
 
-      // Obtener todos los rangos disponibles, ordenados por puntos requeridos (ascendente)
       const allRanks = await this.rankRepository.find({
         where: { isActive: true },
         order: { requiredPoints: 'ASC' },
@@ -80,13 +77,10 @@ export class MonthlyVolumeService {
       let failed = 0;
       let rankUpdates = 0;
 
-      // Obtener las fechas para el nuevo periodo (mes actual)
       const currentMonthDates = this.getCurrentMonthDates();
 
-      // Procesar cada volumen
       for (const volume of pendingVolumes) {
         try {
-          // Verificar si el usuario tiene un plan activo
           const activeMembership = await this.membershipRepository.findOne({
             where: {
               user: { id: volume.user.id },
@@ -99,8 +93,44 @@ export class MonthlyVolumeService {
             this.logger.warn(
               `Usuario ${volume.user.id} no tiene una membresía activa`,
             );
-            volume.status = MonthlyVolumeStatus.PROCESSED;
+            volume.status = MonthlyVolumeStatus.CANCELLED;
+            volume.metadata = {
+              Razón: 'Membresía inactiva',
+              'Procesado en': new Date().toISOString().split('T')[0],
+              'Volumen izquierdo': volume.leftVolume,
+              'Volumen derecho': volume.rightVolume,
+              'Volumen total': volume.totalVolume,
+            }
             await queryRunner.manager.save(volume);
+            const existingNextMonthVolume = await this.monthlyVolumeRepository.findOne({
+              where: {
+                user: { id: volume.user.id },
+                monthStartDate: currentMonthDates.start,
+                monthEndDate: currentMonthDates.end,
+                status: MonthlyVolumeStatus.PENDING,
+              },
+            });
+            if (existingNextMonthVolume) {
+              existingNextMonthVolume.leftVolume = Number(volume.leftVolume) + Number(existingNextMonthVolume.leftVolume);
+              existingNextMonthVolume.rightVolume = Number(volume.rightVolume) + Number(existingNextMonthVolume.rightVolume);
+
+              await queryRunner.manager.save(existingNextMonthVolume);
+            } else {
+              const newVolume = this.monthlyVolumeRepository.create({
+                user: { id: volume.user.id },
+                membershipPlan: activeMembership.plan,
+                leftVolume: volume.leftVolume,
+                rightVolume: volume.rightVolume,
+                totalVolume: volume.totalVolume,
+                leftDirects: 0,
+                rightDirects: 0,
+                monthStartDate: currentMonthDates.start,
+                monthEndDate: currentMonthDates.end,
+                status: MonthlyVolumeStatus.PENDING,
+              });
+              await queryRunner.manager.save(newVolume);
+            }
+
             processed++;
             failed++;
             continue;
