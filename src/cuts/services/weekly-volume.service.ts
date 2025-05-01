@@ -193,7 +193,7 @@ export class WeeklyVolumeService {
                 Number(existingNextWeekVolume.rightVolume) + carryOverVolume;
               existingNextWeekVolume.status = VolumeProcessingStatus.PENDING;
               existingNextWeekVolume.metadata = {
-                Razón: 'Volumen procesado por falta de hijos',
+                Razón: 'Volumen transferido',
                 'Procesado en': new Date().toISOString().split('T')[0],
                 'Volumen izquierdo': existingNextWeekVolume.leftVolume,
                 'Volumen derecho': existingNextWeekVolume.rightVolume,
@@ -213,7 +213,7 @@ export class WeeklyVolumeService {
                 status: VolumeProcessingStatus.PENDING,
                 carryOverVolume: carryOverVolume,
                 metadata: {
-                  Razón: 'Volumen procesado por falta de hijos',
+                  Razón: 'Volumen transferido',
                   'Procesado en': new Date().toISOString().split('T')[0],
                   'Volumen izquierdo': volume.leftVolume,
                   'Volumen derecho': volume.rightVolume,

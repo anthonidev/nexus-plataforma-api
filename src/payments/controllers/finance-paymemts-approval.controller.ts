@@ -21,7 +21,7 @@ import { ApprovePaymentDto } from '../dto/approve-payment.dto';
 export class FinancePaymentApprovalController {
   constructor(
     private readonly financePaymentApprovalService: FinancePaymentApprovalService,
-  ) {}
+  ) { }
 
   @Post(':id/approve')
   approvePayment(

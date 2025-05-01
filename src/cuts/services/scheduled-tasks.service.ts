@@ -26,9 +26,8 @@ export class ScheduledTasksService {
     }
   }
 
-  // @Cron('0 3 1 * *', {
-  @Cron('37 12 25 8 *', {
-
+  @Cron('0 3 1 * *', {
+    // @Cron('52 2 1 5 *', {
     name: 'monthlyVolumeCut',
     timeZone: 'America/Lima',
   })

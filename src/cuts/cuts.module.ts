@@ -13,6 +13,7 @@ import { MonthlyVolumeService } from './services/monthly-volume.service';
 import { RanksModule } from 'src/ranks/ranks.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailModule } from 'src/mail/mail.module';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
   controllers: [CutsController],
@@ -28,7 +29,9 @@ import { MailModule } from 'src/mail/mail.module';
     PointsModule,
     RanksModule,
     ScheduleModule,
-    MailModule
+    MailModule,
+    NotificationsModule,
+
   ],
   exports: [
     CutsService,
@@ -37,4 +40,4 @@ import { MailModule } from 'src/mail/mail.module';
     ScheduledTasksService,
   ],
 })
-export class CutsModule {}
+export class CutsModule { }
