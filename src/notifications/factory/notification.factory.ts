@@ -73,7 +73,7 @@ export class NotificationFactory {
   ) {
     return this.send(NotificationType.REFERRAL_REGISTERED, userId, {
       metadata: { referralName, referralId },
-      actionUrl: '/dashboard/network',
+      actionUrl: '/mi-equipo',
     });
   }
 
