@@ -31,7 +31,7 @@ import { EcommerceService } from '../services/ecommerce.service';
 @Controller('ecommerce')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class EcommerceController {
-  constructor(private readonly ecommerceService: EcommerceService) {}
+  constructor(private readonly ecommerceService: EcommerceService) { }
 
   @Get('categories')
   @Roles('SYS', 'FAC')
@@ -54,7 +54,7 @@ export class EcommerceController {
           fileType: /(jpg|jpeg|png)$/,
         })
         .addMaxSizeValidator({
-          maxSize: 1024 * 1024 * 5,
+          maxSize: 1024 * 1024 * 2,
         })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,

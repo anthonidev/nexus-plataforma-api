@@ -24,6 +24,6 @@ import { ProductController } from './controllers/product.controller';
     CloudinaryModule,
     UserModule,
   ],
-  exports: [TypeOrmModule, EcommerceService],
+  exports: [TypeOrmModule, EcommerceService, ProductService],
 })
-export class EcommerceModule {}
+export class EcommerceModule { }

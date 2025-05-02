@@ -15,7 +15,7 @@ import { ProductService } from '../services/product.service';
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProductController {
-  constructor(private readonly productService: ProductService) {}
+  constructor(private readonly productService: ProductService) { }
 
   @Get(':id')
   @Roles('SYS', 'FAC')

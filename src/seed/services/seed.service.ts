@@ -13,6 +13,7 @@ import { View } from 'src/user/entities/view.entity';
 import { DataSource, In, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { rolData, vistaData } from '../data/auth.data';
+import { categoryData } from '../data/ecommerce.data';
 import { membershipPlansData } from '../data/membership-plans.data';
 import { paymentConfigsData } from '../data/payment-configs.data';
 import {
@@ -21,12 +22,13 @@ import {
   provinciasData,
 } from '../data/ubigeo.data';
 
+import { CutConfiguration } from 'src/cuts/entities/cut_configurations.entity';
+import { ProductCategory } from 'src/ecommerce/entities/product-category.entity';
 import { Rank } from 'src/ranks/entities/ranks.entity';
 import { WithdrawalConfig } from 'src/withdrawals/entities/withdrawal-config.entity';
-import { CutConfiguration } from 'src/cuts/entities/cut_configurations.entity';
 import { cutConfigurationsData } from '../data/cuts.data';
-import { withdrawalConfigsData } from '../data/withdrawal-config.data';
 import { rankData } from '../data/rank.data';
+import { withdrawalConfigsData } from '../data/withdrawal-config.data';
 @Injectable()
 export class SeedService {
   private readonly logger = new Logger(SeedService.name);
@@ -50,8 +52,11 @@ export class SeedService {
     private readonly ubigeoRepository: Repository<Ubigeo>,
     @InjectRepository(Rank)
     private readonly rankRepository: Repository<Rank>,
+
+    @InjectRepository(ProductCategory)
+    private readonly productCategoryRepository: Repository<ProductCategory>,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
   private async createView(viewData: any, parentView?: View): Promise<View> {
     const { code, name, url, order, icon } = viewData;
     try {
@@ -343,6 +348,73 @@ export class SeedService {
       throw error;
     }
   }
+
+  async seedEcommerceCategories() {
+    this.logger.log('Iniciando seed de categorías de ecommerce...');
+    try {
+      const results = await Promise.all(
+        categoryData.map(async (categoryData) => {
+          try {
+            const existingCategory = await this.productCategoryRepository.findOne(
+              {
+                where: { code: categoryData.code },
+              },
+            );
+
+            if (existingCategory) {
+              this.logger.debug(
+                `Categoría existente encontrada: ${categoryData.code}`,
+              );
+              return { status: 'existing', code: categoryData.code };
+            }
+
+            const category = this.productCategoryRepository.create({
+              name: categoryData.name,
+              code: categoryData.code,
+              description: categoryData.description,
+              order: categoryData.order,
+              isActive: true,
+            });
+
+            await this.productCategoryRepository.save(category);
+            this.logger.log(
+              `Categoría creada exitosamente: ${categoryData.code}`,
+            );
+            return { status: 'created', code: categoryData.code };
+          } catch (error) {
+            this.logger.error(
+              `Error al crear categoría ${categoryData.code}: ${error.message}`,
+            );
+            return {
+              status: 'error',
+              code: categoryData.code,
+              error: error.message,
+            };
+          }
+        }),
+      );
+
+      const created = results.filter((r) => r.status === 'created').length;
+      const existing = results.filter((r) => r.status === 'existing').length;
+      const errors = results.filter((r) => r.status === 'error').length;
+      this.logger.log(
+        `Seed de categorías de ecommerce completado. Creadas: ${created}, Existentes: ${existing}, Errores: ${errors}`,
+      );
+
+      return {
+        created,
+        existing,
+        errors,
+        details: results,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error general en seedEcommerceCategories: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
 
   async seedAll() {
     this.logger.log('Iniciando proceso de seed completo...');

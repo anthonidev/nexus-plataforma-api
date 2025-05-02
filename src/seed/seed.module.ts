@@ -14,16 +14,19 @@ import { SeedController } from './controllers/seed.controller';
 import { SeedService } from './services/seed.service';
 import { GlobalAccountsController } from './controllers/global-accounts.controller';
 import { GlobalAccountsSeedService } from './services/global-accounts-seed.service';
+import { EcommerceModule } from 'src/ecommerce/ecommerce.module';
+import { ProductCategory } from 'src/ecommerce/entities/product-category.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([View, Role, MembershipPlan, PaymentConfig, Rank]),
+    TypeOrmModule.forFeature([View, Role, MembershipPlan, PaymentConfig, Rank, ProductCategory]),
     UserModule,
     MembershipsModule,
     PaymentsModule,
     WithdrawalsModule,
     CutsModule,
+    EcommerceModule,
   ],
-  controllers: [SeedController,GlobalAccountsController],
-  providers: [SeedService,GlobalAccountsSeedService],
+  controllers: [SeedController, GlobalAccountsController],
+  providers: [SeedService, GlobalAccountsSeedService],
 })
-export class SeedModule {}
+export class SeedModule { }

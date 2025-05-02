@@ -3,7 +3,7 @@ import { SeedService } from '../services/seed.service';
 
 @Controller('seed')
 export class SeedController {
-  constructor(private readonly seedService: SeedService) {}
+  constructor(private readonly seedService: SeedService) { }
   @Post()
   executeSeed() {
     return this.seedService.seedAll();
@@ -19,6 +19,13 @@ export class SeedController {
     this.seedService.seedCutConfigurations();
     return { message: 'All seed data has been executed' };
   }
+
+
+  @Post('ecommerce-categories')
+  seedEcommerceCategories() {
+    return this.seedService.seedEcommerceCategories();
+  }
+
 
   @Post('users')
   seedUsers() {
