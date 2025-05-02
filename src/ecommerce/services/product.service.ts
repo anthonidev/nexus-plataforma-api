@@ -1,10 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Product } from '../entities/products.entity';
-import { ProductStockHistory } from '../entities/product-stock-history.entity';
 import { PaginationDto } from 'src/common/dto/paginationDto';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
+import { Repository } from 'typeorm';
+import { FindProductsDto } from '../dto/filter-products.dto';
+import { ProductStockHistory } from '../entities/product-stock-history.entity';
+import { Product } from '../entities/products.entity';
 
 @Injectable()
 export class ProductService {
@@ -15,8 +16,83 @@ export class ProductService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(ProductStockHistory)
     private readonly stockHistoryRepository: Repository<ProductStockHistory>,
-  ) {}
+  ) { }
+  async findAll(findProductsDto: FindProductsDto) {
+    try {
+      const {
+        page = 1,
+        limit = 10,
+        order = 'DESC',
+        name,
+        categoryId,
+        isActive
+      } = findProductsDto;
 
+      const queryBuilder = this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.category', 'category')
+        .leftJoinAndSelect('product.images', 'images')
+        .orderBy('product.createdAt', order);
+
+      if (name) {
+        queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:name)', {
+          name: `%${name.toLowerCase()}%`
+        });
+      }
+
+      if (categoryId) {
+        queryBuilder.andWhere('category.id = :categoryId', { categoryId });
+      }
+
+      if (isActive !== undefined) {
+        queryBuilder.andWhere('product.isActive = :isActive', { isActive });
+      }
+
+      queryBuilder
+        .skip((page - 1) * limit)
+        .take(limit);
+
+      queryBuilder.addOrderBy('images.isMain', 'DESC');
+      queryBuilder.addOrderBy('images.order', 'ASC');
+
+      const [items, totalItems] = await queryBuilder.getManyAndCount();
+
+      const formattedItems = items.map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        sku: product.sku,
+        memberPrice: product.memberPrice,
+        publicPrice: product.publicPrice,
+        stock: product.stock,
+        status: product.status,
+        isActive: product.isActive,
+        category: product.category ? {
+          id: product.category.id,
+          name: product.category.name,
+          code: product.category.code
+        } : null,
+        mainImage: product.images && product.images.length > 0
+          ? product.images.find(img => img.isMain)?.url || product.images[0].url
+          : null,
+        imagesCount: product.images ? product.images.length : 0,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt
+      }));
+
+      return {
+        success: true,
+        ...PaginationHelper.createPaginatedResponse(
+          formattedItems,
+          totalItems,
+          findProductsDto
+        )
+      };
+    } catch (error) {
+      this.logger.error(`Error al obtener productos: ${error.message}`);
+      throw error;
+    }
+  }
   async findOne(id: number) {
     try {
       const product = await this.productRepository.findOne({
@@ -28,7 +104,6 @@ export class ProductService {
         throw new NotFoundException(`Producto con ID ${id} no encontrado`);
       }
 
-      // Ordenar imágenes
       if (product.images) {
         product.images.sort((a, b) => {
           if (a.isMain && !b.isMain) return -1;
@@ -106,9 +181,9 @@ export class ProductService {
         createdAt: history.createdAt,
         updatedBy: history.updatedBy
           ? {
-              id: history.updatedBy.id,
-              email: history.updatedBy.email,
-            }
+            id: history.updatedBy.id,
+            email: history.updatedBy.email,
+          }
           : null,
       }));
 
@@ -120,11 +195,6 @@ export class ProductService {
 
       return {
         success: true,
-        product: {
-          id: product.id,
-          name: product.name,
-          sku: product.sku,
-        },
         ...paginatedResult,
       };
     } catch (error) {

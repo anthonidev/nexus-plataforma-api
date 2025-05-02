@@ -11,11 +11,18 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { ProductService } from '../services/product.service';
+import { FindProductsDto } from '../dto/filter-products.dto';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
+
+  @Get()
+  @Roles('SYS', 'FAC')
+  findAll(@Query() findProductsDto: FindProductsDto) {
+    return this.productService.findAll(findProductsDto);
+  }
 
   @Get(':id')
   @Roles('SYS', 'FAC')
