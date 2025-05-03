@@ -14,6 +14,7 @@ import { User } from 'src/user/entities/user.entity';
 import { FinancePaymentApprovalService } from '../services/finance-paymemts-approval.service';
 import { RejectPaymentDto } from '../dto/approval.dto';
 import { ApprovePaymentDto } from '../dto/approve-payment.dto';
+import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 
 @Controller('finance/payments/approval')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -24,6 +25,9 @@ export class FinancePaymentApprovalController {
   ) { }
 
   @Post(':id/approve')
+  @ApiOperation({ summary: 'Aprobar pago' })
+  @ApiParam({ name: 'id', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Pago aprobado' })
   approvePayment(
     @Param('id', ParseIntPipe) id: number,
     @GetUser() user: User,
@@ -36,6 +40,9 @@ export class FinancePaymentApprovalController {
     );
   }
   @Post(':id/reject')
+  @ApiOperation({ summary: 'Rechazar pago' })
+  @ApiParam({ name: 'id', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Pago rechazado' })
   rejectPayment(
     @Param('id', ParseIntPipe) id: number,
     @GetUser() user: User,
