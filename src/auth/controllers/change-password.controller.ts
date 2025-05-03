@@ -4,6 +4,7 @@ import { GetUser } from '../decorators/get-user.decorator';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { ChangePasswordService } from '../services/change-password.service';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth/change-password')
 @UseGuards(JwtAuthGuard)
@@ -11,6 +12,8 @@ export class ChangePasswordController {
   constructor(private readonly changePasswordService: ChangePasswordService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Cambiar contraseña' })
+  @ApiResponse({ status: 200, description: 'Contraseña cambiada con éxito' })
   async changePassword(
     @GetUser() user: User,
     @Body() changePasswordDto: ChangePasswordDto,

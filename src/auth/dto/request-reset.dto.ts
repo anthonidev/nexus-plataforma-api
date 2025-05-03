@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
   IsNotEmpty,
@@ -7,12 +8,14 @@ import {
 } from 'class-validator';
 
 export class RequestResetDto {
+  @ApiProperty({ example: 'juan.perez@gmail.com', type: String, required: true })
   @IsEmail({}, { message: 'El correo debe tener un formato válido' })
   @IsNotEmpty({ message: 'El correo es requerido' })
   email: string;
 }
 
 export class ResetPasswordDto {
+  @ApiProperty({ example: 'Hola123te', type: String, required: true })
   @IsString()
   @IsNotEmpty({ message: 'La contraseña es requerida' })
   @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
