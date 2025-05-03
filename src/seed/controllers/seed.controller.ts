@@ -1,5 +1,6 @@
 import { Controller, Post } from '@nestjs/common';
 import { SeedService } from '../services/seed.service';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('seed')
 export class SeedController {
@@ -10,6 +11,8 @@ export class SeedController {
   }
 
   @Post('all')
+  @ApiOperation({ summary: 'Ejecutar toda la configuración de seed' })
+  @ApiResponse({ status: 200, description: 'Todos los datos de seed han sido ejecutados' })
   seedAll() {
     this.seedService.seedUsers();
     this.seedService.seedMembershipPlans();
@@ -22,37 +25,51 @@ export class SeedController {
 
 
   @Post('ecommerce-categories')
+  @ApiOperation({ summary: 'Generar categorías de productos' })
+  @ApiResponse({ status: 200, description: 'Categorías de productos generadas' })
   seedEcommerceCategories() {
     return this.seedService.seedEcommerceCategories();
   }
 
 
   @Post('users')
+  @ApiOperation({ summary: 'Generar usuarios' })
+  @ApiResponse({ status: 200, description: 'Usuarios generados' })
   seedUsers() {
     return this.seedService.seedUsers();
   }
 
   @Post('membership-plans')
+  @ApiOperation({ summary: 'Generar planes de membresía' })
+  @ApiResponse({ status: 200, description: 'Planes de membresía generados' })
   seedMembershipPlans() {
     return this.seedService.seedMembershipPlans();
   }
 
   @Post('payment-configs')
+  @ApiOperation({ summary: 'Generar configuraciones de pago' })
+  @ApiResponse({ status: 200, description: 'Configuraciones de pago generadas' })
   seedPaymentConfigs() {
     return this.seedService.seedPaymentConfigs();
   }
 
   @Post('withdrawal-configs')
+  @ApiOperation({ summary: 'Generar configuraciones de retiro' })
+  @ApiResponse({ status: 200, description: 'Configuraciones de retiro generadas' })
   seedWithdrawalConfigs() {
     return this.seedService.seedWithdrawalConfigs();
   }
 
   @Post('ranks')
+  @ApiOperation({ summary: 'Generar rangos de puntos' })
+  @ApiResponse({ status: 200, description: 'Rangos de puntos generados' })
   seedRanks() {
     return this.seedService.seedRanks();
   }
 
   @Post('cut-configs')
+  @ApiOperation({ summary: 'Generar configuraciones de cortes' })
+  @ApiResponse({ status: 200, description: 'Configuraciones de cortes generadas' })
   seedCutConfigurations() {
     return this.seedService.seedCutConfigurations();
   }
