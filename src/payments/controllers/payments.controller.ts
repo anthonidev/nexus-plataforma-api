@@ -11,7 +11,7 @@ import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { User } from 'src/user/entities/user.entity';
 import { FindPaymentsDto } from '../dto/find-payments.dto';
 import { PaymentsService } from '../services/payments.service';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 
 @Controller('payments')
 @UseGuards(JwtAuthGuard)

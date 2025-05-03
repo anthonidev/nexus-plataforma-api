@@ -7,6 +7,7 @@ import {
   FindWeeklyVolumeDto,
 } from '../dto/find-weekly-volume.dto';
 import { PointsService } from '../services/points.service';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('points')
 @UseGuards(JwtAuthGuard)
@@ -14,11 +15,15 @@ export class PointsController {
   constructor(private readonly pointsService: PointsService) {}
 
   @Get('user-points')
+  @ApiOperation({ summary: 'Obtener puntos de usuario en sesión' })
+  @ApiResponse({ status: 200, description: 'Puntos de usuario' })
   getUserPoints(@GetUser() user: User) {
     return this.pointsService.getUserPoints(user.id);
   }
 
   @Get('transactions')
+  @ApiOperation({ summary: 'Obtener transacciones de puntos' })
+  @ApiResponse({ status: 200, description: 'Transacciones de puntos' })
   getPointsTransactions(
     @GetUser() user: User,
     @Query() filters: FindPointsTransactionDto,
@@ -27,6 +32,8 @@ export class PointsController {
   }
 
   @Get('weekly-volumes')
+  @ApiOperation({ summary: 'Obtener volumenes semanales de puntos' })
+  @ApiResponse({ status: 200, description: 'Volumenes semanales de puntos' })
   getWeeklyVolumes(
     @GetUser() user: User,
     @Query() filters: FindWeeklyVolumeDto,
