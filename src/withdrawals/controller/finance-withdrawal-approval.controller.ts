@@ -16,6 +16,7 @@ import {
   RejectWithdrawalDto,
 } from '../dto/withdrawal-approval.dto';
 import { FinanceWithdrawalApprovalService } from '../services/finance-withdrawal-approval.service';
+import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 
 @Controller('finance/withdrawals/approval')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,6 +27,9 @@ export class FinanceWithdrawalApprovalController {
   ) {}
 
   @Post(':id/approve')
+  @ApiOperation({ summary: 'Aprobar retiro' })
+  @ApiParam({ name: 'id', type: Number, description: 'ID del retiro' })
+  @ApiResponse({ status: 200, description: 'Retiro aprobado' })
   approveWithdrawal(
     @Param('id', ParseIntPipe) id: number,
     @GetUser() user: User,
@@ -39,6 +43,9 @@ export class FinanceWithdrawalApprovalController {
   }
 
   @Post(':id/reject')
+  @ApiOperation({ summary: 'Rechazar retiro' })
+  @ApiParam({ name: 'id', type: Number, description: 'ID del retiro' })
+  @ApiResponse({ status: 200, description: 'Retiro rechazado' })
   rejectWithdrawal(
     @Param('id', ParseIntPipe) id: number,
     @GetUser() user: User,
