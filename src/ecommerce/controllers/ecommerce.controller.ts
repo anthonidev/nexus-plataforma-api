@@ -27,6 +27,7 @@ import { User } from 'src/user/entities/user.entity';
 import { CreateProductDto } from '../dto/create-ecommerce.dto';
 import { UpdateImageDto, UpdateProductDto } from '../dto/update-ecommerce.dto';
 import { EcommerceService } from '../services/ecommerce.service';
+import { ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @Controller('ecommerce')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -35,6 +36,9 @@ export class EcommerceController {
 
   @Get('categories')
   @Roles('SYS', 'FAC')
+  @ApiOperation({ summary: 'Obtener categorías' })
+  @ApiQuery({ name: 'includeInactive', type: Boolean, required: false })
+  @ApiResponse({ status: 200, description: 'Listado de categorías' })
   async findAllCategories(
     @Query('includeInactive') includeInactive: boolean = false,
   ) {
@@ -45,6 +49,8 @@ export class EcommerceController {
   @Roles('SYS', 'FAC')
   @UseInterceptors(FilesInterceptor('productImages', 5))
   @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({ summary: 'Crear producto' })
+  @ApiResponse({ status: 200, description: 'Producto creado con éxito' })
   async createProduct(
     @GetUser() user: User,
     @Body() createProductDto: CreateProductDto,
@@ -73,6 +79,8 @@ export class EcommerceController {
   @Put('products/:id')
   @Roles('SYS', 'FAC')
   @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({ summary: 'Actualizar producto' })
+  @ApiResponse({ status: 200, description: 'Producto actualizado con éxito' })
   async updateProduct(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateProductDto: UpdateProductDto,
@@ -84,6 +92,13 @@ export class EcommerceController {
   @Roles('SYS', 'FAC')
   @UseInterceptors(FileInterceptor('image'))
   @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({
+    summary: 'Actualizar imagen de producto',
+    description: 'Requiere rol SYS o FAC. Permite actualizar metadatos e imagen.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'productId', type: Number, description: 'ID del producto' })
+  @ApiParam({ name: 'imageId', type: Number, description: 'ID de la imagen' })
   async updateProductImage(
     @Param('productId', ParseIntPipe) productId: number,
     @Param('imageId', ParseIntPipe) imageId: number,
@@ -113,6 +128,9 @@ export class EcommerceController {
 
   @Delete('products/:productId/images/:imageId')
   @Roles('SYS', 'FAC')
+  @ApiOperation({ summary: 'Eliminar imagen de producto' })
+  @ApiParam({ name: 'productId', type: Number, description: 'ID del producto' })
+  @ApiParam({ name: 'imageId', type: Number, description: 'ID de la imagen' })
   async deleteProductImage(
     @Param('productId', ParseIntPipe) productId: number,
     @Param('imageId', ParseIntPipe) imageId: number,
