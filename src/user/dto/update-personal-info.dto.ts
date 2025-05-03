@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
@@ -8,6 +9,7 @@ import {
 } from 'class-validator';
 
 export class UpdatePersonalInfoDto {
+  @ApiProperty({ example: '70125834', type: String, required: false })
   @IsString()
   @IsOptional()
   @MaxLength(20, {
@@ -20,6 +22,8 @@ export class UpdatePersonalInfoDto {
   @Transform(({ value }) => value?.trim())
   documentNumber?: string;
 
+
+  @ApiProperty({ example: 'juanperez', type: String, required: false })
   @IsString()
   @IsOptional()
   @MaxLength(50, {
@@ -28,6 +32,7 @@ export class UpdatePersonalInfoDto {
   @Transform(({ value }) => value?.trim())
   nickname?: string;
 
+  @ApiProperty({ example: 'juan.perez@gmail.com', type: String, required: false })
   @IsEmail({}, { message: 'El correo debe tener un formato válido' })
   @IsOptional()
   @Transform(({ value }) => value?.toLowerCase().trim())

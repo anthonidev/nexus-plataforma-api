@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsNumber,
@@ -8,6 +9,7 @@ import {
 } from 'class-validator';
 
 export class UpdateContactInfoDto {
+  @ApiProperty({ example: '98456789', type: String, required: false })
   @IsString()
   @IsOptional()
   @MaxLength(20, {
@@ -20,6 +22,7 @@ export class UpdateContactInfoDto {
   @Transform(({ value }) => value?.trim())
   phone?: string;
 
+  @ApiProperty({ example: 'Av. Juan XXIII, 1', type: String, required: false })
   @IsString()
   @IsOptional()
   @MaxLength(200, {
@@ -28,6 +31,7 @@ export class UpdateContactInfoDto {
   @Transform(({ value }) => value?.trim())
   address?: string;
 
+  @ApiProperty({ example: '00051', type: String, required: false })
   @IsString()
   @IsOptional()
   @MaxLength(10, {
@@ -40,6 +44,7 @@ export class UpdateContactInfoDto {
   @Transform(({ value }) => value?.trim())
   postalCode?: string;
 
+  @ApiProperty({ example: 1, type: Number, required: false })
   @IsNumber()
   @IsOptional()
   ubigeoId?: number;
