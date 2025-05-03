@@ -6,13 +6,15 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 export class SeedController {
   constructor(private readonly seedService: SeedService) { }
   @Post()
+  @ApiOperation({ summary: 'Ejecuta toda la configuración de seed desde el servicio' })
+  @ApiResponse({ status: 200, description: 'Seed ejecutado desde método seedAll del servicio' })
   executeSeed() {
     return this.seedService.seedAll();
   }
 
   @Post('all')
-  @ApiOperation({ summary: 'Ejecutar toda la configuración de seed' })
-  @ApiResponse({ status: 200, description: 'Todos los datos de seed han sido ejecutados' })
+  @ApiOperation({ summary: 'Ejecuta manualmente cada configuración de seed' })
+  @ApiResponse({ status: 200, description: 'Seed ejecutado paso a paso desde el controlador' })
   seedAll() {
     this.seedService.seedUsers();
     this.seedService.seedMembershipPlans();
