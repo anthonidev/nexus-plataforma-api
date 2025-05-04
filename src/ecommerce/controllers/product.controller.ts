@@ -19,7 +19,7 @@ import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
 
-  // SYS
+  // SYS - FAC
   @Get()
   @Roles('SYS', 'FAC')
   @ApiOperation({ summary: 'Obtener productos' })

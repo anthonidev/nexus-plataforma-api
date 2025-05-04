@@ -19,7 +19,7 @@ export class ProductService {
     private readonly stockHistoryRepository: Repository<ProductStockHistory>,
   ) { }
   // Methods for endpoints
-  // SYS
+  // SYS - FAC
   async findAll(findProductsDto: FindProductsDto) {
     try {
       const products = await this.findAllProducts(findProductsDto);
@@ -47,60 +47,29 @@ export class ProductService {
       throw error;
     }
   }
-  // SYS
+  // SYS - FAC
   async findOne(id: number) {
     try {
-      const product = await this.productRepository.findOne({
-        where: { id },
-        relations: ['category', 'images'],
-      });
-
-      if (!product) {
-        throw new NotFoundException(`Producto con ID ${id} no encontrado`);
-      }
-
-      if (product.images) {
-        product.images.sort((a, b) => {
-          if (a.isMain && !b.isMain) return -1;
-          if (!a.isMain && b.isMain) return 1;
-          return a.order - b.order;
-        });
-      }
-
+      const product = await this.findOneProduct(id);
+      const formattedProduct = {
+        ...formatProductResponse(product),
+        images: product.images?.map((img) => ({
+          id: img.id,
+          url: img.url,
+          isMain: img.isMain,
+          order: img.order,
+        })),
+      };
       return {
         success: true,
-        product: {
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          sku: product.sku,
-          memberPrice: product.memberPrice,
-          publicPrice: product.publicPrice,
-          stock: product.stock,
-          status: product.status,
-          benefits: product.benefits,
-          isActive: product.isActive,
-          category: {
-            id: product.category?.id,
-            name: product.category?.name,
-            code: product.category?.code,
-          },
-          images: product.images?.map((img) => ({
-            id: img.id,
-            url: img.url,
-            isMain: img.isMain,
-            order: img.order,
-          })),
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
-        },
+        product: formattedProduct,
       };
     } catch (error) {
       this.logger.error(`Error al obtener producto: ${error.message}`);
       throw error;
     }
   }
-  // SYS
+  // SYS - FAC
   async findStockHistory(productId: number, paginationDto: PaginationDto) {
     try {
       const { page = 1, limit = 10, order = 'DESC' } = paginationDto;
@@ -232,7 +201,7 @@ export class ProductService {
     }
   } 
 
-  private async findOneProduct(id: number, isActive: boolean) {
+  private async findOneProduct(id: number, isActive?: boolean) {
     const whereCondition = isActive ? { id, isActive } : { id };
     const product = await this.productRepository.findOne({
       where: whereCondition,
