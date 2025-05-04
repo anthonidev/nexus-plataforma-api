@@ -19,6 +19,7 @@ import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 export class ProductController {
   constructor(private readonly productService: ProductService) { }
 
+  // SYS
   @Get()
   @Roles('SYS', 'FAC')
   @ApiOperation({ summary: 'Obtener productos' })
@@ -46,5 +47,16 @@ export class ProductController {
     @Query() paginationDto: PaginationDto,
   ) {
     return this.productService.findStockHistory(id, paginationDto);
+  }
+
+  // CLIENT
+  @Get('list/with-clients')
+  @Roles('CLI')
+  @ApiOperation({ summary: 'Obtener productos con clientes' })
+  @ApiResponse({ status: 200, description: 'Listado de productos' })
+  findAllWithClients(
+    @Query() findProductsDto: FindProductsDto,
+  ) {
+    return this.productService.findAllWithClients(findProductsDto);
   }
 }

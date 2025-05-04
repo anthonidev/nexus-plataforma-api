@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationDto } from 'src/common/dto/paginationDto';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
@@ -19,12 +19,20 @@ export class ProductService {
     private readonly stockHistoryRepository: Repository<ProductStockHistory>,
   ) { }
   // Methods for endpoints
+  // SYS
   async findAll(findProductsDto: FindProductsDto) {
     try {
       const products = await this.findAllProducts(findProductsDto);
       const { items, totalItems } = products;
 
-      const formattedItems = items.map(formatProductResponse);
+      const formattedItems = items.map(product => {
+        return {
+          ...formatProductResponse(product),
+          mainImage: product.images && product.images.length > 0
+          ? product.images.find(img => img.isMain)?.url || product.images[0].url
+          : null,
+        }
+      });
 
       return {
         success: true,
@@ -39,6 +47,7 @@ export class ProductService {
       throw error;
     }
   }
+  // SYS
   async findOne(id: number) {
     try {
       const product = await this.productRepository.findOne({
@@ -91,7 +100,7 @@ export class ProductService {
       throw error;
     }
   }
-
+  // SYS
   async findStockHistory(productId: number, paginationDto: PaginationDto) {
     try {
       const { page = 1, limit = 10, order = 'DESC' } = paginationDto;
@@ -147,6 +156,37 @@ export class ProductService {
       this.logger.error(
         `Error al obtener historial de stock: ${error.message}`,
       );
+      throw error;
+    }
+  }
+
+  // CLIENT
+  async findAllWithClients(findProductsDto: FindProductsDto) {
+    try {
+      if (findProductsDto.isActive === undefined)
+        throw new BadRequestException('El listado de productos con clientes requiere que se filtre por productos activos');
+      const products = await this.findAllProducts(findProductsDto);
+      const { items, totalItems } = products;
+
+      const formattedItems = items.map(product => {
+        return {
+          ...formatProductResponse(product),
+          mainImage: product.images && product.images.length > 0
+          ? product.images.find(img => img.isMain)?.url || product.images[0].url
+          : null,
+        }
+      });
+
+      return {
+        success: true,
+        ...PaginationHelper.createPaginatedResponse(
+          formattedItems,
+          totalItems,
+          findProductsDto
+        )
+      };
+    } catch (error) {
+      this.logger.error(`Error al obtener productos: ${error.message}`);
       throw error;
     }
   }

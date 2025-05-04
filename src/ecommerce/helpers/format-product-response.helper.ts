@@ -16,9 +16,6 @@ export const formatProductResponse = (product: Product) => {
       name: product.category.name,
       code: product.category.code
     } : null,
-    mainImage: product.images && product.images.length > 0
-      ? product.images.find(img => img.isMain)?.url || product.images[0].url
-      : null,
     imagesCount: product.images ? product.images.length : 0,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt
