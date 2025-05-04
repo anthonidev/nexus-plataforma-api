@@ -160,6 +160,28 @@ export class ProductService {
     }
   }
 
+  async findOneWithClients(id: number) {
+    try {
+      const product = await this.findOneProduct(id, true);
+      const formattedProduct = {
+        ...formatProductResponse(product),
+        images: product.images?.map((img) => ({
+          id: img.id,
+          url: img.url,
+          isMain: img.isMain,
+          order: img.order,
+        })),
+      };
+      return {
+        success: true,
+        product: formattedProduct,
+      };
+    } catch (error) {
+      this.logger.error(`Error al obtener producto: ${error.message}`);
+      throw error;
+    }
+  }
+
   // Internal helpers methods
   private async findAllProducts(findProductsDto: FindProductsDto) {
     const {
