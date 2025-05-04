@@ -17,6 +17,7 @@ export class ProductService {
     @InjectRepository(ProductStockHistory)
     private readonly stockHistoryRepository: Repository<ProductStockHistory>,
   ) { }
+  // Methods for endpoints
   async findAll(findProductsDto: FindProductsDto) {
     try {
       const {
@@ -204,4 +205,45 @@ export class ProductService {
       throw error;
     }
   }
+
+  // Internal helpers methods
+  private async findAllProducts(findProductsDto: FindProductsDto) {
+    const {
+      page = 1,
+      limit = 10,
+      order = 'DESC',
+      name,
+      categoryId,
+      isActive
+    } = findProductsDto;
+
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.images', 'images')
+      .orderBy('product.createdAt', order);
+
+    if (name)
+      queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:name)', {
+        name: `%${name.toLowerCase()}%`
+      });
+
+    if (categoryId) queryBuilder.andWhere('category.id = :categoryId', { categoryId });
+
+    if (isActive !== undefined) queryBuilder.andWhere('product.isActive = :isActive', { isActive });
+
+    queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    queryBuilder.addOrderBy('images.isMain', 'DESC');
+    queryBuilder.addOrderBy('images.order', 'ASC');
+
+    const [items, totalItems] = await queryBuilder.getManyAndCount();
+
+    return {
+      items,
+      totalItems
+    }
+  } 
 }
