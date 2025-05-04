@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { FindProductsDto } from '../dto/filter-products.dto';
 import { ProductStockHistory } from '../entities/product-stock-history.entity';
 import { Product } from '../entities/products.entity';
+import { formatProductResponse } from '../helpers/format-product-response.helper';
 
 @Injectable()
 export class ProductService {
@@ -20,66 +21,10 @@ export class ProductService {
   // Methods for endpoints
   async findAll(findProductsDto: FindProductsDto) {
     try {
-      const {
-        page = 1,
-        limit = 10,
-        order = 'DESC',
-        name,
-        categoryId,
-        isActive
-      } = findProductsDto;
+      const products = await this.findAllProducts(findProductsDto);
+      const { items, totalItems } = products;
 
-      const queryBuilder = this.productRepository
-        .createQueryBuilder('product')
-        .leftJoinAndSelect('product.category', 'category')
-        .leftJoinAndSelect('product.images', 'images')
-        .orderBy('product.createdAt', order);
-
-      if (name) {
-        queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:name)', {
-          name: `%${name.toLowerCase()}%`
-        });
-      }
-
-      if (categoryId) {
-        queryBuilder.andWhere('category.id = :categoryId', { categoryId });
-      }
-
-      if (isActive !== undefined) {
-        queryBuilder.andWhere('product.isActive = :isActive', { isActive });
-      }
-
-      queryBuilder
-        .skip((page - 1) * limit)
-        .take(limit);
-
-      queryBuilder.addOrderBy('images.isMain', 'DESC');
-      queryBuilder.addOrderBy('images.order', 'ASC');
-
-      const [items, totalItems] = await queryBuilder.getManyAndCount();
-
-      const formattedItems = items.map(product => ({
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        sku: product.sku,
-        memberPrice: product.memberPrice,
-        publicPrice: product.publicPrice,
-        stock: product.stock,
-        status: product.status,
-        isActive: product.isActive,
-        category: product.category ? {
-          id: product.category.id,
-          name: product.category.name,
-          code: product.category.code
-        } : null,
-        mainImage: product.images && product.images.length > 0
-          ? product.images.find(img => img.isMain)?.url || product.images[0].url
-          : null,
-        imagesCount: product.images ? product.images.length : 0,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt
-      }));
+      const formattedItems = items.map(formatProductResponse);
 
       return {
         success: true,
