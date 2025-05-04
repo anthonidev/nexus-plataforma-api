@@ -231,4 +231,26 @@ export class ProductService {
       totalItems
     }
   } 
+
+  private async findOneProduct(id: number, isActive: boolean) {
+    const whereCondition = isActive ? { id, isActive } : { id };
+    const product = await this.productRepository.findOne({
+      where: whereCondition,
+      relations: ['category', 'images'],
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    if (product.images) {
+      product.images.sort((a, b) => {
+        if (a.isMain && !b.isMain) return -1;
+        if (!a.isMain && b.isMain) return 1;
+        return a.order - b.order;
+      });
+    }
+
+    return product;
+  }
 }
