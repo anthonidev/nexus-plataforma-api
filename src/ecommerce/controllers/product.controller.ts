@@ -52,11 +52,22 @@ export class ProductController {
   // CLIENT
   @Get('list/with-clients')
   @Roles('CLI')
-  @ApiOperation({ summary: 'Obtener productos con clientes' })
+  @ApiOperation({ summary: 'Obtener productos para los usuarios clientes' })
   @ApiResponse({ status: 200, description: 'Listado de productos' })
   findAllWithClients(
     @Query() findProductsDto: FindProductsDto,
   ) {
     return this.productService.findAllWithClients(findProductsDto);
+  }
+
+  @Get(':id/item/with-clients')
+  @Roles('CLI')
+  @ApiOperation({ summary: 'Obtener producto para los usuarios clientes' })
+  @ApiParam({ name: 'id', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Producto solicitado' })
+  findOneWithClients(
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.productService.findOneWithClients(id);
   }
 }
