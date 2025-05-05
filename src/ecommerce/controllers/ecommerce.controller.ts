@@ -28,6 +28,7 @@ import { CreateProductDto } from '../dto/create-ecommerce.dto';
 import { UpdateImageDto, UpdateProductDto } from '../dto/update-ecommerce.dto';
 import { EcommerceService } from '../services/ecommerce.service';
 import { ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { BenefitToProductDto } from '../dto/benefit-to-product.dto';
 
 @Controller('ecommerce')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -104,6 +105,19 @@ export class EcommerceController {
     return this.ecommerceService.addImageToProduct(id, file);
   }
 
+  @Post('products/:id/benefits')
+  @Roles('SYS', 'FAC')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({ summary: 'Agregar beneficio a producto' })
+  @ApiParam({ name: 'id', type: Number, description: 'ID del producto' })
+  @ApiResponse({ status: 200, description: 'Beneficio agregado con éxito' })
+  async addBenefitToProduct(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() addBenefitToProductDto: BenefitToProductDto,
+  ) {
+    return this.ecommerceService.addBenefitFromProduct(id, addBenefitToProductDto.benefit);
+  }
+
   @Put('products/:id')
   @Roles('SYS', 'FAC')
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -164,5 +178,18 @@ export class EcommerceController {
     @Param('imageId', ParseIntPipe) imageId: number,
   ) {
     return this.ecommerceService.deleteProductImage(productId, imageId);
+  }
+
+  @Delete('products/:productId/benefits/delete')
+  @Roles('SYS', 'FAC')
+  @ApiOperation({ summary: 'Eliminar beneficio de producto' })
+  @ApiParam({ name: 'productId', type: Number, description: 'ID del producto' })
+  async deleteBenefitFromProduct(
+    @Param('productId', ParseIntPipe) productId: number,
+    @Body() removeBenefitToProductDto: BenefitToProductDto,
+  ) {
+    return this.ecommerceService.deleteBenefitFromProduct(
+      productId, removeBenefitToProductDto.benefit
+    );
   }
 }

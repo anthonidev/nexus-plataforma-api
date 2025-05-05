@@ -275,16 +275,20 @@ export class EcommerceService {
         order: product.images.length,
         product,
       });
-      const savedImage = await queryRunner.manager.save(newImage);
+      await queryRunner.manager.save(newImage);
       await queryRunner.commitTransaction();
+      const updatedProduct = await this.productRepository.findOne({
+        where: { id: productId },
+        relations: ['images'],
+      });
       return {
         success: true,
         message: 'Imagen agregada exitosamente',
-        image: {
-          id: savedImage.id,
-          url: savedImage.url,
-          isMain: savedImage.isMain,
-        },
+        images: updatedProduct.images.map((img) => ({
+          id: img.id,
+          url: img.url,
+          isMain: img.isMain,
+        })),
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -294,6 +298,22 @@ export class EcommerceService {
       await queryRunner.release();
     }
   }
+
+  async addBenefitFromProduct(productId: number, benefit: string) {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+    if (!product)
+      throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+    product.benefits = [...product.benefits, benefit];
+    await this.productRepository.save(product);
+    return {
+      success: true,
+      message: 'Beneficio agregado exitosamente',
+      benefit: product.benefits,
+    };
+  }
+
 
   async updateProductImage(
     productId: number,
@@ -450,6 +470,24 @@ export class EcommerceService {
       await queryRunner.release();
     }
   }
+
+  async deleteBenefitFromProduct(productId: number, benefit: string) {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+    if (!product)
+      throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+    if (!product.benefits.includes(benefit))
+      throw new BadRequestException('El beneficio no existe en el producto');
+    product.benefits = product.benefits.filter(b => b !== benefit);
+    await this.productRepository.save(product);
+    return {
+      success: true,
+      message: 'Beneficio eliminado exitosamente',
+      benefit: product.benefits,
+    };
+  }
+
 
   private async generateSku(
     categoryCode: string,
