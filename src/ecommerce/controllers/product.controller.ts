@@ -28,6 +28,14 @@ export class ProductController {
     return this.productService.findAll(findProductsDto);
   }
 
+  @Get('sku-and-name')
+  @Roles('SYS', 'FAC')
+  @ApiOperation({ summary: 'Obtener productos con sku y nombre' })
+  @ApiResponse({ status: 200, description: 'Listado de productos' })
+  findAllWithSkuAndName() {
+    return this.productService.findAllWithSkuAndName();
+  }
+
   @Get(':id')
   @Roles('SYS', 'FAC')
   @ApiOperation({ summary: 'Obtener producto' })

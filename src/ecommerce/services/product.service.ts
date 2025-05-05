@@ -48,6 +48,22 @@ export class ProductService {
     }
   }
   // SYS - FAC
+  async findAllWithSkuAndName() {
+    try {
+      const products = await this.productRepository.find(
+        {select: ['id', 'name', 'sku']},
+      );
+      const formattedItems = products.map(product => {
+        const { id, name, sku } = product;
+        return { id, name, sku };
+      });
+      return { success: true, formattedItems };
+    } catch (error) {
+      this.logger.error(`Error al obtener productos: ${error.message}`);
+      throw error;
+    }
+  }
+  // SYS - FAC
   async findOne(id: number) {
     try {
       const product = await this.findOneProduct(id);
