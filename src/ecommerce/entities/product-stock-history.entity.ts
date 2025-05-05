@@ -18,12 +18,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Product } from './products.entity';
-
-export enum StockActionType {
-  INCREASE = 'INCREASE',
-  DECREASE = 'DECREASE',
-  UPDATE = 'UPDATE',
-}
+import { StockActionType } from '../enums/stock-action-type.enum';
 
 @Entity('product_stock_history')
 export class ProductStockHistory {

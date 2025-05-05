@@ -20,6 +20,7 @@ import {
   UpdateAutoRenewalDto,
 } from '../dto/create-reconsumption.dto';
 import { ReconsumptionService } from '../services/reconsumption.service';
+import { ApiConsumes, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('user-memberships')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,6 +30,9 @@ export class ReconsumptionController {
   @Post('reconsumption')
   @UseInterceptors(FilesInterceptor('paymentImages', 5))
   @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Crear reconsumición de membresía' })
+  @ApiResponse({ status: 200, description: 'Reconsumición creada con éxito' })
   createReconsumption(
     @GetUser() user,
     @Body() createDto: CreateReconsumptionDto,
@@ -55,6 +59,8 @@ export class ReconsumptionController {
   }
 
   @Patch('auto-renewal')
+  @ApiOperation({ summary: 'Actualizar auto renovación' })
+  @ApiResponse({ status: 200, description: 'Auto renovación actualizada' })
   updateAutoRenewal(@GetUser() user, @Body() updateDto: UpdateAutoRenewalDto) {
     return this.reconsumptionService.updateAutoRenewal(user.id, updateDto);
   }

@@ -3,6 +3,8 @@ import { NestFactory } from '@nestjs/core';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import { envs } from './config/envs';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerBasicAuthMiddleware } from './common/middlewares/swagger-basic-auth.middleware';
 process.env.TZ = 'America/Lima';
 async function bootstrap() {
   const logger = new Logger('NEXUS PLATAFORMA');
@@ -28,6 +30,14 @@ async function bootstrap() {
       },
     }),
   );
+  app.use('/api/docs', new SwaggerBasicAuthMiddleware().use);
+  const config = new DocumentBuilder()
+    .setTitle('Nexus Platform API')
+    .setDescription('Documentación de la API RestFul de Nexus Platform API')
+    .setVersion('1.0')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
   await app.listen(envs.port);
   logger.log(`Server running on port ${envs.port}`);
 }

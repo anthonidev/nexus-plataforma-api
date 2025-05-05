@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
@@ -12,6 +13,7 @@ import {
 } from 'class-validator';
 
 export class UpdateProductDto {
+  @ApiProperty({ example: 'Colágeno Renew', type: String, required: false })
   @IsOptional()
   @IsString()
   @IsNotEmpty({ message: 'El nombre del producto es requerido' })
@@ -21,12 +23,14 @@ export class UpdateProductDto {
   @Transform(({ value }) => value?.trim())
   name?: string;
 
+  @ApiProperty({ example: 'Colágeno Renew para la persona que no tiene un colágeno', type: String, required: false })
   @IsOptional()
   @IsString()
   @IsNotEmpty({ message: 'La descripción del producto es requerida' })
   @Transform(({ value }) => value?.trim())
   description?: string;
 
+  @ApiProperty({ example: 15.20, type: Number, required: false })
   @IsOptional()
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -39,6 +43,7 @@ export class UpdateProductDto {
   @Type(() => Number)
   memberPrice?: number;
 
+  @ApiProperty({ example: 15.20, type: Number, required: false })
   @IsOptional()
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -51,6 +56,7 @@ export class UpdateProductDto {
   @Type(() => Number)
   publicPrice?: number;
 
+  @ApiProperty({ example: null, type: Number, required: false })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -67,12 +73,14 @@ export class UpdateProductDto {
   })
   benefits?: string[];
 
+  @ApiProperty({ example: 1, type: Number, required: false })
   @IsOptional()
   @IsNumber()
   @IsPositive({ message: 'El ID de la categoría debe ser positivo' })
   @Type(() => Number)
   categoryId?: number;
 
+  @ApiProperty({ example: false, type: Boolean, required: false })
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => {
@@ -83,10 +91,12 @@ export class UpdateProductDto {
   isActive?: boolean;
 }
 export class UpdateImageDto {
+  @ApiProperty({ example: true, type: Boolean, required: false })
   @IsOptional()
   @IsBoolean()
   isMain?: boolean;
 
+  @ApiProperty({ example: 1, type: Number, required: false })
   @IsOptional()
   @IsNumber()
   @Min(0)

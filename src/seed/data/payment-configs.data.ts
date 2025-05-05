@@ -27,4 +27,13 @@ export const paymentConfigsData = [
     minimumAmount: 564.0, // Diferencia entre VIP y Ejecutivo (799 - 235)
     maximumAmount: null, // Sin límite máximo para permitir futuras actualizaciones
   },
+  {
+    code: 'ORDER_PAYMENT',
+    name: 'Pago de Orden',
+    description: 'Pago para confirmar la orden de compra',
+    requiresApproval: true,
+    isActive: true,
+    minimumAmount: 10.0, // Monto mínimo de la orden
+    maximumAmount: null, // Sin límite máximo
+  }
 ];

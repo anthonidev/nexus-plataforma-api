@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationDto } from 'src/common/dto/paginationDto';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { FindProductsDto } from '../dto/filter-products.dto';
 import { ProductStockHistory } from '../entities/product-stock-history.entity';
 import { Product } from '../entities/products.entity';
+import { formatProductResponse } from '../helpers/format-product-response.helper';
 
 @Injectable()
 export class ProductService {
@@ -17,68 +18,24 @@ export class ProductService {
     @InjectRepository(ProductStockHistory)
     private readonly stockHistoryRepository: Repository<ProductStockHistory>,
   ) { }
+  // Methods for endpoints
+  // SYS - FAC
   async findAll(findProductsDto: FindProductsDto) {
     try {
-      const {
-        page = 1,
-        limit = 10,
-        order = 'DESC',
-        name,
-        categoryId,
-        isActive
-      } = findProductsDto;
+      const products = await this.findAllProducts(findProductsDto);
+      const { items, totalItems } = products;
 
-      const queryBuilder = this.productRepository
-        .createQueryBuilder('product')
-        .leftJoinAndSelect('product.category', 'category')
-        .leftJoinAndSelect('product.images', 'images')
-        .orderBy('product.createdAt', order);
-
-      if (name) {
-        queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:name)', {
-          name: `%${name.toLowerCase()}%`
-        });
-      }
-
-      if (categoryId) {
-        queryBuilder.andWhere('category.id = :categoryId', { categoryId });
-      }
-
-      if (isActive !== undefined) {
-        queryBuilder.andWhere('product.isActive = :isActive', { isActive });
-      }
-
-      queryBuilder
-        .skip((page - 1) * limit)
-        .take(limit);
-
-      queryBuilder.addOrderBy('images.isMain', 'DESC');
-      queryBuilder.addOrderBy('images.order', 'ASC');
-
-      const [items, totalItems] = await queryBuilder.getManyAndCount();
-
-      const formattedItems = items.map(product => ({
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        sku: product.sku,
-        memberPrice: product.memberPrice,
-        publicPrice: product.publicPrice,
-        stock: product.stock,
-        status: product.status,
-        isActive: product.isActive,
-        category: product.category ? {
-          id: product.category.id,
-          name: product.category.name,
-          code: product.category.code
-        } : null,
-        mainImage: product.images && product.images.length > 0
+      const formattedItems = items.map(product => {
+        return {
+          ...formatProductResponse(product),
+          stock: product.stock,
+          status: product.status,
+          isActive: product.isActive,
+          mainImage: product.images && product.images.length > 0
           ? product.images.find(img => img.isMain)?.url || product.images[0].url
           : null,
-        imagesCount: product.images ? product.images.length : 0,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt
-      }));
+        }
+      });
 
       return {
         success: true,
@@ -93,59 +50,45 @@ export class ProductService {
       throw error;
     }
   }
+  // SYS - FAC
+  async findAllWithSkuAndName() {
+    try {
+      const products = await this.productRepository.find(
+        {select: ['id', 'name', 'sku']},
+      );
+      const formattedItems = products.map(product => {
+        const { id, name, sku } = product;
+        return { id, name, sku };
+      });
+      return { success: true, formattedItems };
+    } catch (error) {
+      this.logger.error(`Error al obtener productos: ${error.message}`);
+      throw error;
+    }
+  }
+  // SYS - FAC
   async findOne(id: number) {
     try {
-      const product = await this.productRepository.findOne({
-        where: { id },
-        relations: ['category', 'images'],
-      });
-
-      if (!product) {
-        throw new NotFoundException(`Producto con ID ${id} no encontrado`);
-      }
-
-      if (product.images) {
-        product.images.sort((a, b) => {
-          if (a.isMain && !b.isMain) return -1;
-          if (!a.isMain && b.isMain) return 1;
-          return a.order - b.order;
-        });
-      }
-
+      const product = await this.findOneProduct(id);
+      const formattedProduct = {
+        ...formatProductResponse(product),
+        images: product.images?.map((img) => ({
+          id: img.id,
+          url: img.url,
+          isMain: img.isMain,
+          order: img.order,
+        })),
+      };
       return {
         success: true,
-        product: {
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          sku: product.sku,
-          memberPrice: product.memberPrice,
-          publicPrice: product.publicPrice,
-          stock: product.stock,
-          status: product.status,
-          benefits: product.benefits,
-          isActive: product.isActive,
-          category: {
-            id: product.category?.id,
-            name: product.category?.name,
-            code: product.category?.code,
-          },
-          images: product.images?.map((img) => ({
-            id: img.id,
-            url: img.url,
-            isMain: img.isMain,
-            order: img.order,
-          })),
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
-        },
+        product: formattedProduct,
       };
     } catch (error) {
       this.logger.error(`Error al obtener producto: ${error.message}`);
       throw error;
     }
   }
-
+  // SYS - FAC
   async findStockHistory(productId: number, paginationDto: PaginationDto) {
     try {
       const { page = 1, limit = 10, order = 'DESC' } = paginationDto;
@@ -203,5 +146,121 @@ export class ProductService {
       );
       throw error;
     }
+  }
+
+  // CLIENT
+  async findAllWithClients(findProductsDto: FindProductsDto) {
+    try {
+      if (findProductsDto.isActive === undefined)
+        throw new BadRequestException('El listado de productos con clientes requiere que se filtre por productos activos');
+      const products = await this.findAllProducts(findProductsDto);
+      const { items, totalItems } = products;
+
+      const formattedItems = items.map(product => {
+        return {
+          ...formatProductResponse(product),
+          mainImage: product.images && product.images.length > 0
+          ? product.images.find(img => img.isMain)?.url || product.images[0].url
+          : null,
+        }
+      });
+
+      return {
+        success: true,
+        ...PaginationHelper.createPaginatedResponse(
+          formattedItems,
+          totalItems,
+          findProductsDto
+        )
+      };
+    } catch (error) {
+      this.logger.error(`Error al obtener productos: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async findOneWithClients(id: number) {
+    try {
+      const product = await this.findOneProduct(id, true);
+      const formattedProduct = {
+        ...formatProductResponse(product),
+        images: product.images?.map((img) => ({
+          id: img.id,
+          url: img.url,
+          isMain: img.isMain,
+          order: img.order,
+        })),
+      };
+      return {
+        success: true,
+        product: formattedProduct,
+      };
+    } catch (error) {
+      this.logger.error(`Error al obtener producto: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Internal helpers methods
+  private async findAllProducts(findProductsDto: FindProductsDto) {
+    const {
+      page = 1,
+      limit = 10,
+      order = 'DESC',
+      name,
+      categoryId,
+      isActive
+    } = findProductsDto;
+
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.images', 'images')
+      .orderBy('product.createdAt', order);
+
+    if (name)
+      queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:name)', {
+        name: `%${name.toLowerCase()}%`
+      });
+
+    if (categoryId) queryBuilder.andWhere('category.id = :categoryId', { categoryId });
+
+    if (isActive !== undefined) queryBuilder.andWhere('product.isActive = :isActive', { isActive });
+
+    queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    queryBuilder.addOrderBy('images.isMain', 'DESC');
+    queryBuilder.addOrderBy('images.order', 'ASC');
+
+    const [items, totalItems] = await queryBuilder.getManyAndCount();
+
+    return {
+      items,
+      totalItems
+    }
+  } 
+
+  private async findOneProduct(id: number, isActive?: boolean) {
+    const whereCondition = isActive ? { id, isActive } : { id };
+    const product = await this.productRepository.findOne({
+      where: whereCondition,
+      relations: ['category', 'images'],
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    if (product.images) {
+      product.images.sort((a, b) => {
+        if (a.isMain && !b.isMain) return -1;
+        if (!a.isMain && b.isMain) return 1;
+        return a.order - b.order;
+      });
+    }
+
+    return product;
   }
 }

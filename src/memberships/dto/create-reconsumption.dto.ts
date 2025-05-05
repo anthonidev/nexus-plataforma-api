@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
   IsArray,
@@ -12,20 +13,24 @@ import {
 } from 'class-validator';
 
 export class PaymentDetailDto {
+  @ApiProperty({ example: 'Banco', type: String, required: false })
   @IsString()
   @IsOptional()
   @Transform(({ value }) => value?.trim())
   bankName?: string;
 
+  @ApiProperty({ example: 'Banco', type: String, required: true })
   @IsString()
   @IsNotEmpty({ message: 'La referencia de transacción es requerida' })
   @Transform(({ value }) => value?.trim())
   transactionReference: string;
 
+  @ApiProperty({ example: '2022-01-01', type: String, required: true })
   @IsDateString({}, { message: 'La fecha de transacción debe ser válida' })
   @IsNotEmpty({ message: 'La fecha de transacción es requerida' })
   transactionDate: string;
 
+  @ApiProperty({ example: 100, type: Number, required: true })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     { message: 'El monto debe ser un número válido con hasta 2 decimales' },
@@ -35,6 +40,7 @@ export class PaymentDetailDto {
   @Type(() => Number)
   amount: number;
 
+  @ApiProperty({ example: 1, type: Number, required: true })
   @IsNumber()
   @IsNotEmpty({ message: 'El índice del archivo es requerido' })
   @Min(0, { message: 'El índice del archivo debe ser al menos 0' })
@@ -43,6 +49,8 @@ export class PaymentDetailDto {
 }
 
 export class CreateReconsumptionDto {
+
+  @ApiProperty({ example: 2000, type: Number, required: true })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     {
@@ -54,16 +62,19 @@ export class CreateReconsumptionDto {
   @Type(() => Number)
   totalAmount: number;
 
+  @ApiProperty({ example: 'Banco', type: String, required: false })
   @IsString()
   @IsOptional()
   @Transform(({ value }) => value?.trim())
   paymentReference?: string;
 
+  @ApiProperty({ example: null, type: String, required: false })
   @IsString()
   @IsOptional()
   @Transform(({ value }) => value?.trim())
   notes?: string;
 
+  @ApiProperty({ example: PaymentDetailDto, type: Array, required: true })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       try {
@@ -87,6 +98,7 @@ export class CreateReconsumptionDto {
 }
 
 export class UpdateAutoRenewalDto {
+  @ApiProperty({ example: true, type: Boolean, required: true })
   @IsBoolean({ message: 'El valor de autoRenewal debe ser booleano' })
   autoRenewal: boolean;
 }

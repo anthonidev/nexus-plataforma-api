@@ -1,0 +1,8 @@
+export enum OrderAction {
+  CREATED = 'CREADO',
+  APPROVED = 'APROBADO',
+  SENT = 'ENVIADO',
+  DELIVERED = 'ENTREGADO',
+  REJECTED = 'RECHAZADO',
+  CANCELLED = 'CANCELADO',
+}

@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   IsNotEmpty,
@@ -8,6 +9,7 @@ import {
 } from 'class-validator';
 
 export class CreateWithdrawalDto {
+  @ApiProperty({ example: 1200, type: Number, required: true })
   @IsNumber(
     { maxDecimalPlaces: 2 },
     { message: 'El monto debe ser un número válido con hasta 2 decimales' },

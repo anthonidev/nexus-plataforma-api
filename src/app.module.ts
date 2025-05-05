@@ -19,6 +19,7 @@ import { RanksModule } from './ranks/ranks.module';
 import { SeedModule } from './seed/seed.module';
 import { SystemModule } from './system/system.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { WithdrawalsModule } from './withdrawals/withdrawals.module';
     MailModule,
     EcommerceModule,
     NotificationsModule,
+    OrdersModule,
   ],
 })
 export class AppModule {}

@@ -6,16 +6,19 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, DeepPartial, In, Repository } from 'typeorm';
 import { CreateProductDto } from '../dto/create-ecommerce.dto';
 import { UpdateImageDto, UpdateProductDto } from '../dto/update-ecommerce.dto';
 import { ProductCategory } from '../entities/product-category.entity';
 import { ProductImage } from '../entities/product-image.entity';
 import {
   ProductStockHistory,
-  StockActionType,
 } from '../entities/product-stock-history.entity';
 import { Product, ProductStatus } from '../entities/products.entity';
+import { StockHistoryDto } from '../dto/stock-history.dto';
+import { StockActionType } from '../enums/stock-action-type.enum';
+import * as ExcelJS from 'exceljs';
+import { ExcelStockUpdateDto } from '../dto/excel-stock-update.dto';
 
 @Injectable()
 export class EcommerceService {
@@ -174,6 +177,72 @@ export class EcommerceService {
     }
   }
 
+  async createStockHistory(productId: number, stockHistoryDto: StockHistoryDto) {
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const product = await this.productRepository.findOne({
+        where: { id: productId }, 
+      });
+  
+      if (!product)
+        throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+  
+      if (product.stock !== stockHistoryDto.previousQuantity)
+        throw new BadRequestException('El stock del producto actual no coincide con el que se quiere actualizar');
+
+      if ( stockHistoryDto.quantityChanged != stockHistoryDto.previousQuantity + stockHistoryDto.newQuantity)
+        throw new BadRequestException('La cantidad actualizada no coincide con la cantidad previa + la cantidad nueva');
+  
+      const stockHistoryInput = {
+        product: { id: productId },
+        actionType: stockHistoryDto.actionType,
+        previousQuantity: stockHistoryDto.previousQuantity,
+        newQuantity: stockHistoryDto.newQuantity,
+        quantityChanged: stockHistoryDto.quantityChanged,
+        notes: stockHistoryDto.notes,
+        updatedBy: { id: stockHistoryDto.userId }
+      } as DeepPartial<ProductStockHistory>; 
+  
+      const stockHistory = this.productStockHistoryRepository.create(stockHistoryInput);
+      await queryRunner.manager.save(stockHistory);
+
+      product.stock = stockHistoryDto.quantityChanged;
+      await queryRunner.manager.save(product);
+
+      await queryRunner.commitTransaction();
+  
+      return {
+        success: true,
+        message: 'Stock history created successfully',
+        stockHistory: {
+          id: stockHistory.id,
+          actionType: stockHistory.actionType,
+          previousQuantity: stockHistory.previousQuantity,
+          newQuantity: stockHistory.newQuantity,
+          quantityChanged: stockHistory.quantityChanged,
+          notes: stockHistory.notes,
+          createdAt: stockHistory.createdAt,
+          updatedBy: stockHistory.updatedBy
+            ? {
+                id: stockHistory.updatedBy.id,
+                email: stockHistory.updatedBy.email,
+              }
+            : null,
+        },
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error al crear stock history: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   async updateProduct(productId: number, updateProductDto: UpdateProductDto) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -240,6 +309,188 @@ export class EcommerceService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(`Error al actualizar producto: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async addImageToProduct(
+    productId: number,
+    file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Debe proporcionar una imagen');
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const product = await this.productRepository.findOne({
+        where: { id: productId },
+        relations: ['images'],
+      });
+      if (!product)
+        throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+      if (product.images.length >= 5)
+        throw new BadRequestException('No se pueden tener más de 5 imágenes por producto');
+      const cloudinaryResponse = await this.cloudinaryService.uploadImage(
+        file,
+        'products',
+      );
+      const newImage = this.productImageRepository.create({
+        url: cloudinaryResponse.url,
+        cloudinaryPublicId: cloudinaryResponse.publicId,
+        isMain: false,
+        order: product.images.length,
+        product,
+      });
+      await queryRunner.manager.save(newImage);
+      await queryRunner.commitTransaction();
+      const updatedProduct = await this.productRepository.findOne({
+        where: { id: productId },
+        relations: ['images'],
+      });
+      return {
+        success: true,
+        message: 'Imagen agregada exitosamente',
+        images: updatedProduct.images.map((img) => ({
+          id: img.id,
+          url: img.url,
+          isMain: img.isMain,
+        })),
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error al agregar imagen: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async addBenefitFromProduct(productId: number, benefit: string) {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+    if (!product)
+      throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+    product.benefits = [...product.benefits, benefit];
+    await this.productRepository.save(product);
+    return {
+      success: true,
+      message: 'Beneficio agregado exitosamente',
+      benefit: product.benefits,
+    };
+  }
+
+  async validateStockExcel(
+    file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Debe proporcionar un archivo');
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file.buffer);
+
+    const worksheet = workbook.worksheets[0];
+    const errors: string[] = [];
+    const validRows: ExcelStockUpdateDto[] = [];
+
+    // Validacion de estructura del Excel (Encabezado)
+    const expectedHeaders = ['ID', 'Producto', 'Cantidad'];
+    const actualHeaders = worksheet.getRow(1).values as string[];
+    if(!expectedHeaders.every(header => actualHeaders.includes(header))) 
+      throw new BadRequestException('Encabezado del Excel no es el esperado');
+
+    // Procesar filas
+    worksheet.eachRow({includeEmpty: true}, (row, rowNumber) => {
+      if(rowNumber === 1) return; // salto de encabezados
+      
+      try {
+        const rowData: ExcelStockUpdateDto = {
+          productId: row.getCell(1).value as number,
+          productName: row.getCell(2).value as string,
+          newQuantity: row.getCell(3).value as number,
+        };
+        // Validaciones básicas
+        if (!rowData.productId || isNaN(rowData.productId))
+          throw new Error(`Fila ${rowNumber}: ID de producto inválido`);
+
+        if (!rowData.productName || typeof rowData.productName !== 'string')
+          throw new Error(`Fila ${rowNumber}: Nombre del producto inválido`);
+
+        if (!rowData.newQuantity || isNaN(rowData.newQuantity) || !Number.isInteger(rowData.newQuantity))
+          throw new Error(`Fila ${rowNumber}: Cantidad debe ser un número entero`);
+
+        validRows.push(rowData);
+      } catch(error) {
+        errors.push(error.message);
+      }
+    });
+
+    const productIds = validRows.map(row => row.productId);
+    const existingProducts = await this.productRepository.find({
+      where: { id: In(productIds) }
+    });
+    const existingProductIds = existingProducts.map(p => p.id);
+    const missingProducts = validRows.filter(row => !existingProductIds.includes(row.productId));
+    missingProducts.forEach(row => {
+      errors.push(`Producto con ID ${row.productId} no encontrado en base de datos`);
+    });
+
+    const validatedProducts = validRows
+    .filter(row => existingProductIds.includes(row.productId))
+    .map(row => {
+      const product = existingProducts.find(p => p.id === row.productId);
+      return {
+        productId: row.productId,
+        productName: product.name, // Nombre desde la base de datos
+        newQuantity: row.newQuantity // Stock actual desde la base de datos
+      };
+    });
+
+    return {
+      isValid: errors.length === 0,
+      errorCount: errors.length,
+      validProducts: errors.length === 0 ? validatedProducts : errors,
+    };
+  }
+
+  async bulkUpdateStock(products: ExcelStockUpdateDto[], userId: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const results = [];
+      
+      for (const productData of products) {
+        const product = await queryRunner.manager.findOne(Product, {
+          where: { id: productData.productId }
+        });
+        // 1. Actualizar el stock del producto
+        const stockHistoryDto = {
+          actionType: StockActionType.UPDATE,
+          previousQuantity: product.stock,
+          newQuantity: productData.newQuantity,
+          quantityChanged: productData.newQuantity + product.stock,
+          notes: 'Actualización masiva desde Excel',
+          userId,
+        }
+        await this.createStockHistory(
+          productData.productId,
+          stockHistoryDto
+        );
+        results.push({
+          productId: productData.productId,
+          productName: product.name,
+          previousStock: product.stock,
+          newStock: productData.newQuantity,
+          changedStock: productData.newQuantity + product.stock,
+        });
+      }
+      await queryRunner.commitTransaction();
+      return results;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error en actualización masiva: ${error.message}`);
       throw error;
     } finally {
       await queryRunner.release();
@@ -401,6 +652,24 @@ export class EcommerceService {
       await queryRunner.release();
     }
   }
+
+  async deleteBenefitFromProduct(productId: number, benefit: string) {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+    if (!product)
+      throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+    if (!product.benefits.includes(benefit))
+      throw new BadRequestException('El beneficio no existe en el producto');
+    product.benefits = product.benefits.filter(b => b !== benefit);
+    await this.productRepository.save(product);
+    return {
+      success: true,
+      message: 'Beneficio eliminado exitosamente',
+      benefit: product.benefits,
+    };
+  }
+
 
   private async generateSku(
     categoryCode: string,

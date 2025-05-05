@@ -13,6 +13,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { User } from 'src/user/entities/user.entity';
 import { Public } from 'src/auth/decorators/is-public.decorator';
 import { UserTreeService } from '../services/user-tree.service';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @Controller('users/tree')
 export class UserTreeController {
@@ -26,6 +27,10 @@ export class UserTreeController {
   // }
   @Public()
   @Get(':userId')
+  @ApiOperation({ summary: 'Obtener árbol de usuarios' })
+  @ApiParam({ name: 'userId', type: String, required: true })
+  @ApiQuery({ name: 'depth', type: Number, required: false })
+  @ApiResponse({ status: 200, description: 'Árbol de usuarios' })
   async getUserTree(
     @Param('userId') userId: string,
     @Query('depth', new ParseIntPipe({ optional: true })) depth: number = 3,
@@ -48,6 +53,11 @@ export class UserTreeController {
 
   @UseGuards(JwtAuthGuard)
   @Get('node/:nodeId')
+  @ApiOperation({ summary: 'Obtener contexto de un nodo' })
+  @ApiParam({ name: 'nodeId', type: String, required: true })
+  @ApiQuery({ name: 'descendantDepth', type: Number, required: false })
+  @ApiQuery({ name: 'ancestorDepth', type: Number, required: false })
+  @ApiResponse({ status: 200, description: 'Contexto de un nodo' })
   async getNodeWithContext(
     @Param('nodeId') nodeId: string,
     @Query('descendantDepth', new ParseIntPipe({ optional: true }))
