@@ -12,6 +12,7 @@ export class OrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {}
+  // METHODS FOR ENDPOINTS
   // FAC - SYS
 
   // CLIENT
@@ -30,6 +31,7 @@ export class OrdersService {
     return formatOrderOneResponse(order);
   }
 
+  // INTERNAL HELPERS METHODS
   private async findAllOrders(
     userId?: string,
     paginationDto?: PaginationDto,
