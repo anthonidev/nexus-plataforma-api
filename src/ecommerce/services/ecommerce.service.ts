@@ -246,6 +246,54 @@ export class EcommerceService {
     }
   }
 
+
+  async addImageToProduct(
+    productId: number,
+    file: Express.Multer.File,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const product = await this.productRepository.findOne({
+        where: { id: productId },
+        relations: ['images'],
+      });
+      if (!product)
+        throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+      if (product.images.length >= 5)
+        throw new BadRequestException('No se pueden tener más de 5 imágenes por producto');
+      const cloudinaryResponse = await this.cloudinaryService.uploadImage(
+        file,
+        'products',
+      );
+      const newImage = this.productImageRepository.create({
+        url: cloudinaryResponse.url,
+        cloudinaryPublicId: cloudinaryResponse.publicId,
+        isMain: false,
+        order: product.images.length,
+        product,
+      });
+      const savedImage = await queryRunner.manager.save(newImage);
+      await queryRunner.commitTransaction();
+      return {
+        success: true,
+        message: 'Imagen agregada exitosamente',
+        image: {
+          id: savedImage.id,
+          url: savedImage.url,
+          isMain: savedImage.isMain,
+        },
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error al agregar imagen: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   async updateProductImage(
     productId: number,
     imageId: number,
