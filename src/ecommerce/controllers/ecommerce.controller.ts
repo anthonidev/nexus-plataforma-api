@@ -76,6 +76,34 @@ export class EcommerceController {
     );
   }
 
+  @Post('products/:id/images')
+  @Roles('SYS', 'FAC')
+  @UseInterceptors(FileInterceptor('image'))
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({ summary: 'Agregar imagen a producto' })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', type: Number, description: 'ID del producto' })
+  @ApiResponse({ status: 200, description: 'Imagen agregada con éxito' })
+  async addImageToProduct(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png)$/,
+        })
+        .addMaxSizeValidator({
+          maxSize: 1024 * 1024 * 5,
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+          fileIsRequired: false,
+        }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.ecommerceService.addImageToProduct(id, file);
+  }
+
   @Put('products/:id')
   @Roles('SYS', 'FAC')
   @UsePipes(new ValidationPipe({ transform: true }))

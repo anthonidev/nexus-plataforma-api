@@ -251,6 +251,7 @@ export class EcommerceService {
     productId: number,
     file: Express.Multer.File,
   ) {
+    if (!file) throw new BadRequestException('Debe proporcionar una imagen');
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
