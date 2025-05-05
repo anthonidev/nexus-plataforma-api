@@ -29,6 +29,7 @@ import { UpdateImageDto, UpdateProductDto } from '../dto/update-ecommerce.dto';
 import { EcommerceService } from '../services/ecommerce.service';
 import { ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { BenefitToProductDto } from '../dto/benefit-to-product.dto';
+import { StockHistoryDto } from '../dto/stock-history.dto';
 
 @Controller('ecommerce')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -116,6 +117,19 @@ export class EcommerceController {
     @Body() addBenefitToProductDto: BenefitToProductDto,
   ) {
     return this.ecommerceService.addBenefitFromProduct(id, addBenefitToProductDto.benefit);
+  }
+
+  @Post('products/:id/stock-history')
+  @Roles('SYS', 'FAC')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({ summary: 'Crear stock history' })
+  @ApiParam({ name: 'id', type: Number, description: 'ID del producto' })
+  @ApiResponse({ status: 200, description: 'Stock history creado con éxito' })
+  async createStockHistory(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() stockHistoryDto: StockHistoryDto,
+  ) {
+    return this.ecommerceService.createStockHistory(id, stockHistoryDto);
   }
 
   @Put('products/:id')

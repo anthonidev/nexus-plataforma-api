@@ -6,16 +6,17 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, DeepPartial, Repository } from 'typeorm';
 import { CreateProductDto } from '../dto/create-ecommerce.dto';
 import { UpdateImageDto, UpdateProductDto } from '../dto/update-ecommerce.dto';
 import { ProductCategory } from '../entities/product-category.entity';
 import { ProductImage } from '../entities/product-image.entity';
 import {
   ProductStockHistory,
-  StockActionType,
 } from '../entities/product-stock-history.entity';
 import { Product, ProductStatus } from '../entities/products.entity';
+import { StockHistoryDto } from '../dto/stock-history.dto';
+import { StockActionType } from '../enums/stock-action-type.enum';
 
 @Injectable()
 export class EcommerceService {
@@ -174,6 +175,72 @@ export class EcommerceService {
     }
   }
 
+  async createStockHistory(productId: number, stockHistoryDto: StockHistoryDto) {
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const product = await this.productRepository.findOne({
+        where: { id: productId }, 
+      });
+  
+      if (!product)
+        throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+  
+      if (product.stock !== stockHistoryDto.previousQuantity)
+        throw new BadRequestException('El stock del producto actual no coincide con el que se quiere actualizar');
+
+      if ( stockHistoryDto.quantityChanged != stockHistoryDto.previousQuantity + stockHistoryDto.newQuantity)
+        throw new BadRequestException('La cantidad actualizada no coincide con la cantidad previa + la cantidad nueva');
+  
+      const stockHistoryInput = {
+        product: { id: productId },
+        actionType: stockHistoryDto.actionType,
+        previousQuantity: stockHistoryDto.previousQuantity,
+        newQuantity: stockHistoryDto.newQuantity,
+        quantityChanged: stockHistoryDto.quantityChanged,
+        notes: stockHistoryDto.notes,
+        updatedBy: { id: stockHistoryDto.userId }
+      } as DeepPartial<ProductStockHistory>; 
+  
+      const stockHistory = this.productStockHistoryRepository.create(stockHistoryInput);
+      await queryRunner.manager.save(stockHistory);
+
+      product.stock = stockHistoryDto.newQuantity;
+      await queryRunner.manager.save(product);
+
+      await queryRunner.commitTransaction();
+  
+      return {
+        success: true,
+        message: 'Stock history created successfully',
+        stockHistory: {
+          id: stockHistory.id,
+          actionType: stockHistory.actionType,
+          previousQuantity: stockHistory.previousQuantity,
+          newQuantity: stockHistory.newQuantity,
+          quantityChanged: stockHistory.quantityChanged,
+          notes: stockHistory.notes,
+          createdAt: stockHistory.createdAt,
+          updatedBy: stockHistory.updatedBy
+            ? {
+                id: stockHistory.updatedBy.id,
+                email: stockHistory.updatedBy.email,
+              }
+            : null,
+        },
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error al crear stock history: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   async updateProduct(productId: number, updateProductDto: UpdateProductDto) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -245,7 +312,6 @@ export class EcommerceService {
       await queryRunner.release();
     }
   }
-
 
   async addImageToProduct(
     productId: number,
