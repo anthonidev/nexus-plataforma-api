@@ -30,6 +30,7 @@ import { EcommerceService } from '../services/ecommerce.service';
 import { ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { BenefitToProductDto } from '../dto/benefit-to-product.dto';
 import { StockHistoryDto } from '../dto/stock-history.dto';
+import { ExcelStockUpdateDto } from '../dto/excel-stock-update.dto';
 
 @Controller('ecommerce')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -130,6 +131,25 @@ export class EcommerceController {
     @Body() stockHistoryDto: StockHistoryDto,
   ) {
     return this.ecommerceService.createStockHistory(id, stockHistoryDto);
+  }
+
+  @Post('products/upload-stock-update')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadStockUpdateFile(
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    return await this.ecommerceService.validateStockExcel(file);
+  }
+
+  @Post('products/bulk-update-stock')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({ summary: 'Actualizar stock de masiva' })
+  @ApiResponse({ status: 200, description: 'Actualización masiva completada' })
+  async bulkUpdateStock(
+    @Body() products: ExcelStockUpdateDto[],
+    @GetUser() user: User
+  ) {
+    return this.ecommerceService.bulkUpdateStock(products, user.id);
   }
 
   @Put('products/:id')

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import { DataSource, DeepPartial, Repository } from 'typeorm';
+import { DataSource, DeepPartial, In, Repository } from 'typeorm';
 import { CreateProductDto } from '../dto/create-ecommerce.dto';
 import { UpdateImageDto, UpdateProductDto } from '../dto/update-ecommerce.dto';
 import { ProductCategory } from '../entities/product-category.entity';
@@ -17,6 +17,8 @@ import {
 import { Product, ProductStatus } from '../entities/products.entity';
 import { StockHistoryDto } from '../dto/stock-history.dto';
 import { StockActionType } from '../enums/stock-action-type.enum';
+import * as ExcelJS from 'exceljs';
+import { ExcelStockUpdateDto } from '../dto/excel-stock-update.dto';
 
 @Injectable()
 export class EcommerceService {
@@ -208,7 +210,7 @@ export class EcommerceService {
       const stockHistory = this.productStockHistoryRepository.create(stockHistoryInput);
       await queryRunner.manager.save(stockHistory);
 
-      product.stock = stockHistoryDto.newQuantity;
+      product.stock = stockHistoryDto.quantityChanged;
       await queryRunner.manager.save(product);
 
       await queryRunner.commitTransaction();
@@ -380,6 +382,120 @@ export class EcommerceService {
     };
   }
 
+  async validateStockExcel(
+    file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Debe proporcionar un archivo');
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file.buffer);
+
+    const worksheet = workbook.worksheets[0];
+    const errors: string[] = [];
+    const validRows: ExcelStockUpdateDto[] = [];
+
+    // Validacion de estructura del Excel (Encabezado)
+    const expectedHeaders = ['ID', 'Producto', 'Cantidad'];
+    const actualHeaders = worksheet.getRow(1).values as string[];
+    if(!expectedHeaders.every(header => actualHeaders.includes(header))) 
+      throw new BadRequestException('Encabezado del Excel no es el esperado');
+
+    // Procesar filas
+    worksheet.eachRow({includeEmpty: true}, (row, rowNumber) => {
+      if(rowNumber === 1) return; // salto de encabezados
+      
+      try {
+        const rowData: ExcelStockUpdateDto = {
+          productId: row.getCell(1).value as number,
+          productName: row.getCell(2).value as string,
+          newQuantity: row.getCell(3).value as number,
+        };
+        // Validaciones básicas
+        if (!rowData.productId || isNaN(rowData.productId))
+          throw new Error(`Fila ${rowNumber}: ID de producto inválido`);
+
+        if (!rowData.productName || typeof rowData.productName !== 'string')
+          throw new Error(`Fila ${rowNumber}: Nombre del producto inválido`);
+
+        if (!rowData.newQuantity || isNaN(rowData.newQuantity) || !Number.isInteger(rowData.newQuantity))
+          throw new Error(`Fila ${rowNumber}: Cantidad debe ser un número entero`);
+
+        validRows.push(rowData);
+      } catch(error) {
+        errors.push(error.message);
+      }
+    });
+
+    const productIds = validRows.map(row => row.productId);
+    const existingProducts = await this.productRepository.find({
+      where: { id: In(productIds) }
+    });
+    const existingProductIds = existingProducts.map(p => p.id);
+    const missingProducts = validRows.filter(row => !existingProductIds.includes(row.productId));
+    missingProducts.forEach(row => {
+      errors.push(`Producto con ID ${row.productId} no encontrado en base de datos`);
+    });
+
+    const validatedProducts = validRows
+    .filter(row => existingProductIds.includes(row.productId))
+    .map(row => {
+      const product = existingProducts.find(p => p.id === row.productId);
+      return {
+        productId: row.productId,
+        productName: product.name, // Nombre desde la base de datos
+        newQuantity: row.newQuantity // Stock actual desde la base de datos
+      };
+    });
+
+    return {
+      isValid: errors.length === 0,
+      errorCount: errors.length,
+      validProducts: errors.length === 0 ? validatedProducts : errors,
+    };
+  }
+
+  async bulkUpdateStock(products: ExcelStockUpdateDto[], userId: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const results = [];
+      
+      for (const productData of products) {
+        const product = await queryRunner.manager.findOne(Product, {
+          where: { id: productData.productId }
+        });
+        // 1. Actualizar el stock del producto
+        const stockHistoryDto = {
+          actionType: StockActionType.UPDATE,
+          previousQuantity: product.stock,
+          newQuantity: productData.newQuantity,
+          quantityChanged: productData.newQuantity + product.stock,
+          notes: 'Actualización masiva desde Excel',
+          userId,
+        }
+        await this.createStockHistory(
+          productData.productId,
+          stockHistoryDto
+        );
+        results.push({
+          productId: productData.productId,
+          productName: product.name,
+          previousStock: product.stock,
+          newStock: productData.newQuantity,
+          changedStock: productData.newQuantity + product.stock,
+        });
+      }
+      await queryRunner.commitTransaction();
+      return results;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error en actualización masiva: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
 
   async updateProductImage(
     productId: number,
