@@ -28,6 +28,9 @@ export class ProductService {
       const formattedItems = items.map(product => {
         return {
           ...formatProductResponse(product),
+          stock: product.stock,
+          status: product.status,
+          isActive: product.isActive,
           mainImage: product.images && product.images.length > 0
           ? product.images.find(img => img.isMain)?.url || product.images[0].url
           : null,

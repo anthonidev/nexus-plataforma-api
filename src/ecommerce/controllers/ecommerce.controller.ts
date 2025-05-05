@@ -38,7 +38,7 @@ export class EcommerceController {
   constructor(private readonly ecommerceService: EcommerceService) { }
 
   @Get('categories')
-  @Roles('SYS', 'FAC')
+  @Roles('SYS', 'FAC', 'CLI')
   @ApiOperation({ summary: 'Obtener categorías' })
   @ApiQuery({ name: 'includeInactive', type: Boolean, required: false })
   @ApiResponse({ status: 200, description: 'Listado de categorías' })

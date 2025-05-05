@@ -8,14 +8,12 @@ export const formatProductResponse = (product: Product) => {
     sku: product.sku,
     memberPrice: product.memberPrice,
     publicPrice: product.publicPrice,
-    stock: product.stock,
-    status: product.status,
-    isActive: product.isActive,
     category: product.category ? {
       id: product.category.id,
       name: product.category.name,
       code: product.category.code
     } : null,
+    benefits: product.benefits,
     imagesCount: product.images ? product.images.length : 0,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt

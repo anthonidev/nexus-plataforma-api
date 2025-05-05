@@ -13,7 +13,11 @@ export const formatOrderOneResponse = (order: Order) => {
       id: detail.id,
       productId: detail.product.id,
       productName: detail.product.name,
+      productImage: detail.product.images && detail.product.images.length > 0
+        ? detail.product.images.find(img => img.isMain)?.url || detail.product.images[0].url
+        : null,
       quantity: detail.quantity,
+      price: detail.price,
     })),
     orderHistory: order.orderHistory,
   };

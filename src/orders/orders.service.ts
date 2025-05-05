@@ -63,7 +63,7 @@ export class OrdersService {
   ) {
     const order = await this.orderRepository.findOne({
       where: { id },
-      relations: ['user', 'orderDetails', 'orderDetails.product', 'orderHistory'],
+      relations: ['user', 'orderDetails', 'orderDetails.product', 'orderDetails.product.images', 'orderHistory'],
     });
 
     if (!order) throw new NotFoundException(`Orden con ID ${id} no fue encontrada`);
