@@ -16,6 +16,8 @@ interface Envvars {
   CLOUDINARY_API_SECRET: string;
   RESEND_API_KEY: string;
   FRONTEND_URL: string;
+  SWAGGER_USERNAME: string;
+  SWAGGER_PASSWORD: string;
 }
 
 const envVarsSchema = joi
@@ -33,6 +35,8 @@ const envVarsSchema = joi
     CLOUDINARY_API_SECRET: joi.string().required(),
     RESEND_API_KEY: joi.string().required(),
     FRONTEND_URL: joi.string().required(),
+    SWAGGER_USERNAME: joi.string().required(),
+    SWAGGER_PASSWORD: joi.string().required(),
   })
   .unknown(true);
 
@@ -61,4 +65,6 @@ export const envs = {
   cloudinaryApiSecret: envVars.CLOUDINARY_API_SECRET,
   resendApiKey: envVars.RESEND_API_KEY,
   frontendUrl: envVars.FRONTEND_URL,
+  swaggerUsername: envVars.SWAGGER_USERNAME,
+  swaggerPassword: envVars.SWAGGER_PASSWORD,
 };
