@@ -4,6 +4,7 @@ import { User } from "src/user/entities/user.entity";
 import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { OrderStatus } from "../enums/orders-status.enum";
 import { OrdersDetails } from "./orders-details.entity";
+import { OrderHistory } from "./orders-history.entity";
 
 @Entity('orders')
 @Index(['user'])
@@ -22,7 +23,12 @@ export class Order {
   @OneToMany(() => OrdersDetails, (item) => item.order, {
     cascade: true,
   })
-  upgrades: OrdersDetails[];
+  orderDetails: OrdersDetails[];
+
+  @OneToMany(() => OrderHistory, (history) => history.order, {
+    cascade: true,
+  })
+  orderHistory: OrderHistory[];
 
   @Column({ type: 'integer' })
   @IsNumber()
