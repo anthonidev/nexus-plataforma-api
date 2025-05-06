@@ -1,17 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Order } from './entities/orders.entity';
-import { Repository } from 'typeorm';
 import { PaginationDto } from 'src/common/dto/paginationDto';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
-import { formatOrderOneResponse } from './helpers/format-order-one-response.dto';
+import { Repository } from 'typeorm';
+import { Order } from '../entities/orders.entity';
+import { formatOrderOneResponse } from '../helpers/format-order-one-response.dto';
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-  ) {}
+  ) { }
   // METHODS FOR ENDPOINTS
   // FAC - SYS
 
@@ -24,7 +24,7 @@ export class OrdersService {
   }
 
   async findOneWithClients(
-    id: string,
+    id: number,
     userId: string,
   ) {
     const order = await this.findOneOrder(id, userId);
@@ -58,7 +58,7 @@ export class OrdersService {
   }
 
   private async findOneOrder(
-    id: string,
+    id: number,
     userId?: string,
   ) {
     const order = await this.orderRepository.findOne({

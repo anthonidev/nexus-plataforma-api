@@ -1,17 +1,17 @@
-import { Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
-import { OrdersService } from './orders.service';
+import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
-import { User } from 'src/user/entities/user.entity';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { PaginationDto } from 'src/common/dto/paginationDto';
+import { User } from 'src/user/entities/user.entity';
+import { OrdersService } from '../services/orders.service';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly ordersService: OrdersService) { }
   // FAC - SYS
   // CLIENTS
   @Get('list/with-clients')
@@ -32,7 +32,7 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Orden del usuario' })
   findOneWithClients(
     @GetUser() user: User,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
   ) {
     return this.ordersService.findOneWithClients(id, user.id);
   }

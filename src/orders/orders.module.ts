@@ -1,10 +1,16 @@
 import { Module } from '@nestjs/common';
-import { OrdersService } from './orders.service';
-import { OrdersController } from './orders.controller';
-import { Order } from './entities/orders.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { OrderCreationController } from './controllers/order-creation.controller';
+import { OrdersController } from './controllers/orders.controller';
 import { OrdersDetails } from './entities/orders-details.entity';
 import { OrderHistory } from './entities/orders-history.entity';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { Order } from './entities/orders.entity';
+import { OrderCreationService } from './services/order-creation.service';
+import { OrdersService } from './services/orders.service';
+import { PaymentsModule } from 'src/payments/payments.module';
+import { EcommerceModule } from 'src/ecommerce/ecommerce.module';
+import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports: [
@@ -13,8 +19,20 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       OrdersDetails,
       OrderHistory,
     ]),
+    PaymentsModule,
+    EcommerceModule,
+    CloudinaryModule,
+    UserModule,
   ],
-  controllers: [OrdersController],
-  providers: [OrdersService],
+  controllers: [OrdersController, OrderCreationController],
+  providers: [OrdersService, OrderCreationService],
+  exports: [
+    TypeOrmModule,
+    OrdersService,
+    OrderCreationService,
+
+  ]
+
+
 })
-export class OrdersModule {}
+export class OrdersModule { }

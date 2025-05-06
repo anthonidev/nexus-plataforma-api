@@ -11,7 +11,7 @@ export class OrderHistory {
   @PrimaryGeneratedColumn('uuid')
   @IsUUID()
   id: string;
-  
+
   @ManyToOne(() => Order, { nullable: false })
   @JoinColumn({ name: 'order_id' })
   @ValidateNested()

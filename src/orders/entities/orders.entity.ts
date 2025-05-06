@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsUUID, Min, ValidateNested } from "class-validator";
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, Min, ValidateNested } from "class-validator";
 import { User } from "src/user/entities/user.entity";
 import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { OrderStatus } from "../enums/orders-status.enum";
@@ -9,9 +9,8 @@ import { OrderHistory } from "./orders-history.entity";
 @Entity('orders')
 @Index(['user'])
 export class Order {
-  @PrimaryGeneratedColumn('uuid')
-  @IsUUID()
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @ManyToOne(() => User, { nullable: false })
   @JoinColumn({ name: 'user_id' })
@@ -66,7 +65,7 @@ export class Order {
 
   @CreateDateColumn()
   createdAt: Date;
-  
+
   @UpdateDateColumn()
   updatedAt: Date;
 
