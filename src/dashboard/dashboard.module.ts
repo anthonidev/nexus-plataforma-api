@@ -7,10 +7,11 @@ import { DashboardUsersModule } from './dashboard-users/dashboard-users.module';
 import { DashboardMembershipsModule } from './dashboard-memberships/dashboard-memberships.module';
 import { DashboardPointsModule } from './dashboard-points/dashboard-points.module';
 import { DashboardRanksModule } from './dashboard-ranks/dashboard-ranks.module';
+import { DashboardPaymentsModule } from './dashboard-payments/dashboard-payments.module';
 
 @Module({
   controllers: [],
   providers: [],
-  imports: [PointsModule, RanksModule, UserModule, MembershipsModule, DashboardUsersModule, DashboardMembershipsModule, DashboardPointsModule, DashboardRanksModule],
+  imports: [PointsModule, RanksModule, UserModule, MembershipsModule, DashboardUsersModule, DashboardMembershipsModule, DashboardPointsModule, DashboardRanksModule, DashboardPaymentsModule],
 })
 export class DashboardModule {}
