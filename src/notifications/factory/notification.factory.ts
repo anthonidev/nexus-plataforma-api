@@ -169,4 +169,15 @@ export class NotificationFactory {
       actionUrl: '/memberships/detail',
     });
   }
+  async statusOrder(
+    userId: string,
+    orderId: number,
+    status: string,
+    amount: number,
+  ) {
+    return this.send(NotificationType.STATUS_ORDER, userId, {
+      metadata: { orderId, status, amount },
+      actionUrl: `/orders/${orderId}`,
+    });
+  }
 }

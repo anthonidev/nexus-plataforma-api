@@ -166,6 +166,74 @@ export class TreeVolumeService {
         }
     }
 
+    async processTreeVolumesOrder(
+        user: User,
+        orderAmount: number,
+        queryRunner: any,
+    ) {
+        try {
+            const parents = await this.getAllParents(user.id);
+
+            for (const parent of parents) {
+                const parentMembership = await this.membershipRepository.findOne({
+                    where: {
+                        user: { id: parent.id },
+                        status: MembershipStatus.ACTIVE,
+                    },
+                    relations: ['plan'],
+                });
+
+                if (!parentMembership) {
+                    this.logger.debug(
+                        `El padre ${parent.id} no tiene una membresía activa, saltando`,
+                    );
+                    continue;
+                }
+
+                const parentPlan = parentMembership.plan;
+
+                if (
+                    !parentPlan.commissionPercentage ||
+                    parentPlan.commissionPercentage <= 0
+                ) {
+                    this.logger.debug(
+                        `El plan ${parentPlan.id} del padre no tiene configurado un porcentaje de comisión, saltando`,
+                    );
+                    continue;
+                }
+
+                const side = await this.determineTreeSide(parent.id, user.id);
+                if (!side) {
+                    this.logger.warn(
+                        `No se pudo determinar el lado del árbol para el usuario ${user.id} con respecto al padre ${parent.id}`,
+                    );
+                    continue;
+                }
+
+                await this.updateWeeklyVolume(
+                    parent,
+                    parentPlan,
+                    orderAmount,
+                    side,
+                    queryRunner,
+                );
+                await this.updateMonthlyVolume(
+                    parent,
+                    parentPlan,
+                    orderAmount,
+                    side,
+                    queryRunner,
+                );
+            }
+        } catch (error) {
+            this.logger.error(
+                `Error al procesar volúmenes del árbol para orden: ${error.message}`,
+                error.stack,
+            );
+            throw error;
+        }
+    }
+
     async processTreeVolumesReConsumption(
         user: User,
         plan: MembershipPlan,

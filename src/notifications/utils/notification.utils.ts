@@ -62,6 +62,10 @@ export function createNotificationPayload(
       title: 'Membresía actualizada',
       message: `Tu membresía ha sido actualizada al plan ${metadata?.planName || 'nuevo plan'}.`,
     },
+    [NotificationType.STATUS_ORDER]: {
+      title: 'Estado de tu pedido',
+      message: `El estado de tu pedido ha cambiado a ${metadata?.status || 'nuevo estado'}.`,
+    },
   };
 
   const template = templates[type] || {

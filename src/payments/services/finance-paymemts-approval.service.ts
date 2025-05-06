@@ -23,6 +23,7 @@ import { RejectPaymentDto } from '../dto/approval.dto';
 import { ApprovePaymentDto } from '../dto/approve-payment.dto';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
 import { MembershipPaymentService } from './membership-payment.service';
+import { OrderPaymentService } from './order-payment.service';
 import { PlanUpgradeService } from './plan-upgrade.service';
 import { ReconsumptionService } from './reconsumption.service';
 
@@ -65,6 +66,8 @@ export class FinancePaymentApprovalService {
     private readonly membershipPaymentService: MembershipPaymentService,
     private readonly reconsumptionService: ReconsumptionService,
     private readonly planUpgradeService: PlanUpgradeService,
+    private readonly orderPaymentService: OrderPaymentService,
+
   ) {
   }
 
@@ -124,10 +127,14 @@ export class FinancePaymentApprovalService {
         case 'PLAN_UPGRADE':
           await this.planUpgradeService.processPlanUpgradePayment(payment, queryRunner);
           break;
+        case 'ORDER_PAYMENT':
+          await this.orderPaymentService.processOrderPayment(payment, queryRunner);
+          break;
         default:
           this.logger.warn(
             `Tipo de pago desconocido: ${payment.paymentConfig.code}`,
           );
+
       }
 
       try {
@@ -286,6 +293,13 @@ export class FinancePaymentApprovalService {
       } else if (payment.paymentConfig.code === 'RECONSUMPTION' &&
         payment.relatedEntityType === 'membership_reconsumption') {
         await this.reconsumptionService.processReconsumptionRejection(
+          payment,
+          rejectPaymentDto.rejectionReason,
+          queryRunner,
+        );
+      } else if (payment.paymentConfig.code === 'ORDER_PAYMENT' &&
+        payment.relatedEntityType === 'order') {
+        await this.orderPaymentService.processOrderRejection(
           payment,
           rejectPaymentDto.rejectionReason,
           queryRunner,
