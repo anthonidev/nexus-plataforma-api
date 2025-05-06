@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Membership, MembershipStatus } from 'src/memberships/entities/membership.entity';
 import { Repository } from 'typeorm';
 import { formatMembershipUserResponse } from './helpers/format-membership-user-response-helper';
-import { GetMembershipsByDayDto } from './dto/get-memberships-by-day.dto';
 import { getFinalDayMonth } from 'src/common/helpers/get-final-day-month.helper';
 import { getInitialMonth } from 'src/common/helpers/get-initial-month.helper';
+import { RangeDatesDto } from 'src/common/dto/range-dates.dto';
 
 @Injectable()
 export class DashboardMembershipsService {
@@ -17,13 +17,13 @@ export class DashboardMembershipsService {
 
   // REPORTE DE MEMBRESIA POR DIA
   async getMembershipsByDay(
-    getMembershipsByDayDto: GetMembershipsByDayDto,
+    rangeDatesDto: RangeDatesDto,
   ) {
     try {
       const {
         startDate = getInitialMonth(),
         endDate = getFinalDayMonth()
-      } = getMembershipsByDayDto;
+      } = rangeDatesDto;
       const paymentsData = await this.membershipRepository.query(`
         WITH DateSeries AS (
           SELECT generate_series(
@@ -68,6 +68,43 @@ export class DashboardMembershipsService {
       const result = Object.values(formattedData);
       return result;
     } catch (error) {
+      throw error;
+    }
+  }
+
+  async getTotalStatusMemmberships() {
+    try {
+      const statusCountsResult = await this.membershipRepository
+        .createQueryBuilder('membership')
+        .select('membership.status', 'status')
+        .addSelect('COUNT(membership.id)', 'count')
+        .groupBy('membership.status')
+        .getRawMany<{ status: MembershipStatus; count: string }>();
+
+      const totalMemberships = await this.membershipRepository.count();
+
+      const statusCounts: { [key in MembershipStatus]?: number } = {
+        [MembershipStatus.ACTIVE]: 0,
+        [MembershipStatus.INACTIVE]: 0,
+        [MembershipStatus.PENDING]: 0,
+        [MembershipStatus.EXPIRED]: 0,
+      };
+
+      statusCountsResult.forEach(item => {
+        statusCounts[item.status] = parseInt(item.count, 10);
+      });
+
+      return {
+        total: totalMemberships,
+        activos: statusCounts[MembershipStatus.ACTIVE] || 0,
+        inactivos: statusCounts[MembershipStatus.INACTIVE] || 0,
+        pendientes: statusCounts[MembershipStatus.PENDING] || 0,
+        expirados: statusCounts[MembershipStatus.EXPIRED] || 0,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error obteniendo datos del dashboard: ${error.message}`,
+      );
       throw error;
     }
   }

@@ -6,6 +6,7 @@ import { DashboardMembershipsService } from '../dashboard-memberships/dashboard-
 import { DashboardPointsService } from '../dashboard-points/dashboard-points.service';
 import { DashboardRanksService } from '../dashboard-ranks/dashboard-ranks.service';
 import { formatUserDataResponse } from './helpers/format-user-data-response.helper';
+import { MembershipStatus } from 'src/memberships/entities/membership.entity';
 
 @Injectable()
 export class DashboardUsersService {
@@ -18,29 +19,24 @@ export class DashboardUsersService {
     private readonly dashboardRanksService: DashboardRanksService,
   ) {}
 
+  // Methods for endpoints
+  // REPORTE DE INFORMACION DE USUARIOS
   async getDashboardData(userId: string) {
       try {
         // Verificar si el usuario existe
         const user = await this.findOneUser(userId);
-  
         // Obtener información de membresía activa
         const membership = await this.dashboardMembershipsService.getMemberships(userId);
-  
         // Obtener información de puntos
         const points = await this.dashboardPointsService.getUserPoints(userId);
-  
         // Obtener volumen semanal actual
         const weeklyVolume = await this.dashboardPointsService.getCurrentWeeklyVolume(userId);
-  
         // Obtener volumen mensual actual
         const monthlyVolume = await this.dashboardRanksService.getCurrentMonthlyVolume(userId);
-  
         // Obtener rango actual del usuario
         const rank = await this.dashboardRanksService.getUserRanks(userId);
-  
         // Obtener cantidad de referidos directos
         const directReferrals = await this.getDirectReferrals(user.referralCode);
-  
         // Obtener cantidad de usuarios en la red (debajo del usuario)
         const networkSize = await this.getNetworkSize(userId);
   
@@ -67,6 +63,27 @@ export class DashboardUsersService {
       }
     }
   
+    // REPORTE DE TOTAL DE USUARIOS POR ESTADO
+    async getTotalUsersByState() {
+      try {
+        const dataStatusMemmberships = await this.dashboardMembershipsService.getTotalStatusMemmberships();
+        const { total, ...restDataStatusMemmberships } = dataStatusMemmberships;
+        const totalDataUsers = await this.userRepository.count();
+        return {
+          total: totalDataUsers,
+          ...restDataStatusMemmberships,
+          'sin membresia': totalDataUsers - total,
+        };
+
+      } catch (error) {
+        this.logger.error(
+          `Error obteniendo datos del dashboard: ${error.message}`,
+        );
+        throw error;
+      }
+    }
+
+    // Internal helpers methods
     private async findOneUser(userId: string) {
       try {
         const user = await this.userRepository.findOne({

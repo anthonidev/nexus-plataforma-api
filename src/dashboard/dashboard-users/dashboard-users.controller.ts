@@ -16,4 +16,11 @@ export class DashboardUsersController {
   async getDashboardData(@GetUser() user: User) {
     return this.dashboardUsersService.getDashboardData(user.id);
   }
+
+  @Get('total-users-by-state')
+  @ApiOperation({ summary: 'Obtener datos del dashboard' })
+  @ApiResponse({ status: 200, description: 'Datos del dashboard' })
+  async getTotalUsersByState() {
+    return this.dashboardUsersService.getTotalUsersByState();
+  }
 }

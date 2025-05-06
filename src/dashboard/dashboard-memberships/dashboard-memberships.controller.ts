@@ -1,7 +1,6 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { DashboardMembershipsService } from "./dashboard-memberships.service";
-import { GetMembershipsByDayDto } from './dto/get-memberships-by-day.dto';
-
+import { RangeDatesDto } from "src/common/dto/range-dates.dto";
 @Controller('dashboard-memberships')
 export class DashboardMembershipsController {
   constructor(
@@ -10,8 +9,8 @@ export class DashboardMembershipsController {
 
   @Get('memberships-by-day')
   async getMembershipsByDay(
-    @Query() getMembershipsByDayDto: GetMembershipsByDayDto,
+    @Query() rangeDatesDto: RangeDatesDto,
   ) {
-    return this.dashboardMembershipsService.getMembershipsByDay(getMembershipsByDayDto);
+    return this.dashboardMembershipsService.getMembershipsByDay(rangeDatesDto);
   }
 }

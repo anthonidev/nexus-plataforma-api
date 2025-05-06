@@ -18,6 +18,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -27,6 +28,7 @@ import { BillingInfo } from './billing-info.entity';
 import { ContactInfo } from './contact-info.entity';
 import { PersonalInfo } from './personal-info.entity';
 import { Role } from './roles.entity';
+import { Membership } from 'src/memberships/entities/membership.entity';
 
 @Entity('users')
 export class User {
@@ -114,6 +116,13 @@ export class User {
 
   @OneToOne(() => BankInfo, (bankInfo) => bankInfo.user, { nullable: true })
   bankInfo: BankInfo;
+
+  @OneToMany(() => Membership, (membership) => membership.user)
+  memberships: Membership[];
+
+  @OneToMany(() => User, (user) => user.parent)
+  @JoinColumn({ name: 'parent_id' })
+  children: User[];
 
   @Column({ nullable: true })
   @IsString()

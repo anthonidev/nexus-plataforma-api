@@ -1,6 +1,6 @@
 import { IsOptional, IsString } from "class-validator";
 
-export class GetMembershipsByDayDto {
+export class RangeDatesDto {
   @IsString()
   @IsOptional()
   startDate?: string;
