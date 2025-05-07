@@ -8,10 +8,11 @@ import { DashboardMembershipsModule } from './dashboard-memberships/dashboard-me
 import { DashboardPointsModule } from './dashboard-points/dashboard-points.module';
 import { DashboardRanksModule } from './dashboard-ranks/dashboard-ranks.module';
 import { DashboardPaymentsModule } from './dashboard-payments/dashboard-payments.module';
+import { DashboardOrdersModule } from './dashboard-orders/dashboard-orders.module';
 
 @Module({
   controllers: [],
   providers: [],
-  imports: [PointsModule, RanksModule, UserModule, MembershipsModule, DashboardUsersModule, DashboardMembershipsModule, DashboardPointsModule, DashboardRanksModule, DashboardPaymentsModule],
+  imports: [PointsModule, RanksModule, UserModule, MembershipsModule, DashboardUsersModule, DashboardMembershipsModule, DashboardPointsModule, DashboardRanksModule, DashboardPaymentsModule, DashboardOrdersModule],
 })
 export class DashboardModule {}
