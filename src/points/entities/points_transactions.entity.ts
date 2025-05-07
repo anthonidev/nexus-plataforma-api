@@ -9,7 +9,6 @@ import {
 } from 'class-validator';
 import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
 import { User } from 'src/user/entities/user.entity';
-import { IsOptional } from 'class-validator';
 import {
   Column,
   CreateDateColumn,
@@ -18,6 +17,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { PointsTransactionPayment } from './points-transactions-payments.entity';
 
 export enum PointTransactionType {
   BINARY_COMMISSION = 'BINARY_COMMISSION',
@@ -113,6 +113,12 @@ export class PointsTransaction {
     message: 'Estado de transacción de puntos inválido',
   })
   status: PointTransactionStatus;
+
+  @ManyToOne(
+    () => PointsTransactionPayment, 
+    (pointsTransactionPayment) => pointsTransactionPayment.pointsTransaction
+  )
+  pointsTransactionsPayments: PointsTransactionPayment[];
 
   @ManyToOne(() => MembershipPlan, { nullable: true })
   @JoinColumn({ name: 'membership_plan_id' })

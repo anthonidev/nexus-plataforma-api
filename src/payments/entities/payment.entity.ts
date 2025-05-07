@@ -28,6 +28,7 @@ import {
 import { PaymentConfig } from './payment-config.entity';
 import { PaymentImage } from './payment-image.entity';
 import { WeeklyVolumesHistory } from 'src/points/entities/weekly-volumes-history.entity';
+import { PointsTransactionPayment } from 'src/points/entities/points-transactions-payments.entity';
 
 export enum PaymentStatus {
   PENDING = 'PENDING',
@@ -147,6 +148,11 @@ export class Payment {
   @IsOptional()
   @IsNumber()
   relatedEntityId: number;
+
+  @OneToMany(() => PointsTransactionPayment,
+    (pointsTransactionPayment) => pointsTransactionPayment.payments
+  )
+  pointsTransactionsPayments: PointsTransactionPayment[];
 
   @Column({ type: 'json', nullable: true })
   @IsOptional()
