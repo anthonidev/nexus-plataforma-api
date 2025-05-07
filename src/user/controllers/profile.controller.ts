@@ -23,7 +23,7 @@ import { ApiBody, ApiConsumes, ApiOperation, ApiResponse } from '@nestjs/swagger
 @Controller('profile')
 @UseGuards(JwtAuthGuard)
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(private readonly profileService: ProfileService) { }
 
   @Get()
   @ApiOperation({ summary: 'Obtener perfil de usuario' })
@@ -95,7 +95,7 @@ export class ProfileController {
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
+          fileType: /(jpg|jpeg|png|webp)$/,
         })
         .addMaxSizeValidator({
           maxSize: 1024 * 1024 * 2, // 2MB

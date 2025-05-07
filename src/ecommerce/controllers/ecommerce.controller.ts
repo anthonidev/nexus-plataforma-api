@@ -60,7 +60,7 @@ export class EcommerceController {
     @UploadedFiles(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
+          fileType: /(jpg|jpeg|png|webp)$/,
         })
         .addMaxSizeValidator({
           maxSize: 1024 * 1024 * 2,
@@ -92,7 +92,7 @@ export class EcommerceController {
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
+          fileType: /(jpg|jpeg|png|webp)$/,
         })
         .addMaxSizeValidator({
           maxSize: 1024 * 1024 * 5,
@@ -182,7 +182,7 @@ export class EcommerceController {
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
+          fileType: /(jpg|jpeg|png|webp)$/,
         })
         .addMaxSizeValidator({
           maxSize: 1024 * 1024 * 5,

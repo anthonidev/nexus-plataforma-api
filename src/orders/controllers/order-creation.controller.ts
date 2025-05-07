@@ -37,7 +37,7 @@ export class OrderCreationController {
         @UploadedFiles(
             new ParseFilePipeBuilder()
                 .addFileTypeValidator({
-                    fileType: /(jpg|jpeg|png)$/,
+                    fileType: /(jpg|jpeg|png|webp)$/,
                 })
                 .addMaxSizeValidator({
                     maxSize: 1024 * 1024 * 5, // 5MB max per file

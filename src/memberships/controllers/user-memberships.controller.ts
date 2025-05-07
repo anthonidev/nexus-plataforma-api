@@ -23,7 +23,7 @@ import { ApiConsumes, ApiOperation, ApiResponse } from '@nestjs/swagger';
 export class UserMembershipsController {
   constructor(
     private readonly userMembershipsService: UserMembershipsService,
-  ) {}
+  ) { }
   @Post('subscribe')
   @UseInterceptors(FilesInterceptor('paymentImages', 5))
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -36,7 +36,7 @@ export class UserMembershipsController {
     @UploadedFiles(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
+          fileType: /(jpg|jpeg|png|webp)$/,
         })
         .addMaxSizeValidator({
           maxSize: 1024 * 1024 * 5,
@@ -67,7 +67,7 @@ export class UserMembershipsController {
     @UploadedFiles(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
+          fileType: /(jpg|jpeg|png|webp)$/,
         })
         .addMaxSizeValidator({
           maxSize: 1024 * 1024 * 5,
