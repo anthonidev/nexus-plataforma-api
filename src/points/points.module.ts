@@ -7,11 +7,12 @@ import { PointsController } from './controllers/points.controller';
 import { PointsService } from './services/points.service';
 import { UserModule } from 'src/user/user.module';
 import { WeeklyVolumesHistory } from './entities/weekly-volumes-history.entity';
+import { PointsTransactionPayment } from './entities/points-transactions-payments.entity';
 
 @Module({
   controllers: [PointsController],
   imports: [
-    TypeOrmModule.forFeature([PointsTransaction, UserPoints, WeeklyVolume, WeeklyVolumesHistory]),
+    TypeOrmModule.forFeature([PointsTransaction, UserPoints, WeeklyVolume, WeeklyVolumesHistory, PointsTransactionPayment]),
     UserModule,
   ],
   providers: [PointsService],
