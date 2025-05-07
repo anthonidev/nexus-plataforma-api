@@ -13,4 +13,10 @@ export class DashboardMembershipsController {
   ) {
     return this.dashboardMembershipsService.getMembershipsByDay(rangeDatesDto);
   }
+
+  @Get('total-memberships-by-plan')
+  async getTotalMembershipsByPlan() {
+    return this.dashboardMembershipsService.getTotalMembershipsByPlan();
+  }
+  
 }

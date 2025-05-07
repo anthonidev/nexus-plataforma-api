@@ -15,6 +15,7 @@ export class DashboardMembershipsService {
     private readonly membershipRepository: Repository<Membership>,
   ) {}
 
+  // Methods for endpoints
   // REPORTE DE MEMBRESIA POR DIA
   async getMembershipsByDay(
     rangeDatesDto: RangeDatesDto,
@@ -72,6 +73,7 @@ export class DashboardMembershipsService {
     }
   }
 
+  // REPORTE DE TOTAL DE MEMBRESIAS POR ESTADO
   async getTotalStatusMemmberships() {
     try {
       const statusCountsResult = await this.membershipRepository
@@ -108,7 +110,33 @@ export class DashboardMembershipsService {
       throw error;
     }
   }
+
+  // REPORTE DE TOTAL DE MEMBRESIAS POR PLAN
+  async getTotalMembershipsByPlan(): Promise<{ [plan: string]: number }> { // Modificamos el tipo de retorno
+    try {
+      const membershipsByPlan = await this.membershipRepository
+        .createQueryBuilder('membership')
+        .leftJoin('membership.plan', 'plan') // Asumiendo que la relación al plan se llama "plan"
+        .select('plan.name', 'plan')
+        .addSelect('COUNT(membership.id)', 'totalMemberships')
+        .groupBy('plan.name')
+        .where('membership.status = :status', { status: MembershipStatus.ACTIVE })
+        .getRawMany<{ plan: string; totalMemberships: string }>();
+
+      const result: { [plan: string]: number } = {};
+      membershipsByPlan.forEach(item => {
+        result[item.plan] = parseInt(item.totalMemberships, 10);
+      });
+
+      return result;
+
+    } catch (error) {
+      this.logger.error(`Error obteniendo total de membresías por plan: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
   
+  // Internal helpers methods
   async getMemberships(userId: string) {
     try {
       const membership = await this.membershipRepository.findOne({
