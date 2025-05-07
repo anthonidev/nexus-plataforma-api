@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
 import { User } from 'src/user/entities/user.entity';
+import { IsOptional } from 'class-validator';
 import {
   Column,
   CreateDateColumn,
@@ -66,6 +67,42 @@ export class PointsTransaction {
   )
   @Min(0, { message: 'El monto no puede ser negativo' })
   amount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+    default: 0,
+  })
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'El monto debe ser un número válido con hasta 2 decimales' },
+  )
+  @Min(0, { message: 'El monto pendiente no puede ser negativo' })
+  @IsOptional()
+  pendingAmount?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+    default: 0,
+  })
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'El monto retirado debe ser un número válido con hasta 2 decimales' },
+  )
+  @Min(0, { message: 'El monto retirado no puede ser negativo' })
+  @IsOptional()
+  withdrawnAmount?: number;
 
   @Column({
     type: 'enum',
