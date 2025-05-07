@@ -138,10 +138,6 @@ export class Payment {
   @IsBoolean()
   isArchived: boolean;
 
-  @Column({ default: false })
-  @IsBoolean()
-  isWiki: boolean;
-
   @Column({ nullable: true })
   @IsOptional()
   @IsString()
