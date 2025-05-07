@@ -25,22 +25,18 @@ export class DashboardUsersService {
   // REPORTE DE INFORMACION DE USUARIOS
   async getDashboardData(userId: string) {
     try {
-      // Verificar si el usuario existe
-      const user = await this.findOneUser(userId);
-      // Obtener información de membresía activa
-      const membership = await this.dashboardMembershipsService.getMemberships(userId);
-      // Obtener información de puntos
-      const points = await this.dashboardPointsService.getUserPoints(userId);
-      // Obtener volumen semanal actual
-      const weeklyVolume = await this.dashboardPointsService.getCurrentWeeklyVolume(userId);
-      // Obtener volumen mensual actual
-      const monthlyVolume = await this.dashboardRanksService.getCurrentMonthlyVolume(userId);
-      // Obtener rango actual del usuario
-      const rank = await this.dashboardRanksService.getUserRanks(userId);
+
+      const [user, membership, points, weeklyVolume, monthlyVolume, rank, networkSize] = await Promise.all([
+        this.findOneUser(userId),
+        this.dashboardMembershipsService.getMemberships(userId),
+        this.dashboardPointsService.getUserPoints(userId),
+        this.dashboardPointsService.getCurrentWeeklyVolume(userId),
+        this.dashboardRanksService.getCurrentMonthlyVolume(userId),
+        this.dashboardRanksService.getUserRanks(userId),
+        this.getNetworkSize(userId)
+      ]);
       // Obtener cantidad de referidos directos
       const directReferrals = await this.getDirectReferrals(user.referralCode);
-      // Obtener cantidad de usuarios en la red (debajo del usuario)
-      const networkSize = await this.getNetworkSize(userId);
 
       // Construir respuesta
       return {
