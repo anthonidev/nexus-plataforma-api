@@ -16,8 +16,10 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { WeeklyVolumesHistory } from './weekly-volumes-history.entity';
 
 export enum VolumeProcessingStatus {
   PENDING = 'PENDING',
@@ -158,6 +160,12 @@ export class WeeklyVolume {
   )
   @Min(0, { message: 'El volumen trasladado no puede ser negativo' })
   carryOverVolume: number;
+
+  @OneToMany(
+    () => WeeklyVolumesHistory,
+    (weeklyVolumesHistory) => weeklyVolumesHistory.weeklyVolumes
+  )
+  history: WeeklyVolumesHistory[];
 
   @CreateDateColumn()
   createdAt: Date;

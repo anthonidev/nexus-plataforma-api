@@ -27,11 +27,13 @@ import {
 } from 'typeorm';
 import { PaymentConfig } from './payment-config.entity';
 import { PaymentImage } from './payment-image.entity';
+import { WeeklyVolumesHistory } from 'src/points/entities/weekly-volumes-history.entity';
 
 export enum PaymentStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
+  COMPLETED = 'COMPLETED',
 }
 
 @Entity('payments')
@@ -121,6 +123,12 @@ export class Payment {
   @Type(() => User)
   reviewedBy: User;
 
+  @OneToMany(
+    () => WeeklyVolumesHistory,
+    (weeklyVolumesHistory) => weeklyVolumesHistory.payment
+  )
+  weeklyVolumesHistory: WeeklyVolumesHistory[];
+
   @Column({ nullable: true, type: 'timestamp' })
   @IsOptional()
   @IsDate()
@@ -129,6 +137,10 @@ export class Payment {
   @Column({ default: false })
   @IsBoolean()
   isArchived: boolean;
+
+  @Column({ default: false })
+  @IsBoolean()
+  isWiki: boolean;
 
   @Column({ nullable: true })
   @IsOptional()
