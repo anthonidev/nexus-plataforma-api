@@ -355,7 +355,6 @@ export class OrderCreationService {
 
                 // TODO: AGREGAR HISTORIAL DE PUNTOS
                 
-                // TODO: DESCUENTO DE PUNTOS 
 
                 const pointsTransaction = this.pointsTransactionRepository.create({
                     user: { id: userId },
