@@ -19,6 +19,7 @@ import { OrderHistory } from '../entities/orders-history.entity';
 import { Order } from '../entities/orders.entity';
 import { OrderAction } from '../enums/orders-action.enum';
 import { OrderStatus } from '../enums/orders-status.enum';
+import { UserPoints } from 'src/points/entities/user_points.entity';
 
 @Injectable()
 export class OrderCreationService {
@@ -43,6 +44,8 @@ export class OrderCreationService {
         private readonly userRepository: Repository<User>,
         @InjectRepository(PointsTransaction)
         private readonly pointsTransactionRepository: Repository<PointsTransaction>,
+        @InjectRepository(UserPoints)
+        private readonly userPointsRepository: Repository<UserPoints>,
         private readonly dataSource: DataSource,
         private readonly cloudinaryService: CloudinaryService,
     ) { }
@@ -349,7 +352,9 @@ export class OrderCreationService {
                     ...savedPayment.metadata,
                     "Puntos utilizados": createOrderDto.totalAmount,
                 };
+
                 // TODO: AGREGAR HISTORIAL DE PUNTOS
+
                 // TODO: DESCUENTO DE PUNTOS 
 
                 const pointsTransaction = this.pointsTransactionRepository.create({
@@ -362,9 +367,26 @@ export class OrderCreationService {
                         "Puntos utilizados": createOrderDto.totalAmount,
                     }
                 });
+
+                const userPoints = await this.userPointsRepository.findOne({
+                    where: { user: { id: userId } },
+                });
+
+                if (!userPoints) {
+                    throw new NotFoundException(`No hay puntos para el usuario ${userId}`);
+                }
+
+                userPoints.availablePoints = userPoints.availablePoints - createOrderDto.totalAmount;
+
+                savedOrder.status = OrderStatus.APPROVED;
+
                 await queryRunner.manager.save(pointsTransaction);
 
                 await queryRunner.manager.save(savedPayment);
+
+                await queryRunner.manager.save(userPoints);
+
+                await queryRunner.manager.save(savedOrder);
 
                 // Actualizar orden histórico
                 const newOrderHistory = this.orderHistoryRepository.create({
