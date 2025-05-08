@@ -52,7 +52,6 @@ export class OrderCreationService {
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
-
         try {
             const user = await this.userRepository.findOne({
                 where: { id: userId },
@@ -170,6 +169,7 @@ export class OrderCreationService {
             const savedOrder = await queryRunner.manager.save(order);
 
             // Crear los detalles de la orden
+            let productos = []
             for (const item of orderItems) {
                 const orderDetail = this.orderDetailsRepository.create({
                     order: savedOrder,
@@ -178,6 +178,12 @@ export class OrderCreationService {
                     price: item.price,
                 });
                 await queryRunner.manager.save(orderDetail);
+                productos.push({
+                    "SKU": item.product.sku,
+                    "Nombre": item.product.name,
+                    "Cantidad": item.quantity,
+                    "Precio": item.price,
+                });
             }
 
             // Crear el historial de la orden
@@ -189,6 +195,11 @@ export class OrderCreationService {
             });
 
             await queryRunner.manager.save(orderHistory);
+            savedOrder.metadata = {
+                ...savedOrder.metadata,
+                "Productos": productos,
+            };
+            await queryRunner.manager.save(savedOrder);
 
             const payment = this.paymentRepository.create({
                 user: { id: userId },
@@ -200,12 +211,7 @@ export class OrderCreationService {
                 metadata: {
                     "Total de productos": savedOrder.totalAmount,
                     "Número de productos": savedOrder.totalItems,
-                    "Productos": savedOrder.orderDetails.map((item) => ({
-                        productId: item.product.id,
-                        productName: item.product.name,
-                        quantity: item.quantity,
-                        price: item.price,
-                    })),
+                    "Productos": productos,
                 },
             });
 
