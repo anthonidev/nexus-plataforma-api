@@ -130,7 +130,7 @@ export class DirectBonusService {
 
             const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
                 pointsTransaction: { id: pointsTransaction.id },
-                payments: { id: payment.id },
+                payment: { id: payment.id },
             });
 
             await queryRunner.manager.save(pointsTransactionPayment);
@@ -244,7 +244,7 @@ export class DirectBonusService {
             });
             const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
                 pointsTransaction: { id: pointsTransaction.id },
-                payments: payment,
+                payment: payment,
             });
 
             await queryRunner.manager.save(pointsTransactionPayment);

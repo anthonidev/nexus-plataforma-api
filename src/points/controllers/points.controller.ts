@@ -55,4 +55,15 @@ export class PointsController {
   ) {
     return this.pointsService.getWeeklyVolumes(user.id, filters);
   }
+
+  @Get('weekly-volume-details/:id')
+  @ApiOperation({ summary: 'Obtener detalles de volumen semanal de puntos' })
+  @ApiResponse({ status: 200, description: 'Detalles de volumen semanal de puntos' })
+  getWeeklyVolumeDetails(
+    @GetUser() user: User,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.pointsService.getWeeklyVolumeDetails(id, paginationDto);
+  }
 }

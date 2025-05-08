@@ -19,7 +19,7 @@ export class PointsTransactionPayment {
     (payment) => payment.pointsTransactionsPayments
   )
   @JoinColumn({ name: 'payment_id' })
-  payments: Payment;
+  payment: Payment;
 
   @CreateDateColumn()
   createdAt: Date;
