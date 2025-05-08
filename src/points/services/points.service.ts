@@ -12,6 +12,7 @@ import { PointsTransaction } from '../entities/points_transactions.entity';
 import { UserPoints } from '../entities/user_points.entity';
 import { WeeklyVolume } from '../entities/weekly_volumes.entity';
 import { PointsEventsService } from './points-events.service';
+import { PaginationDto } from 'src/common/dto/paginationDto';
 
 @Injectable()
 export class PointsService {
@@ -91,38 +92,38 @@ export class PointsService {
         order = 'DESC',
       } = filters;
 
-      const queryBuilder = this.pointsTransactionRepository
-        .createQueryBuilder('transaction')
-        .where('transaction.user.id = :userId', { userId });
+        const queryBuilder = this.pointsTransactionRepository
+          .createQueryBuilder('transaction')
+          .where('transaction.user.id = :userId', { userId });
 
-      if (type) {
-        queryBuilder.andWhere('transaction.type = :type', { type });
-      }
+        if (type) {
+          queryBuilder.andWhere('transaction.type = :type', { type });
+        }
 
-      if (status) {
-        queryBuilder.andWhere('transaction.status = :status', { status });
-      }
+        if (status) {
+          queryBuilder.andWhere('transaction.status = :status', { status });
+        }
 
-      if (startDate) {
-        queryBuilder.andWhere('transaction.createdAt >= :startDate', {
-          startDate: new Date(startDate),
-        });
-      }
+        if (startDate) {
+          queryBuilder.andWhere('transaction.createdAt >= :startDate', {
+            startDate: new Date(startDate),
+          });
+        }
 
-      if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        queryBuilder.andWhere('transaction.createdAt <= :endDate', {
-          endDate: endOfDay,
-        });
-      }
+        if (endDate) {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(23, 59, 59, 999);
+          queryBuilder.andWhere('transaction.createdAt <= :endDate', {
+            endDate: endOfDay,
+          });
+        }
 
-      queryBuilder
-        .orderBy('transaction.createdAt', order)
-        .skip((page - 1) * limit)
-        .take(limit);
+        queryBuilder
+          .orderBy('transaction.createdAt', order)
+          .skip((page - 1) * limit)
+          .take(limit);
 
-      const [items, totalItems] = await queryBuilder.getManyAndCount();
+        const [items, totalItems] = await queryBuilder.getManyAndCount();
 
       return PaginationHelper.createPaginatedResponse(
         items,
@@ -134,6 +135,28 @@ export class PointsService {
         `Error al obtener transacciones de puntos: ${error.message}`,
       );
       throw error;
+    }
+  }
+
+  async getPointsTransactionDetails(
+    id: number,
+    paginationDto: PaginationDto,
+  ) {
+
+    const getPointsTransactionDetails = await this.pointsTransactionRepository.findOne({
+      where: { id },
+      relations: ['pointsTransactionsPayments'],
+    });
+    if (!getPointsTransactionDetails)
+      throw new NotFoundException(`Transacción de puntos con ID ${id} no encontrada`);
+    const { pointsTransactionsPayments, ...restData } =getPointsTransactionDetails;
+    return {
+      ...restData,
+      listPayments: PaginationHelper.createPaginatedResponse(
+        pointsTransactionsPayments,
+        pointsTransactionsPayments.length,
+        paginationDto,
+      ),
     }
   }
 
