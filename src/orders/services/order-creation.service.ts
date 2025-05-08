@@ -353,9 +353,6 @@ export class OrderCreationService {
                     "Puntos utilizados": createOrderDto.totalAmount,
                 };
 
-                // TODO: AGREGAR HISTORIAL DE PUNTOS
-                
-
                 const pointsTransaction = this.pointsTransactionRepository.create({
                     user: { id: userId },
                     amount: createOrderDto.totalAmount,
@@ -376,6 +373,7 @@ export class OrderCreationService {
                 }
 
                 userPoints.availablePoints = userPoints.availablePoints - createOrderDto.totalAmount;
+                userPoints.totalWithdrawnPoints = userPoints.totalWithdrawnPoints + createOrderDto.totalAmount;
 
                 savedOrder.status = OrderStatus.APPROVED;
 
@@ -397,8 +395,8 @@ export class OrderCreationService {
                 await queryRunner.manager.save(newOrderHistory);
 
                 // TODO: ACTUALIZAR VOLUMEN SEMANAL Y VOLUMEN MENSUAL
-
-
+                // CUANDO CREO ORDEN: 800 soles = otorgamos volumen de 800 semanal y mensual
+                
             }
 
             await queryRunner.commitTransaction();
