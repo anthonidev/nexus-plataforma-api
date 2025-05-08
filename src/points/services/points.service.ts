@@ -1,15 +1,17 @@
+// src/points/services/points.service.ts
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { User } from 'src/user/entities/user.entity';
-import { UserPoints } from '../entities/user_points.entity';
-import { PointsTransaction } from '../entities/points_transactions.entity';
-import { WeeklyVolume } from '../entities/weekly_volumes.entity';
+import { Repository } from 'typeorm';
 import {
   FindPointsTransactionDto,
   FindWeeklyVolumeDto,
 } from '../dto/find-weekly-volume.dto';
+import { PointsTransaction } from '../entities/points_transactions.entity';
+import { UserPoints } from '../entities/user_points.entity';
+import { WeeklyVolume } from '../entities/weekly_volumes.entity';
+import { PointsEventsService } from './points-events.service';
 
 @Injectable()
 export class PointsService {
@@ -24,7 +26,8 @@ export class PointsService {
     private readonly weeklyVolumeRepository: Repository<WeeklyVolume>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-  ) {}
+    private readonly pointsEventsService: PointsEventsService,
+  ) { }
 
   async getUserPoints(userId: string) {
     try {
@@ -52,14 +55,17 @@ export class PointsService {
         await this.userPointsRepository.save(userPoints);
       }
 
+      // Emit points update event
+      await this.pointsEventsService.emitPointsUpdate(userId);
+
       return {
         availablePoints: userPoints.availablePoints,
         totalEarnedPoints: userPoints.totalEarnedPoints,
         totalWithdrawnPoints: userPoints.totalWithdrawnPoints,
         membershipPlan: userPoints.membershipPlan
           ? {
-              name: userPoints.membershipPlan.name,
-            }
+            name: userPoints.membershipPlan.name,
+          }
           : null,
       };
     } catch (error) {
@@ -177,6 +183,40 @@ export class PointsService {
     } catch (error) {
       this.logger.error(
         `Error al obtener volúmenes semanales: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  // This is a utility method to update points and emit the update event
+  async updateUserPoints(userId: string, updatedData: Partial<UserPoints>) {
+    try {
+      let userPoints = await this.userPointsRepository.findOne({
+        where: { user: { id: userId } },
+        relations: ['membershipPlan'],
+      });
+
+      if (!userPoints) {
+        userPoints = this.userPointsRepository.create({
+          user: { id: userId },
+          availablePoints: 0,
+          totalEarnedPoints: 0,
+          totalWithdrawnPoints: 0,
+          ...updatedData,
+        });
+      } else {
+        this.userPointsRepository.merge(userPoints, updatedData);
+      }
+
+      const savedPoints = await this.userPointsRepository.save(userPoints);
+
+      // Emit points update event
+      await this.pointsEventsService.emitPointsUpdate(userId);
+
+      return savedPoints;
+    } catch (error) {
+      this.logger.error(
+        `Error al actualizar puntos del usuario: ${error.message}`,
       );
       throw error;
     }

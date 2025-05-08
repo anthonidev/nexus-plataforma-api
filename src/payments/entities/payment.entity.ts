@@ -37,6 +37,13 @@ export enum PaymentStatus {
   COMPLETED = 'COMPLETED',
 }
 
+export enum MethodPayment {
+  VOUCHER = 'VOUCHER',
+  POINTS = 'POINTS',
+  PAYMENT_GATEWAY = 'PAYMENT_GATEWAY',
+}
+
+
 @Entity('payments')
 @Index(['user', 'paymentConfig'])
 @Index(['status', 'createdAt'])
@@ -79,6 +86,14 @@ export class Payment {
     message: 'El estado debe ser PENDING, APPROVED o REJECTED',
   })
   status: PaymentStatus;
+
+  @Column(
+    { default: MethodPayment.VOUCHER },
+  )
+  @IsEnum(MethodPayment, {
+    message: 'El método de pago debe ser VOUCHER, POINTS o PAYMENT_GATEWAY',
+  })
+  methodPayment: MethodPayment;
 
   @Column({ nullable: true })
   @IsOptional()
