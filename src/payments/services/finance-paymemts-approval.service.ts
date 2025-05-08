@@ -5,18 +5,11 @@ import {
   NotFoundException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
-import { MembershipReconsumption } from 'src/memberships/entities/membership-recosumption.entity';
 import { Membership, MembershipStatus } from 'src/memberships/entities/membership.entity';
 import { MembershipAction, MembershipHistory } from 'src/memberships/entities/membership_history.entity';
 import { MembershipUpgrade, UpgradeStatus } from 'src/memberships/entities/membership_upgrades.entity';
 import { NotificationFactory } from 'src/notifications/factory/notification.factory';
-import { PointsTransaction } from 'src/points/entities/points_transactions.entity';
 import { UserPoints } from 'src/points/entities/user_points.entity';
-import { WeeklyVolume } from 'src/points/entities/weekly_volumes.entity';
-import { MonthlyVolumeRank } from 'src/ranks/entities/monthly_volume_ranks.entity';
-import { Rank } from 'src/ranks/entities/ranks.entity';
-import { UserRank } from 'src/ranks/entities/user_ranks.entity';
 import { User } from 'src/user/entities/user.entity';
 import { DataSource, Repository } from 'typeorm';
 import { RejectPaymentDto } from '../dto/approval.dto';
@@ -26,6 +19,8 @@ import { MembershipPaymentService } from './membership-payment.service';
 import { OrderPaymentService } from './order-payment.service';
 import { PlanUpgradeService } from './plan-upgrade.service';
 import { ReconsumptionService } from './reconsumption.service';
+import { CompletePaymentDto } from '../dto/complete-payment.dto';
+import { th } from '@faker-js/faker/.';
 
 @Injectable()
 export class FinancePaymentApprovalService {
@@ -38,29 +33,11 @@ export class FinancePaymentApprovalService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Membership)
     private readonly membershipRepository: Repository<Membership>,
-    @InjectRepository(MembershipPlan)
-    private readonly membershipPlanRepository: Repository<MembershipPlan>,
     @InjectRepository(MembershipHistory)
     private readonly membershipHistoryRepository: Repository<MembershipHistory>,
     @InjectRepository(UserPoints)
-    private readonly userPointsRepository: Repository<UserPoints>,
-    @InjectRepository(PointsTransaction)
-    private readonly pointsTransactionRepository: Repository<PointsTransaction>,
-    @InjectRepository(WeeklyVolume)
-    private readonly weeklyVolumeRepository: Repository<WeeklyVolume>,
-
     @InjectRepository(MembershipUpgrade)
     private readonly membershipUpgradeRepository: Repository<MembershipUpgrade>,
-
-    @InjectRepository(MembershipReconsumption)
-    private readonly reconsumptionRepository: Repository<MembershipReconsumption>,
-
-    @InjectRepository(Rank)
-    private readonly rankRepository: Repository<Rank>,
-    @InjectRepository(UserRank)
-    private readonly userRankRepository: Repository<UserRank>,
-    @InjectRepository(MonthlyVolumeRank)
-    private readonly monthlyVolumeRankRepository: Repository<MonthlyVolumeRank>,
     private readonly notificationFactory: NotificationFactory,
     private readonly dataSource: DataSource,
     private readonly membershipPaymentService: MembershipPaymentService,
@@ -153,27 +130,12 @@ export class FinancePaymentApprovalService {
 
       await queryRunner.commitTransaction();
 
-      const user = await this.userRepository.findOne({
-        where: { id: payment.user.id },
-        relations: ['personalInfo', 'contactInfo'],
-      });
-
-      return {
-        success: true,
-        message: `Pago aprobado correctamente`,
-        user: {
-          email: user.email,
-          firstName: user.personalInfo.firstName,
-          lastName: user.personalInfo.lastName,
-          phone: user.contactInfo.phone,
-        },
-        paymentId: payment.id,
-        reviewedBy: {
-          id: reviewer.id,
-          email: reviewer.email,
-        },
-        timestamp: payment.reviewedAt,
-      };
+      return this.operationPaymentResponse(
+        reviewerId,
+        `Pago aprobado correctamente`,
+        payment,
+        reviewer,
+      );
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(`Error al aprobar pago: ${error.message}`, error.stack);
@@ -323,28 +285,16 @@ export class FinancePaymentApprovalService {
 
       // await queryRunner.commitTransaction();
 
-      const user = await this.userRepository.findOne({
-        where: { id: payment.user.id },
-        relations: ['personalInfo', 'contactInfo'],
-      });
-
+      const response = this.operationPaymentResponse(
+        reviewerId,
+        `Pago rechazado correctamente`,
+        payment,
+        reviewer,
+      );
       return {
-        success: true,
-        message: `Pago rechazado correctamente`,
-        paymentId: payment.id,
-        user: {
-          email: user.email,
-          firstName: user.personalInfo.firstName,
-          lastName: user.personalInfo.lastName,
-          phone: user.contactInfo.phone,
-        },
+        ...response,
         rejectionReason: payment.rejectionReason,
-        reviewedBy: {
-          id: reviewer.id,
-          email: reviewer.email,
-        },
-        timestamp: payment.reviewedAt,
-      };
+      }
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(
@@ -356,4 +306,90 @@ export class FinancePaymentApprovalService {
       await queryRunner.release();
     }
   }
+
+  // Payment completed
+  async updateDataOrcompletePayment(
+    paymentId: number,
+    reviewerId: string,
+    completePaymentDto: CompletePaymentDto,
+  ) {
+    const { codeOperation, numberTicket } = completePaymentDto;
+    if (!codeOperation && !numberTicket)
+      throw new BadRequestException(
+        'Se requiere al menos un código de operación o número de ticket',
+      );
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const payment = await this.paymentRepository.findOne({
+        where: { id: paymentId },
+        relations: ['user', 'paymentConfig'],
+      });
+
+      if (!payment) throw new NotFoundException(`Pago con ID ${paymentId} no encontrado`);
+
+      if (payment.status !== PaymentStatus.APPROVED)
+        throw new BadRequestException(`El pago tiene que estar aprobado previamente`);
+
+      const reviewer = await this.userRepository.findOne({
+        where: { id: reviewerId },
+      });
+
+      if (!reviewer) 
+        throw new NotFoundException(`Revisor con ID ${reviewerId} no encontrado`);
+
+      payment.codeOperation = codeOperation || payment.codeOperation;
+      payment.numberTicket = numberTicket || payment.numberTicket;
+
+      if (payment.codeOperation && payment.numberTicket)
+        payment.status = PaymentStatus.COMPLETED;
+
+      await queryRunner.manager.save(payment);
+
+      await queryRunner.commitTransaction();
+
+      return this.operationPaymentResponse(
+        reviewerId,
+        `Pago completado correctamente`,
+        payment,
+        reviewer,
+      );
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error al aprobar pago: ${error.message}`, error.stack);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  private async operationPaymentResponse (
+    userId: string,
+    message: string,
+    payment: Payment,
+    reviewer: User,
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['personalInfo', 'contactInfo'],
+    });
+    return {
+      success: true,
+      message,
+      paymentId: payment.id,
+      user: {
+        email: user.email,
+        firstName: user.personalInfo.firstName,
+        lastName: user.personalInfo.lastName,
+        phone: user.contactInfo.phone,
+      },
+      reviewedBy: {
+        id: reviewer.id,
+        email: reviewer.email,
+      },
+      timestamp: payment.reviewedAt,
+    };
+  } 
 }

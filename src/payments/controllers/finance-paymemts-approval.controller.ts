@@ -4,6 +4,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
@@ -15,6 +16,7 @@ import { FinancePaymentApprovalService } from '../services/finance-paymemts-appr
 import { RejectPaymentDto } from '../dto/approval.dto';
 import { ApprovePaymentDto } from '../dto/approve-payment.dto';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { CompletePaymentDto } from '../dto/complete-payment.dto';
 
 @Controller('finance/payments/approval')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,6 +41,23 @@ export class FinancePaymentApprovalController {
       approvePaymentDto,
     );
   }
+
+  @Put(':id/complete')
+  @ApiOperation({ summary: 'Completar pago' })
+  @ApiParam({ name: 'id', type: Number, required: true })
+  @ApiResponse({ status: 200, description: 'Pago completado' })
+  completePayment(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUser() user: User,
+    @Body() completePaymentDto: CompletePaymentDto,
+  ) {
+    return this.financePaymentApprovalService.updateDataOrcompletePayment(
+      id,
+      user.id,
+      completePaymentDto,
+    );
+  }
+
   @Post(':id/reject')
   @ApiOperation({ summary: 'Rechazar pago' })
   @ApiParam({ name: 'id', type: Number, required: true })
