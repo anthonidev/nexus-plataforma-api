@@ -17,6 +17,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { PointsTransactionPayment } from './points-transactions-payments.entity';
 
 export enum PointTransactionType {
   BINARY_COMMISSION = 'BINARY_COMMISSION',
@@ -68,6 +69,42 @@ export class PointsTransaction {
   amount: number;
 
   @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+    default: 0,
+  })
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'El monto debe ser un número válido con hasta 2 decimales' },
+  )
+  @Min(0, { message: 'El monto pendiente no puede ser negativo' })
+  @IsOptional()
+  pendingAmount?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+    default: 0,
+  })
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'El monto retirado debe ser un número válido con hasta 2 decimales' },
+  )
+  @Min(0, { message: 'El monto retirado no puede ser negativo' })
+  @IsOptional()
+  withdrawnAmount?: number;
+
+  @Column({
     type: 'enum',
     enum: PointTransactionStatus,
     default: PointTransactionStatus.PENDING,
@@ -76,6 +113,12 @@ export class PointsTransaction {
     message: 'Estado de transacción de puntos inválido',
   })
   status: PointTransactionStatus;
+
+  @ManyToOne(
+    () => PointsTransactionPayment, 
+    (pointsTransactionPayment) => pointsTransactionPayment.pointsTransaction
+  )
+  pointsTransactionsPayments: PointsTransactionPayment[];
 
   @ManyToOne(() => MembershipPlan, { nullable: true })
   @JoinColumn({ name: 'membership_plan_id' })
