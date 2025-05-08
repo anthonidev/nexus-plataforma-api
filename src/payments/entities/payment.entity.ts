@@ -180,14 +180,14 @@ export class Payment {
       throw new Error('Se requiere una razón para rechazar el pago');
     }
 
-    if (
-      (this.status === PaymentStatus.APPROVED ||
-        this.status === PaymentStatus.REJECTED) &&
-      (!this.reviewedBy || !this.reviewedAt)
-    ) {
-      throw new Error(
-        'Los pagos aprobados o rechazados requieren revisor y fecha de revisión',
-      );
-    }
+    // if (
+    //   (this.status === PaymentStatus.APPROVED ||
+    //     this.status === PaymentStatus.REJECTED) &&
+    //   (!this.reviewedBy || !this.reviewedAt)
+    // ) {
+    //   throw new Error(
+    //     'Los pagos aprobados o rechazados requieren revisor y fecha de revisión',
+    //   );
+    // }
   }
 }

@@ -10,6 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { PointsTransaction, PointTransactionType } from 'src/points/entities/points_transactions.entity';
 import {
   BeforeInsert,
   BeforeUpdate,
@@ -24,6 +25,7 @@ import {
 } from 'typeorm';
 import { Payment } from './payment.entity';
 
+// Modificación para payment-image.entity.ts
 @Entity('payment_images')
 @Index(['payment', 'isActive'])
 export class PaymentImage {
@@ -37,11 +39,11 @@ export class PaymentImage {
   @IsNotEmpty({ message: 'El pago es requerido' })
   payment: Payment;
 
-  @Column()
+  @Column({ nullable: true })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'La URL de la imagen es requerida' })
   @MaxLength(500, { message: 'La URL no puede exceder los 500 caracteres' })
-  url: string;
+  url?: string;
 
   @Column({ nullable: true })
   @IsOptional()
@@ -49,7 +51,14 @@ export class PaymentImage {
   @MaxLength(200, {
     message: 'El public_id de Cloudinary no puede exceder los 200 caracteres',
   })
-  cloudinaryPublicId: string;
+  cloudinaryPublicId?: string;
+
+  @ManyToOne(() => PointsTransaction, { nullable: true })
+  @JoinColumn({ name: 'points_transaction_id' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PointsTransaction)
+  pointsTransaction?: PointsTransaction;
 
   @Column({
     type: 'decimal',
@@ -113,9 +122,26 @@ export class PaymentImage {
     }
 
     // Limpiar otros campos de texto
-
     if (this.bankName) {
       this.bankName = this.bankName.trim();
     }
+
+    // Validar que si no hay url/cloudinaryPublicId, debe haber un pointsTransaction
+    if ((!this.url || !this.cloudinaryPublicId) && !this.pointsTransaction) {
+      throw new Error('Debe proporcionar una imagen o una transacción de puntos');
+    }
+
+    // Validar que el tipo de pointsTransaction sea válido
+    // if (this.pointsTransaction) {
+    //   console.log("TYPE", this.pointsTransaction.type);
+    //   if (
+    //     this.pointsTransaction.type !== PointTransactionType.BINARY_COMMISSION &&
+    //     this.pointsTransaction.type !== PointTransactionType.DIRECT_BONUS
+    //   ) {
+    //     throw new Error(
+    //       'La transacción de puntos debe ser de tipo BINARY_COMMISSION o DIRECT_BONUS'
+    //     );
+    //   }
+    // }
   }
 }

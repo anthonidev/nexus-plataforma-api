@@ -1,16 +1,16 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { NotificationFactory } from 'src/notifications/factory/notification.factory';
 import { Membership, MembershipStatus } from 'src/memberships/entities/membership.entity';
 import { MembershipAction, MembershipHistory } from 'src/memberships/entities/membership_history.entity';
 import { MembershipUpgrade, UpgradeStatus } from 'src/memberships/entities/membership_upgrades.entity';
+import { NotificationFactory } from 'src/notifications/factory/notification.factory';
 import { UserPoints } from 'src/points/entities/user_points.entity';
+import { Rank } from 'src/ranks/entities/ranks.entity';
+import { UserRank } from 'src/ranks/entities/user_ranks.entity';
 import { User } from 'src/user/entities/user.entity';
 import { getDates } from 'src/utils/dates';
 import { Repository } from 'typeorm';
 import { Payment } from '../entities/payment.entity';
-import { Rank } from 'src/ranks/entities/ranks.entity';
-import { UserRank } from 'src/ranks/entities/user_ranks.entity';
 import { DirectBonusService } from './direct-bonus.service';
 import { TreeVolumeService } from './tree-volumen.service';
 
@@ -81,13 +81,15 @@ export class PlanUpgradeService {
                 fromPlan,
                 priceDifference,
                 queryRunner,
+                payment,
             );
         }
 
         await this.treeVolumeService.processTreeVolumesUpgrade(
             user,
             pointsDifference,
-            queryRunner
+            queryRunner,
+            payment
         );
         await this.createOrUpdateUserRank(user, toPlan, queryRunner);
 

@@ -79,7 +79,8 @@ export class OrderPaymentService {
             await this.treeVolumeService.processTreeVolumesOrder(
                 user,
                 payment.amount,
-                queryRunner
+                queryRunner,
+                payment
             );
 
             this.logger.log(

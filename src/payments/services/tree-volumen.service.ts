@@ -2,11 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
 import { Membership, MembershipStatus } from 'src/memberships/entities/membership.entity';
+import { WeeklyVolumesHistory } from 'src/points/entities/weekly-volumes-history.entity';
 import { VolumeProcessingStatus, VolumeSide, WeeklyVolume } from 'src/points/entities/weekly_volumes.entity';
 import { MonthlyVolumeRank, MonthlyVolumeStatus } from 'src/ranks/entities/monthly_volume_ranks.entity';
 import { User } from 'src/user/entities/user.entity';
 import { getFirstDayOfMonth, getFirstDayOfWeek, getLastDayOfMonth, getLastDayOfWeek } from 'src/utils/dates';
 import { Repository } from 'typeorm';
+import { Payment } from '../entities/payment.entity';
 
 @Injectable()
 export class TreeVolumeService {
@@ -15,6 +17,8 @@ export class TreeVolumeService {
     constructor(
         @InjectRepository(WeeklyVolume)
         private readonly weeklyVolumeRepository: Repository<WeeklyVolume>,
+        @InjectRepository(WeeklyVolumesHistory)
+        private readonly weeklyVolumeHistoryRepository: Repository<WeeklyVolumesHistory>,
         @InjectRepository(MonthlyVolumeRank)
         private readonly monthlyVolumeRepository: Repository<MonthlyVolumeRank>,
         @InjectRepository(User)
@@ -27,6 +31,7 @@ export class TreeVolumeService {
         user: User,
         plan: MembershipPlan,
         queryRunner: any,
+        payment: Payment,
     ) {
         try {
             const parents = await this.getAllParents(user.id);
@@ -40,12 +45,12 @@ export class TreeVolumeService {
                         },
                         relations: ['plan'],
                     });
-            
+
                     if (!parentMembership?.plan?.commissionPercentage) {
                         this.logger.debug(`El padre ${parent.id} no tiene membresía activa o comisión, saltando`);
                         return;
                     }
-            
+
                     const side = await this.determineTreeSide(parent.id, user.id);
                     if (!side) {
                         this.logger.warn(
@@ -53,9 +58,9 @@ export class TreeVolumeService {
                         );
                         return;
                     }
-            
+
                     await Promise.all([
-                        this.updateWeeklyVolume(parent, parentMembership.plan, plan.binaryPoints, side, queryRunner),
+                        this.updateWeeklyVolume(parent, parentMembership.plan, plan.binaryPoints, side, queryRunner, payment),
                         this.updateMonthlyVolume(parent, parentMembership.plan, plan.binaryPoints, side, queryRunner),
                     ]);
                 })
@@ -73,6 +78,8 @@ export class TreeVolumeService {
         user: User,
         pointsDifference: number,
         queryRunner: any,
+        payment: Payment,
+
     ) {
         try {
             if (pointsDifference <= 0) {
@@ -126,6 +133,7 @@ export class TreeVolumeService {
                     pointsDifference,
                     side,
                     queryRunner,
+                    payment
                 );
                 await this.updateMonthlyVolume(
                     parent,
@@ -148,6 +156,8 @@ export class TreeVolumeService {
         user: User,
         orderAmount: number,
         queryRunner: any,
+        payment: Payment,
+
     ) {
         try {
             const parents = await this.getAllParents(user.id);
@@ -194,6 +204,7 @@ export class TreeVolumeService {
                     orderAmount,
                     side,
                     queryRunner,
+                    payment
                 );
                 await this.updateMonthlyVolume(
                     parent,
@@ -217,6 +228,8 @@ export class TreeVolumeService {
         plan: MembershipPlan,
         reconsumptionAmount: number,
         queryRunner: any,
+        payment: Payment,
+
     ) {
         try {
             const parents = await this.getAllParents(user.id);
@@ -263,6 +276,7 @@ export class TreeVolumeService {
                     reconsumptionAmount,
                     side,
                     queryRunner,
+                    payment
                 );
 
                 await this.updateMonthlyVolume(
@@ -288,6 +302,7 @@ export class TreeVolumeService {
         binaryPoints: number,
         side: VolumeSide,
         queryRunner: any,
+        payment: Payment,
     ) {
         try {
             const now = new Date();
@@ -311,6 +326,14 @@ export class TreeVolumeService {
                     existingVolume.rightVolume =
                         Number(existingVolume.rightVolume) + Number(binaryPoints);
                 }
+                const history = this.weeklyVolumeHistoryRepository.create({
+                    payment: payment,
+                    selectedSide: side,
+                    volume: binaryPoints,
+                    weeklyVolumes: existingVolume,
+                });
+                await queryRunner.manager.save(history);
+
 
                 await queryRunner.manager.save(existingVolume);
                 this.logger.log(
@@ -327,6 +350,14 @@ export class TreeVolumeService {
                     status: VolumeProcessingStatus.PENDING,
                     carryOverVolume: 0,
                 });
+
+                const history = this.weeklyVolumeHistoryRepository.create({
+                    payment: payment,
+                    selectedSide: side,
+                    volume: binaryPoints,
+                    weeklyVolumes: newVolume,
+                });
+                await queryRunner.manager.save(history);
 
                 await queryRunner.manager.save(newVolume);
                 this.logger.log(

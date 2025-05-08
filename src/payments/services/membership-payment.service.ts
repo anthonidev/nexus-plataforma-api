@@ -85,10 +85,10 @@ export class MembershipPaymentService {
         }
 
         if (user.referrerCode) {
-            await this.directBonusService.processDirectBonus(user, plan, queryRunner);
+            await this.directBonusService.processDirectBonus(user, plan, queryRunner, payment);
         }
 
-        await this.treeVolumeService.processTreeVolumes(user, plan, queryRunner);
+        await this.treeVolumeService.processTreeVolumes(user, plan, queryRunner, payment);
         await this.createOrUpdateUserRank(user, plan, queryRunner);
 
         const now = new Date();

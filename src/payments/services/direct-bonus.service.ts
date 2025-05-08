@@ -3,10 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
 import { Membership, MembershipStatus } from 'src/memberships/entities/membership.entity';
 import { NotificationFactory } from 'src/notifications/factory/notification.factory';
+import { PointsTransactionPayment } from 'src/points/entities/points-transactions-payments.entity';
 import { PointsTransaction, PointTransactionStatus, PointTransactionType } from 'src/points/entities/points_transactions.entity';
 import { UserPoints } from 'src/points/entities/user_points.entity';
 import { User } from 'src/user/entities/user.entity';
 import { Repository } from 'typeorm';
+import { Payment } from '../entities/payment.entity';
 
 @Injectable()
 export class DirectBonusService {
@@ -21,6 +23,8 @@ export class DirectBonusService {
         private readonly userPointsRepository: Repository<UserPoints>,
         @InjectRepository(PointsTransaction)
         private readonly pointsTransactionRepository: Repository<PointsTransaction>,
+        @InjectRepository(PointsTransactionPayment)
+        private readonly pointsTransactionPaymentRepository: Repository<PointsTransactionPayment>,
         private readonly notificationFactory: NotificationFactory,
 
     ) { }
@@ -29,6 +33,7 @@ export class DirectBonusService {
         user: User,
         plan: MembershipPlan,
         queryRunner: any,
+        payment: Payment
     ) {
         try {
             const referrer = await this.userRepository.findOne({
@@ -106,6 +111,14 @@ export class DirectBonusService {
                     'Comisión directa': referrerPlan.directCommissionAmount,
                 },
             });
+
+            const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
+                pointsTransaction: { id: pointsTransaction.id },
+                payments: payment,
+            });
+
+            await queryRunner.manager.save(pointsTransactionPayment);
+
             try {
                 await this.notificationFactory.directBonus(
                     referrer.id,
@@ -140,6 +153,7 @@ export class DirectBonusService {
         fromPlan: MembershipPlan,
         priceDifference: number,
         queryRunner: any,
+        payment: Payment
     ) {
         try {
             const referrer = await this.userRepository.findOne({
@@ -228,6 +242,12 @@ export class DirectBonusService {
                     'Comisión directa': referrerPlan.directCommissionAmount,
                 },
             });
+            const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
+                pointsTransaction: { id: pointsTransaction.id },
+                payments: payment,
+            });
+
+            await queryRunner.manager.save(pointsTransactionPayment);
             try {
                 await this.notificationFactory.directBonus(
                     referrer.id,

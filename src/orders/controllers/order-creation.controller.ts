@@ -40,11 +40,11 @@ export class OrderCreationController {
                     fileType: /(jpg|jpeg|png|webp)$/,
                 })
                 .addMaxSizeValidator({
-                    maxSize: 1024 * 1024 * 5, // 5MB max per file
+                    maxSize: 1024 * 1024 * 2,
                 })
                 .build({
                     errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-                    fileIsRequired: true,
+                    fileIsRequired: false,
                 }),
         )
         files: Array<Express.Multer.File>,

@@ -11,6 +11,7 @@ import { PaymentsModule } from 'src/payments/payments.module';
 import { EcommerceModule } from 'src/ecommerce/ecommerce.module';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 import { UserModule } from 'src/user/user.module';
+import { PointsModule } from 'src/points/points.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UserModule } from 'src/user/user.module';
     EcommerceModule,
     CloudinaryModule,
     UserModule,
+    PointsModule,
   ],
   controllers: [OrdersController, OrderCreationController],
   providers: [OrdersService, OrderCreationService],

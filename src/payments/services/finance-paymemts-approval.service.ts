@@ -14,13 +14,12 @@ import { User } from 'src/user/entities/user.entity';
 import { DataSource, Repository } from 'typeorm';
 import { RejectPaymentDto } from '../dto/approval.dto';
 import { ApprovePaymentDto } from '../dto/approve-payment.dto';
+import { CompletePaymentDto } from '../dto/complete-payment.dto';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
 import { MembershipPaymentService } from './membership-payment.service';
 import { OrderPaymentService } from './order-payment.service';
 import { PlanUpgradeService } from './plan-upgrade.service';
 import { ReconsumptionService } from './reconsumption.service';
-import { CompletePaymentDto } from '../dto/complete-payment.dto';
-import { th } from '@faker-js/faker/.';
 
 @Injectable()
 export class FinancePaymentApprovalService {
@@ -337,7 +336,7 @@ export class FinancePaymentApprovalService {
         where: { id: reviewerId },
       });
 
-      if (!reviewer) 
+      if (!reviewer)
         throw new NotFoundException(`Revisor con ID ${reviewerId} no encontrado`);
 
       payment.codeOperation = codeOperation || payment.codeOperation;
@@ -365,7 +364,7 @@ export class FinancePaymentApprovalService {
     }
   }
 
-  private async operationPaymentResponse (
+  private async operationPaymentResponse(
     userId: string,
     message: string,
     payment: Payment,
@@ -391,5 +390,5 @@ export class FinancePaymentApprovalService {
       },
       timestamp: payment.reviewedAt,
     };
-  } 
+  }
 }

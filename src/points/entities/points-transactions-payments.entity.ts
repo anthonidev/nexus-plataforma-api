@@ -8,14 +8,14 @@ export class PointsTransactionPayment {
   id: string;
 
   @OneToMany(
-    () => PointsTransaction, 
+    () => PointsTransaction,
     (pointsTransaction) => pointsTransaction.pointsTransactionsPayments
   )
   @JoinColumn({ name: 'points_transaction_id' })
   pointsTransaction: PointsTransaction;
 
   @OneToMany(
-    () => Payment, 
+    () => Payment,
     (payment) => payment.pointsTransactionsPayments
   )
   @JoinColumn({ name: 'payment_id' })

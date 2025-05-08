@@ -1,4 +1,4 @@
-export class Point {}
+export class Point { }
 import { Type } from 'class-transformer';
 import {
   IsEnum,
@@ -115,7 +115,7 @@ export class PointsTransaction {
   status: PointTransactionStatus;
 
   @ManyToOne(
-    () => PointsTransactionPayment, 
+    () => PointsTransactionPayment,
     (pointsTransactionPayment) => pointsTransactionPayment.pointsTransaction
   )
   pointsTransactionsPayments: PointsTransactionPayment[];

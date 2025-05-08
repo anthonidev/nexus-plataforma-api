@@ -3,6 +3,7 @@ import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
     IsArray,
     IsDateString,
+    IsEnum,
     IsNotEmpty,
     IsNumber,
     IsOptional,
@@ -10,6 +11,7 @@ import {
     Min,
     ValidateNested,
 } from 'class-validator';
+import { MethodPayment } from 'src/payments/entities/payment.entity';
 
 // DTO for individual payment details
 export class PaymentDetailDto {
@@ -89,7 +91,14 @@ export class CreateOrderDto {
     @Transform(({ value }) => value?.trim())
     notes?: string;
 
-    @ApiProperty({ type: [PaymentDetailDto], required: true })
+    @ApiProperty({ example: 'VOUCHER', enum: MethodPayment, required: true })
+    @IsEnum(MethodPayment, {
+        message: 'El método de pago debe ser VOUCHER o POINTS',
+    })
+    @IsNotEmpty({ message: 'El método de pago es requerido' })
+    methodPayment: MethodPayment;
+
+    @ApiProperty({ type: [PaymentDetailDto], required: false })
     @Transform(({ value }) => {
         if (typeof value === 'string') {
             try {
@@ -103,13 +112,13 @@ export class CreateOrderDto {
         }
         return value;
     })
-    @IsArray({ message: 'Los detalles de pago deben ser un arreglo' })
     @ValidateNested({
         each: true,
         message: 'Cada detalle de pago debe ser un objeto válido',
     })
+    @IsOptional()
     @Type(() => PaymentDetailDto)
-    payments: PaymentDetailDto[];
+    payments?: PaymentDetailDto[];
 
     @ApiProperty({ type: [OrderItemDto], required: true })
     @Transform(({ value }) => {

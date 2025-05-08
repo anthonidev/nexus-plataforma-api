@@ -91,6 +91,7 @@ export class ReconsumptionService {
             plan,
             minimumReconsumptionAmount,
             queryRunner,
+            payment
         );
 
         // Registrar historial
