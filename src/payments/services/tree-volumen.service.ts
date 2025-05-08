@@ -31,57 +31,35 @@ export class TreeVolumeService {
         try {
             const parents = await this.getAllParents(user.id);
 
-            for (const parent of parents) {
-                const parentMembership = await this.membershipRepository.findOne({
-                    where: {
-                        user: { id: parent.id },
-                        status: MembershipStatus.ACTIVE,
-                    },
-                    relations: ['plan'],
-                });
-
-                if (!parentMembership) {
-                    this.logger.debug(
-                        `El padre ${parent.id} no tiene una membresía activa, saltando`,
-                    );
-                    continue;
-                }
-
-                const parentPlan = parentMembership.plan;
-
-                if (
-                    !parentPlan.commissionPercentage ||
-                    parentPlan.commissionPercentage <= 0
-                ) {
-                    this.logger.debug(
-                        `El plan ${parentPlan.id} del padre no tiene configurado un porcentaje de comisión, saltando`,
-                    );
-                    continue;
-                }
-
-                const side = await this.determineTreeSide(parent.id, user.id);
-                if (!side) {
-                    this.logger.warn(
-                        `No se pudo determinar el lado del árbol para el usuario ${user.id} con respecto al padre ${parent.id}`,
-                    );
-                    continue;
-                }
-
-                await this.updateWeeklyVolume(
-                    parent,
-                    parentPlan,
-                    plan.binaryPoints,
-                    side,
-                    queryRunner,
-                );
-                await this.updateMonthlyVolume(
-                    parent,
-                    parentPlan,
-                    plan.binaryPoints,
-                    side,
-                    queryRunner,
-                );
-            }
+            await Promise.all(
+                parents.map(async (parent) => {
+                    const parentMembership = await this.membershipRepository.findOne({
+                        where: {
+                            user: { id: parent.id },
+                            status: MembershipStatus.ACTIVE,
+                        },
+                        relations: ['plan'],
+                    });
+            
+                    if (!parentMembership?.plan?.commissionPercentage) {
+                        this.logger.debug(`El padre ${parent.id} no tiene membresía activa o comisión, saltando`);
+                        return;
+                    }
+            
+                    const side = await this.determineTreeSide(parent.id, user.id);
+                    if (!side) {
+                        this.logger.warn(
+                            `No se pudo determinar el lado del árbol para el usuario ${user.id} con respecto al padre ${parent.id}`,
+                        );
+                        return;
+                    }
+            
+                    await Promise.all([
+                        this.updateWeeklyVolume(parent, parentMembership.plan, plan.binaryPoints, side, queryRunner),
+                        this.updateMonthlyVolume(parent, parentMembership.plan, plan.binaryPoints, side, queryRunner),
+                    ]);
+                })
+            );
         } catch (error) {
             this.logger.error(
                 `Error al procesar volúmenes del árbol: ${error.message}`,
