@@ -23,7 +23,7 @@ export class PaymentsService {
     private readonly paymentImageRepository: Repository<PaymentImage>,
     @InjectRepository(PaymentConfig)
     private readonly paymentConfigRepository: Repository<PaymentConfig>,
-  ) {}
+  ) { }
 
   async findAll(filters: FindPaymentsDto, userId: string) {
     try {
@@ -120,6 +120,7 @@ export class PaymentsService {
           'reviewedBy',
           'images',
           'user.personalInfo',
+          'images.pointsTransaction',
         ],
         select: {
           id: true,
@@ -129,7 +130,7 @@ export class PaymentsService {
           updatedAt: true,
           reviewedAt: true,
           isArchived: true,
-
+          methodPayment: true,
           metadata: {
             field1: true,
           },
@@ -156,6 +157,10 @@ export class PaymentsService {
             amount: true,
             transactionDate: true,
             transactionReference: true,
+            pointsTransaction: {
+              id: true,
+              amount: true,
+            }
           },
         },
       });

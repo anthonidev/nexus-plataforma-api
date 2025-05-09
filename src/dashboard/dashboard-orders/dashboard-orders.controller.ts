@@ -8,10 +8,10 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 @Controller('dashboard-orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DashboardOrdersController {
-  constructor(private readonly dashboardOrdersService: DashboardOrdersService) {}
+  constructor(private readonly dashboardOrdersService: DashboardOrdersService) { }
 
   @Get('orders-by-day')
-  @Roles('ADM')
+  @Roles('ADM', 'FAC')
   async getOrdersByDay(
     @Query() rangeDatesDto: RangeDatesDto,
   ) {

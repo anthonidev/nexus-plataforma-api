@@ -16,7 +16,7 @@ import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 @Controller('payments')
 @UseGuards(JwtAuthGuard)
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(private readonly paymentsService: PaymentsService) { }
 
   @Get()
   @ApiOperation({ summary: 'Obtener pagos' })

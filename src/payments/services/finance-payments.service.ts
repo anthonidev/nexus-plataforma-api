@@ -18,7 +18,7 @@ export class FinancePaymentsService {
     private readonly paymentImageRepository: Repository<PaymentImage>,
     @InjectRepository(PaymentConfig)
     private readonly paymentConfigRepository: Repository<PaymentConfig>,
-  ) {}
+  ) { }
 
   async findAllPayments(filters: FindPaymentsDto) {
     try {
@@ -133,6 +133,7 @@ export class FinancePaymentsService {
           'images',
           'user.personalInfo',
           'user.contactInfo',
+          'images.pointsTransaction',
         ],
         select: {
           id: true,
@@ -157,6 +158,7 @@ export class FinancePaymentsService {
           banckName: true,
           dateOperation: true,
           numberTicket: true,
+          methodPayment: true,
 
           rejectionReason: true,
           images: {
@@ -166,6 +168,10 @@ export class FinancePaymentsService {
             amount: true,
             transactionDate: true,
             transactionReference: true,
+            pointsTransaction: {
+              id: true,
+              amount: true,
+            },
           },
 
           createdAt: true,

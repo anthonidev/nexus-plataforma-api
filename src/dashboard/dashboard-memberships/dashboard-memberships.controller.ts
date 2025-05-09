@@ -10,10 +10,10 @@ import { Roles } from "src/auth/decorators/roles.decorator";
 export class DashboardMembershipsController {
   constructor(
     private readonly dashboardMembershipsService: DashboardMembershipsService,
-  ) {}
+  ) { }
 
   @Get('memberships-by-day')
-  @Roles('ADM')
+  @Roles('ADM', 'FAC')
   async getMembershipsByDay(
     @Query() rangeDatesDto: RangeDatesDto,
   ) {
@@ -21,9 +21,9 @@ export class DashboardMembershipsController {
   }
 
   @Get('total-memberships-by-plan')
-  @Roles('ADM')
+  @Roles('ADM', 'FAC')
   async getTotalMembershipsByPlan() {
     return this.dashboardMembershipsService.getTotalMembershipsByPlan();
   }
-  
+
 }

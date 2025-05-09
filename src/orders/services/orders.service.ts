@@ -29,11 +29,17 @@ export class OrdersService {
     const order = await this.findOneOrder(id);
     const payment = await this.paymentRepository.findOne({
       where: { relatedEntityId: order.id, relatedEntityType: 'order' },
-      select: ['id', 'amount', 'status', 'methodPayment'],
+      select: ['id', 'amount', 'status', 'methodPayment', 'user'],
     });
     return {
       ...formatOrderOneResponse(order),
       payment,
+      user: {
+        email: order.user.email,
+        firstName: order.user.personalInfo?.firstName,
+        lastName: order.user.personalInfo?.lastName,
+        documentNumber: order.user.personalInfo?.documentNumber,
+      }
     };
   }
 
@@ -68,7 +74,7 @@ export class OrdersService {
     if (userId)
       queryBuilder
         .where('user.id = :userId', { userId });
-    if(!userId)
+    if (!userId)
       queryBuilder
         .addSelect(['user.id', 'user.email'])
         .leftJoin('user.personalInfo', 'personalInfo')
@@ -91,7 +97,7 @@ export class OrdersService {
   ) {
     const order = await this.orderRepository.findOne({
       where: { id },
-      relations: ['user', 'orderDetails', 'orderDetails.product', 'orderDetails.product.images', 'orderHistory'],
+      relations: ['user', 'orderDetails', 'orderDetails.product', 'orderDetails.product.images', 'orderHistory', 'user.personalInfo'],
     });
 
     if (!order) throw new NotFoundException(`Orden con ID ${id} no fue encontrada`);
