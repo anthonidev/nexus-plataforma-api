@@ -20,6 +20,8 @@ import { Order } from '../entities/orders.entity';
 import { OrderAction } from '../enums/orders-action.enum';
 import { OrderStatus } from '../enums/orders-status.enum';
 import { UserPoints } from 'src/points/entities/user_points.entity';
+import { TreeVolumeService } from 'src/payments/services/tree-volumen.service';
+import { Membership } from 'src/memberships/entities/membership.entity';
 
 @Injectable()
 export class OrderCreationService {
@@ -46,8 +48,11 @@ export class OrderCreationService {
         private readonly pointsTransactionRepository: Repository<PointsTransaction>,
         @InjectRepository(UserPoints)
         private readonly userPointsRepository: Repository<UserPoints>,
+        @InjectRepository(Membership)
+        private readonly membershipRepository: Repository<Membership>,
         private readonly dataSource: DataSource,
         private readonly cloudinaryService: CloudinaryService,
+        private readonly treeVolumenService: TreeVolumeService,
     ) { }
 
     async createOrder(
@@ -394,8 +399,15 @@ export class OrderCreationService {
                 });
                 await queryRunner.manager.save(newOrderHistory);
 
-                // TODO: ACTUALIZAR VOLUMEN SEMANAL Y VOLUMEN MENSUAL
-                // CUANDO CREO ORDEN: 800 soles = otorgamos volumen de 800 semanal y mensual
+                const membership = await this.membershipRepository.findOne({
+                    where: { user: { id: userId } },
+                    relations: ['plan'],
+                });
+                if (!membership) throw new NotFoundException(`Membresía no encontrada`);
+
+                const { plan } = membership;
+                if (!plan) throw new NotFoundException(`Plan de membresía no encontrado`);
+                await this.treeVolumenService.processTreeVolumes(user, plan, queryRunner, savedPayment);
                 
             }
 
