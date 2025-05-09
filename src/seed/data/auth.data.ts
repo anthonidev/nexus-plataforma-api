@@ -31,12 +31,25 @@ export const rolData = [
       'RANKS',
       'MY_RANKS',
       'TEAM',
+      'STORE',
+      'PRODUCTS',
+      'CART',
+      'ORDERS',
     ],
   },
   {
     name: 'Facturación',
     code: 'FAC',
-    views: ['DASHBOARD_BILLING', 'PAYMENTS_ADMIN', 'WITHDRAWALS_ADMIN'],
+    views: [
+      'DASHBOARD_BILLING',
+      'PAYMENTS_ADMIN',
+      'WITHDRAWALS_ADMIN',
+      'ORDERS_ADMIN',
+      'STORE_ADMIN',
+      'PRODUCTS_ADMIN',
+      'NEW_PRODUCT_ADMIN',
+      'LOAD_STOCK_ADMIN',
+    ],
   },
   {
     name: 'Administrador',
@@ -51,6 +64,7 @@ export const rolData = [
       'RANKS_ADMIN',
       'TEAM_ADMIN',
       'PROFILE',
+
     ],
   },
 ];
@@ -287,4 +301,87 @@ export const vistaData = [
     children: null,
     parent: null,
   },
+
+  {
+    name: 'Tienda',
+    url: null,
+    order: 9,
+    icon: 'store',
+    code: 'STORE',
+    children: [
+      {
+        name: 'Productos',
+        url: '/tienda/productos',
+        order: 1,
+        icon: 'products',
+        code: 'PRODUCTS',
+        parent: 'STORE',
+        children: null,
+      },
+      {
+        name: 'Carrito',
+        url: '/tienda/carrito',
+        order: 2,
+        icon: 'cart',
+        code: 'CART',
+        parent: 'STORE',
+        children: null,
+      },
+      {
+        name: 'Pedidos',
+        url: '/tienda/pedidos',
+        order: 3,
+        icon: 'orders',
+        code: 'ORDERS',
+        parent: 'STORE',
+        children: null,
+      }
+    ],
+  },
+  {
+    name: 'Pedidos',
+    url: '/admin/pedidos',
+    order: 10,
+    icon: 'orders-admin',
+    code: 'ORDERS_ADMIN',
+    children: null,
+    parent: null,
+  },
+  {
+    name: 'Tienda-Admin',
+    url: null,
+    order: 11,
+    icon: 'store-admin',
+    code: 'STORE_ADMIN',
+    children: [
+      {
+        name: 'Productos',
+        url: '/admin/ecommerce/productos',
+        order: 1,
+        icon: 'products-admin',
+        code: 'PRODUCTS_ADMIN',
+        parent: 'STORE_ADMIN',
+        children: null,
+      },
+      {
+        name: 'Nuevo Producto',
+        url: '/admin/ecommerce/productos/registrar',
+        order: 2,
+        icon: 'new-product',
+        code: 'NEW_PRODUCT_ADMIN',
+        parent: 'STORE_ADMIN',
+        children: null,
+      },
+      {
+        name: 'Carga stock',
+        url: '/admin/ecommerce/carga-stock',
+        order: 3,
+        icon: 'stock',
+        code: 'LOAD_STOCK_ADMIN',
+        parent: 'STORE_ADMIN',
+        children: null,
+      }
+
+    ],
+  }
 ];

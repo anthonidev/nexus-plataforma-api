@@ -1,4 +1,4 @@
-export class Ecommerce {}
+export class Ecommerce { }
 import { Transform } from 'class-transformer';
 import {
   IsArray,

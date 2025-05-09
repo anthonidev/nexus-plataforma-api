@@ -128,7 +128,21 @@ export class SeedService {
               where: { code: roleData.code },
             });
             if (existingRole) {
-              this.logger.debug(`Rol existente encontrado: ${roleData.code}`);
+              //update role
+              this.logger.debug(
+                `Rol existente encontrado: ${roleData.code}`,
+              );
+              const views = await this.viewRepository.findBy({
+                code: In(roleData.views),
+              });
+              this.logger.debug(
+                `Encontradas ${views.length}/${roleData.views.length} vistas para rol ${roleData.code}`,
+              );
+              Object.assign(existingRole, {
+                name: roleData.name,
+                views: views,
+              });
+              await this.roleRepository.save(existingRole);
               return { status: 'existing', code: roleData.code };
             }
             const views = await this.viewRepository.findBy({
@@ -411,6 +425,17 @@ export class SeedService {
       this.logger.error(
         `Error general en seedEcommerceCategories: ${error.message}`,
       );
+      throw error;
+    }
+  }
+  async seedRolesAndViews() {
+    this.logger.log('Iniciando seed de roles y vistas...');
+    try {
+      await this.seedViews();
+      await this.seedRoles();
+      this.logger.log('Seed de roles y vistas completado exitosamente.');
+    } catch (error) {
+      this.logger.error(`Error en seedRolesAndViews: ${error.message}`);
       throw error;
     }
   }

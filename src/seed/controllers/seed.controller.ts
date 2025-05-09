@@ -25,6 +25,13 @@ export class SeedController {
     return { message: 'All seed data has been executed' };
   }
 
+  @Post('roles-views')
+  @ApiOperation({ summary: 'Generar roles y vistas' })
+  @ApiResponse({ status: 200, description: 'Roles y vistas generados' })
+  seedRolesAndViews() {
+    return this.seedService.seedRolesAndViews();
+  }
+
 
   @Post('ecommerce-categories')
   @ApiOperation({ summary: 'Generar categorías de productos' })

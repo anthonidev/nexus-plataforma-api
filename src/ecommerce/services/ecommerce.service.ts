@@ -5,9 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as ExcelJS from 'exceljs';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import { DataSource, DeepPartial, In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { CreateProductDto } from '../dto/create-ecommerce.dto';
+import { ExcelStockUpdateDto } from '../dto/excel-stock-update.dto';
+import { StockHistoryDto } from '../dto/stock-history.dto';
 import { UpdateImageDto, UpdateProductDto } from '../dto/update-ecommerce.dto';
 import { ProductCategory } from '../entities/product-category.entity';
 import { ProductImage } from '../entities/product-image.entity';
@@ -15,10 +18,7 @@ import {
   ProductStockHistory,
 } from '../entities/product-stock-history.entity';
 import { Product, ProductStatus } from '../entities/products.entity';
-import { StockHistoryDto } from '../dto/stock-history.dto';
 import { StockActionType } from '../enums/stock-action-type.enum';
-import * as ExcelJS from 'exceljs';
-import { ExcelStockUpdateDto } from '../dto/excel-stock-update.dto';
 
 @Injectable()
 export class EcommerceService {
@@ -35,7 +35,7 @@ export class EcommerceService {
     private readonly productStockHistoryRepository: Repository<ProductStockHistory>,
     private readonly cloudinaryService: CloudinaryService,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async findAllCategories(includeInactive = false) {
     try {
@@ -177,7 +177,7 @@ export class EcommerceService {
     }
   }
 
-  async createStockHistory(productId: number, stockHistoryDto: StockHistoryDto) {
+  async createStockHistory(productId: number, stockHistoryDto: StockHistoryDto, userId: string) {
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -185,54 +185,70 @@ export class EcommerceService {
 
     try {
       const product = await this.productRepository.findOne({
-        where: { id: productId }, 
+        where: { id: productId },
       });
-  
+
       if (!product)
         throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
-  
-      if (product.stock !== stockHistoryDto.previousQuantity)
-        throw new BadRequestException('El stock del producto actual no coincide con el que se quiere actualizar');
 
-      if ( stockHistoryDto.quantityChanged != stockHistoryDto.previousQuantity + stockHistoryDto.newQuantity)
-        throw new BadRequestException('La cantidad actualizada no coincide con la cantidad previa + la cantidad nueva');
-  
-      const stockHistoryInput = {
-        product: { id: productId },
-        actionType: stockHistoryDto.actionType,
-        previousQuantity: stockHistoryDto.previousQuantity,
-        newQuantity: stockHistoryDto.newQuantity,
-        quantityChanged: stockHistoryDto.quantityChanged,
-        notes: stockHistoryDto.notes,
-        updatedBy: { id: stockHistoryDto.userId }
-      } as DeepPartial<ProductStockHistory>; 
-  
-      const stockHistory = this.productStockHistoryRepository.create(stockHistoryInput);
-      await queryRunner.manager.save(stockHistory);
 
-      product.stock = stockHistoryDto.quantityChanged;
+      if (stockHistoryDto.actionType === StockActionType.INCREASE) {
+
+        const stockHistory = this.productStockHistoryRepository.create({
+          product: product,
+          actionType: stockHistoryDto.actionType,
+          previousQuantity: product.stock,
+          newQuantity: product.stock + stockHistoryDto.quantity,
+          quantityChanged: stockHistoryDto.quantity,
+          notes: stockHistoryDto.description || 'Aumento de stock',
+          updatedBy: { id: userId },
+        });
+        product.stock += stockHistoryDto.quantity;
+
+        await queryRunner.manager.save(stockHistory);
+      } else if (stockHistoryDto.actionType === StockActionType.DECREASE) {
+        if (product.stock < stockHistoryDto.quantity) {
+          throw new BadRequestException(
+            `No se puede disminuir el stock por debajo de 0`,
+          );
+        }
+
+        const stockHistory = this.productStockHistoryRepository.create({
+          product: product,
+          actionType: stockHistoryDto.actionType,
+          previousQuantity: product.stock,
+          newQuantity: product.stock - stockHistoryDto.quantity,
+          quantityChanged: -stockHistoryDto.quantity,
+          notes: stockHistoryDto.description || 'Disminución de stock',
+          updatedBy: { id: userId },
+        });
+        product.stock -= stockHistoryDto.quantity;
+        await queryRunner.manager.save(stockHistory);
+      }
+      else if (stockHistoryDto.actionType === StockActionType.UPDATE) {
+        const stockHistory = this.productStockHistoryRepository.create({
+          product: product,
+          actionType: stockHistoryDto.actionType,
+          previousQuantity: product.stock,
+          newQuantity: stockHistoryDto.quantity,
+          quantityChanged: stockHistoryDto.quantity - product.stock,
+          notes: stockHistoryDto.description || 'Actualización de stock',
+          updatedBy: { id: userId },
+        });
+        product.stock = stockHistoryDto.quantity;
+        await queryRunner.manager.save(stockHistory);
+      } else {
+        throw new BadRequestException(
+          `Tipo de acción no válido. Debe ser INCREASE, DECREASE o UPDATE`,
+        );
+      }
       await queryRunner.manager.save(product);
 
       await queryRunner.commitTransaction();
-  
+
       return {
         success: true,
         message: 'Stock history created successfully',
-        stockHistory: {
-          id: stockHistory.id,
-          actionType: stockHistory.actionType,
-          previousQuantity: stockHistory.previousQuantity,
-          newQuantity: stockHistory.newQuantity,
-          quantityChanged: stockHistory.quantityChanged,
-          notes: stockHistory.notes,
-          createdAt: stockHistory.createdAt,
-          updatedBy: stockHistory.updatedBy
-            ? {
-                id: stockHistory.updatedBy.id,
-                email: stockHistory.updatedBy.email,
-              }
-            : null,
-        },
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -367,20 +383,7 @@ export class EcommerceService {
     }
   }
 
-  async addBenefitFromProduct(productId: number, benefit: string) {
-    const product = await this.productRepository.findOne({
-      where: { id: productId },
-    });
-    if (!product)
-      throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
-    product.benefits = [...product.benefits, benefit];
-    await this.productRepository.save(product);
-    return {
-      success: true,
-      message: 'Beneficio agregado exitosamente',
-      benefit: product.benefits,
-    };
-  }
+
 
   async validateStockExcel(
     file: Express.Multer.File,
@@ -396,13 +399,13 @@ export class EcommerceService {
     // Validacion de estructura del Excel (Encabezado)
     const expectedHeaders = ['ID', 'Producto', 'Cantidad'];
     const actualHeaders = worksheet.getRow(1).values as string[];
-    if(!expectedHeaders.every(header => actualHeaders.includes(header))) 
+    if (!expectedHeaders.every(header => actualHeaders.includes(header)))
       throw new BadRequestException('Encabezado del Excel no es el esperado');
 
     // Procesar filas
-    worksheet.eachRow({includeEmpty: true}, (row, rowNumber) => {
-      if(rowNumber === 1) return; // salto de encabezados
-      
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      if (rowNumber === 1) return; // salto de encabezados
+
       try {
         const rowData: ExcelStockUpdateDto = {
           productId: row.getCell(1).value as number,
@@ -420,7 +423,7 @@ export class EcommerceService {
           throw new Error(`Fila ${rowNumber}: Cantidad debe ser un número entero`);
 
         validRows.push(rowData);
-      } catch(error) {
+      } catch (error) {
         errors.push(error.message);
       }
     });
@@ -436,15 +439,15 @@ export class EcommerceService {
     });
 
     const validatedProducts = validRows
-    .filter(row => existingProductIds.includes(row.productId))
-    .map(row => {
-      const product = existingProducts.find(p => p.id === row.productId);
-      return {
-        productId: row.productId,
-        productName: product.name, // Nombre desde la base de datos
-        newQuantity: row.newQuantity // Stock actual desde la base de datos
-      };
-    });
+      .filter(row => existingProductIds.includes(row.productId))
+      .map(row => {
+        const product = existingProducts.find(p => p.id === row.productId);
+        return {
+          productId: row.productId,
+          productName: product.name, // Nombre desde la base de datos
+          newQuantity: row.newQuantity // Stock actual desde la base de datos
+        };
+      });
 
     return {
       isValid: errors.length === 0,
@@ -460,7 +463,7 @@ export class EcommerceService {
 
     try {
       const results = [];
-      
+
       for (const productData of products) {
         const product = await queryRunner.manager.findOne(Product, {
           where: { id: productData.productId }
@@ -474,10 +477,10 @@ export class EcommerceService {
           notes: 'Actualización masiva desde Excel',
           userId,
         }
-        await this.createStockHistory(
-          productData.productId,
-          stockHistoryDto
-        );
+        // await this.createStockHistory(
+        //   productData.productId,
+        //   stockHistoryDto
+        // );
         results.push({
           productId: productData.productId,
           productName: product.name,
@@ -653,22 +656,6 @@ export class EcommerceService {
     }
   }
 
-  async deleteBenefitFromProduct(productId: number, benefit: string) {
-    const product = await this.productRepository.findOne({
-      where: { id: productId },
-    });
-    if (!product)
-      throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
-    if (!product.benefits.includes(benefit))
-      throw new BadRequestException('El beneficio no existe en el producto');
-    product.benefits = product.benefits.filter(b => b !== benefit);
-    await this.productRepository.save(product);
-    return {
-      success: true,
-      message: 'Beneficio eliminado exitosamente',
-      benefit: product.benefits,
-    };
-  }
 
 
   private async generateSku(
