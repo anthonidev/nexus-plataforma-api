@@ -19,7 +19,7 @@ export class DashboardUsersService {
     private readonly dashboardMembershipsService: DashboardMembershipsService,
     private readonly dashboardPointsService: DashboardPointsService,
     private readonly dashboardRanksService: DashboardRanksService,
-  ) {}
+  ) { }
 
   // Methods for endpoints
   // REPORTE DE INFORMACION DE USUARIOS
@@ -60,7 +60,7 @@ export class DashboardUsersService {
       throw error;
     }
   }
-  
+
   // REPORTE DE TOTAL DE USUARIOS POR ESTADO
   async getTotalUsersByState() {
     try {
@@ -116,20 +116,22 @@ export class DashboardUsersService {
     try {
       //Obtener el total de usuarios por Rango
       const usersByRank = await this.userRepository
-      .createQueryBuilder('u')  // Usa 'u' como alias directamente
-      .innerJoin('u.userRanks', 'ur')  // Asegúrate de que la relación en tu entidad User se llama "userRanks"
-      .innerJoin('ur.currentRank', 'r')    // Asegúrate de que la relación en tu entidad UserRank se llama "rank"
-      .select('r.name', 'rank')
-      .addSelect('COUNT(u.id)', 'total')
-      .groupBy('r.name')
-      .getRawMany<{ rank: string; total: string }>();
+        .createQueryBuilder('u')  // Usa 'u' como alias directamente
+        .innerJoin('u.userRanks', 'ur')  // Asegúrate de que la relación en tu entidad User se llama "userRanks"
+        .innerJoin('ur.currentRank', 'r')    // Asegúrate de que la relación en tu entidad UserRank se llama "rank"
+        .select('r.name', 'rank')
+        .addSelect('COUNT(u.id)', 'total')
+        .groupBy('r.name')
+        .getRawMany<{ rank: string; total: string }>();
 
       const rankResult: { [rank: string]: number } = {};  // Cambiado el tipo de la variable
       usersByRank.forEach(item => {
-          const rankName = item.rank;
-          const total = parseInt(item.total, 10);
-          rankResult[rankName] = total;
+        const rankName = item.rank;
+        const total = parseInt(item.total, 10);
+        rankResult[rankName] = total;
       });
+      //excluir el rango //Bronce
+      delete rankResult['Bronce'];
       return rankResult;
     } catch (error) {
       this.logger.error(`Error obteniendo total de usuarios por rango: ${error.message}`, error.stack);
@@ -148,12 +150,12 @@ export class DashboardUsersService {
         throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
       }
       return user;
-    } catch (error) { 
-      this.logger.error(`Error obteniendo datos del usuario: ${error.message}`);  
-      throw error;        
+    } catch (error) {
+      this.logger.error(`Error obteniendo datos del usuario: ${error.message}`);
+      throw error;
     }
   }
-  
+
   private async getDirectReferrals(referralCode: string) {
     try {
       const directUsers = await this.userRepository.find({

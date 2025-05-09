@@ -8,10 +8,10 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 @Controller('dashboard-payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DashboardPaymentsController {
-  constructor(private readonly dashboardPaymentsService: DashboardPaymentsService) {}
+  constructor(private readonly dashboardPaymentsService: DashboardPaymentsService) { }
 
   @Get('payments-by-concepts')
-  @Roles('ADM')
+  @Roles('ADM', 'FAC')
   getPaymentsByEntityType(
     @Query() rangeDateDto: RangeDatesDto,
   ) {

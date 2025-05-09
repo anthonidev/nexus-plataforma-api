@@ -1,19 +1,19 @@
 import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { PaginationDto } from 'src/common/dto/paginationDto';
 import { User } from 'src/user/entities/user.entity';
 import {
   FindPointsTransactionDto,
   FindWeeklyVolumeDto,
 } from '../dto/find-weekly-volume.dto';
 import { PointsService } from '../services/points.service';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { PaginationDto } from 'src/common/dto/paginationDto';
 
 @Controller('points')
 @UseGuards(JwtAuthGuard)
 export class PointsController {
-  constructor(private readonly pointsService: PointsService) {}
+  constructor(private readonly pointsService: PointsService) { }
 
   @Get('user-points')
   @ApiOperation({ summary: 'Obtener puntos de usuario en sesión' })

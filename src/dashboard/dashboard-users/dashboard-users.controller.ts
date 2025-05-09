@@ -11,9 +11,10 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 @Controller('dashboard-users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DashboardUsersController {
-  constructor(private readonly dashboardUsersService: DashboardUsersService) {}
+  constructor(private readonly dashboardUsersService: DashboardUsersService) { }
 
   @Get('all-data')
+  @Roles('CLI')
   @ApiOperation({ summary: 'Obtener datos del dashboard' })
   @ApiResponse({ status: 200, description: 'Datos del dashboard' })
   async getDashboardData(@GetUser() user: User) {
@@ -21,7 +22,7 @@ export class DashboardUsersController {
   }
 
   @Get('total-users-by-state')
-  @Roles('ADM')
+  @Roles('ADM', 'FAC')
   @ApiOperation({ summary: 'Obtener datos del dashboard' })
   @ApiResponse({ status: 200, description: 'Datos del dashboard' })
   async getTotalUsersByState() {
@@ -29,7 +30,7 @@ export class DashboardUsersController {
   }
 
   @Get('users-created-by-date')
-  @Roles('ADM')
+  @Roles('ADM', 'FAC')
   @ApiOperation({ summary: 'Obtener datos del dashboard' })
   @ApiResponse({ status: 200, description: 'Datos del dashboard' })
   async getUsersCreatedByDate(
@@ -39,7 +40,7 @@ export class DashboardUsersController {
   }
 
   @Get('total-users-by-range')
-  @Roles('ADM')
+  @Roles('ADM', 'FAC')
   @ApiOperation({ summary: 'Obtener datos del dashboard' })
   @ApiResponse({ status: 200, description: 'Datos del dashboard' })
   async getTotalUsersByRange() {
