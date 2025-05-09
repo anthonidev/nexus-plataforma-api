@@ -54,6 +54,7 @@ import { TreeVolumeService } from './services/tree-volumen.service';
     TypeOrmModule,
     FinancePaymentsService,
     FinancePaymentApprovalService,
+    TreeVolumeService,
   ],
 })
 export class PaymentsModule { }

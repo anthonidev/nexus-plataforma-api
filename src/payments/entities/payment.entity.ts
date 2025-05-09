@@ -165,7 +165,7 @@ export class Payment {
   relatedEntityId: number;
 
   @OneToMany(() => PointsTransactionPayment,
-    (pointsTransactionPayment) => pointsTransactionPayment.payments
+    (pointsTransactionPayment) => pointsTransactionPayment.payment
   )
   pointsTransactionsPayments: PointsTransactionPayment[];
 

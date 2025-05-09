@@ -112,13 +112,6 @@ export class DirectBonusService {
                 },
             });
 
-            const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
-                pointsTransaction: { id: pointsTransaction.id },
-                payments: payment,
-            });
-
-            await queryRunner.manager.save(pointsTransactionPayment);
-
             try {
                 await this.notificationFactory.directBonus(
                     referrer.id,
@@ -134,6 +127,13 @@ export class DirectBonusService {
             }
 
             await queryRunner.manager.save(pointsTransaction);
+
+            const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
+                pointsTransaction: { id: pointsTransaction.id },
+                payment: { id: payment.id },
+            });
+
+            await queryRunner.manager.save(pointsTransactionPayment);
 
             this.logger.log(
                 `Bono directo procesado: ${directBonus} puntos para el usuario ${referrer.id}`,
@@ -244,7 +244,7 @@ export class DirectBonusService {
             });
             const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
                 pointsTransaction: { id: pointsTransaction.id },
-                payments: payment,
+                payment: payment,
             });
 
             await queryRunner.manager.save(pointsTransactionPayment);

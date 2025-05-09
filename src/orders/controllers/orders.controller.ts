@@ -13,6 +13,26 @@ import { OrdersService } from '../services/orders.service';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) { }
   // FAC - SYS
+  @Get('list')
+  @Roles('FAC')
+  @ApiOperation({ summary: 'Obtener lista de ordenes' })
+  @ApiResponse({ status: 200, description: 'Listado de ordenes' })
+  findAll(
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.ordersService.findAll(paginationDto);
+  }
+
+  @Get(':id/item')
+  @Roles('FAC')
+  @ApiOperation({ summary: 'Obtener orden' })
+  @ApiParam({ name: 'id', type: Number, description: 'ID del orden' })
+  @ApiResponse({ status: 200, description: 'Orden' })
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.ordersService.findOne(id);
+  }
   // CLIENTS
   @Get('list/with-clients')
   @Roles('CLI')

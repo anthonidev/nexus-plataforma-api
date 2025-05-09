@@ -15,6 +15,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { PointsTransactionPayment } from './points-transactions-payments.entity';
@@ -114,7 +115,7 @@ export class PointsTransaction {
   })
   status: PointTransactionStatus;
 
-  @ManyToOne(
+  @OneToMany(
     () => PointsTransactionPayment,
     (pointsTransactionPayment) => pointsTransactionPayment.pointsTransaction
   )

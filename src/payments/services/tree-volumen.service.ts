@@ -351,6 +351,8 @@ export class TreeVolumeService {
                     carryOverVolume: 0,
                 });
 
+                await queryRunner.manager.save(newVolume);
+
                 const history = this.weeklyVolumeHistoryRepository.create({
                     payment: payment,
                     selectedSide: side,
@@ -358,8 +360,6 @@ export class TreeVolumeService {
                     weeklyVolumes: newVolume,
                 });
                 await queryRunner.manager.save(history);
-
-                await queryRunner.manager.save(newVolume);
                 this.logger.log(
                     `Nuevo volumen semanal creado para usuario ${parent.id}: ${binaryPoints} en lado ${side}`,
                 );

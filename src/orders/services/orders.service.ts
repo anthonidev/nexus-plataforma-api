@@ -5,22 +5,44 @@ import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { Repository } from 'typeorm';
 import { Order } from '../entities/orders.entity';
 import { formatOrderOneResponse } from '../helpers/format-order-one-response.dto';
+import { Payment } from 'src/payments/entities/payment.entity';
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
   ) { }
   // METHODS FOR ENDPOINTS
-  // FAC - SYS
+  // SYS
+  async findAll(
+    paginationDto: PaginationDto,
+  ) {
+    return await this.findAllOrders(paginationDto);
+  }
+
+  async findOne(
+    id: number,
+  ) {
+    const order = await this.findOneOrder(id);
+    const payment = await this.paymentRepository.findOne({
+      where: { relatedEntityId: order.id, relatedEntityType: 'order' },
+      select: ['id', 'amount', 'status', 'methodPayment'],
+    });
+    return {
+      ...formatOrderOneResponse(order),
+      payment,
+    };
+  }
 
   // CLIENT
   async findAllWithClients(
     userId: string,
     paginationDto: PaginationDto,
   ) {
-    return await this.findAllOrders(userId, paginationDto);
+    return await this.findAllOrders(paginationDto, userId);
   }
 
   async findOneWithClients(
@@ -33,8 +55,8 @@ export class OrdersService {
 
   // INTERNAL HELPERS METHODS
   private async findAllOrders(
-    userId?: string,
     paginationDto?: PaginationDto,
+    userId?: string,
   ) {
     const { page = 1, limit = 10, order = 'DESC' } = paginationDto;
     const queryBuilder = this.orderRepository
@@ -44,7 +66,13 @@ export class OrdersService {
       .skip((page - 1) * limit)
       .take(limit);
     if (userId)
-      queryBuilder.where('user.id = :userId', { userId });
+      queryBuilder
+        .where('user.id = :userId', { userId });
+    if(!userId)
+      queryBuilder
+        .addSelect(['user.id', 'user.email'])
+        .leftJoin('user.personalInfo', 'personalInfo')
+        .addSelect(['personalInfo.firstName', 'personalInfo.lastName']);
     const [items, totalItems] = await queryBuilder.getManyAndCount();
     const paginatedResult = PaginationHelper.createPaginatedResponse(
       items,

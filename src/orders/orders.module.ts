@@ -12,6 +12,7 @@ import { EcommerceModule } from 'src/ecommerce/ecommerce.module';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 import { UserModule } from 'src/user/user.module';
 import { PointsModule } from 'src/points/points.module';
+import { MembershipsModule } from 'src/memberships/memberships.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PointsModule } from 'src/points/points.module';
     CloudinaryModule,
     UserModule,
     PointsModule,
+    MembershipsModule
   ],
   controllers: [OrdersController, OrderCreationController],
   providers: [OrdersService, OrderCreationService],

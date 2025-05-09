@@ -19,6 +19,9 @@ import { OrderHistory } from '../entities/orders-history.entity';
 import { Order } from '../entities/orders.entity';
 import { OrderAction } from '../enums/orders-action.enum';
 import { OrderStatus } from '../enums/orders-status.enum';
+import { UserPoints } from 'src/points/entities/user_points.entity';
+import { TreeVolumeService } from 'src/payments/services/tree-volumen.service';
+import { Membership } from 'src/memberships/entities/membership.entity';
 
 @Injectable()
 export class OrderCreationService {
@@ -43,8 +46,13 @@ export class OrderCreationService {
         private readonly userRepository: Repository<User>,
         @InjectRepository(PointsTransaction)
         private readonly pointsTransactionRepository: Repository<PointsTransaction>,
+        @InjectRepository(UserPoints)
+        private readonly userPointsRepository: Repository<UserPoints>,
+        @InjectRepository(Membership)
+        private readonly membershipRepository: Repository<Membership>,
         private readonly dataSource: DataSource,
         private readonly cloudinaryService: CloudinaryService,
+        private readonly treeVolumenService: TreeVolumeService,
     ) { }
 
     async createOrder(
@@ -349,8 +357,6 @@ export class OrderCreationService {
                     ...savedPayment.metadata,
                     "Puntos utilizados": createOrderDto.totalAmount,
                 };
-                // TODO: AGREGAR HISTORIAL DE PUNTOS
-                // TODO: DESCUENTO DE PUNTOS 
 
                 const pointsTransaction = this.pointsTransactionRepository.create({
                     user: { id: userId },
@@ -362,9 +368,27 @@ export class OrderCreationService {
                         "Puntos utilizados": createOrderDto.totalAmount,
                     }
                 });
+
+                const userPoints = await this.userPointsRepository.findOne({
+                    where: { user: { id: userId } },
+                });
+
+                if (!userPoints) {
+                    throw new NotFoundException(`No hay puntos para el usuario ${userId}`);
+                }
+
+                userPoints.availablePoints = userPoints.availablePoints - createOrderDto.totalAmount;
+                userPoints.totalWithdrawnPoints = userPoints.totalWithdrawnPoints + createOrderDto.totalAmount;
+
+                savedOrder.status = OrderStatus.APPROVED;
+
                 await queryRunner.manager.save(pointsTransaction);
 
                 await queryRunner.manager.save(savedPayment);
+
+                await queryRunner.manager.save(userPoints);
+
+                await queryRunner.manager.save(savedOrder);
 
                 // Actualizar orden histórico
                 const newOrderHistory = this.orderHistoryRepository.create({
@@ -375,9 +399,16 @@ export class OrderCreationService {
                 });
                 await queryRunner.manager.save(newOrderHistory);
 
-                // TODO: ACTUALIZAR VOLUMEN SEMANAL Y VOLUMEN MENSUAL
+                const membership = await this.membershipRepository.findOne({
+                    where: { user: { id: userId } },
+                    relations: ['plan'],
+                });
+                if (!membership) throw new NotFoundException(`Membresía no encontrada`);
 
-
+                const { plan } = membership;
+                if (!plan) throw new NotFoundException(`Plan de membresía no encontrado`);
+                await this.treeVolumenService.processTreeVolumes(user, plan, queryRunner, savedPayment);
+                
             }
 
             await queryRunner.commitTransaction();
