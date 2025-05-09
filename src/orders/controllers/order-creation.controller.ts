@@ -2,8 +2,12 @@ import {
     Body,
     Controller,
     HttpStatus,
+    Param,
     ParseFilePipeBuilder,
+    ParseIntPipe,
     Post,
+    Put,
+    Query,
     UploadedFiles,
     UseGuards,
     UseInterceptors,
@@ -18,6 +22,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { OrderCreationService } from '../services/order-creation.service';
+import { OrderStatus } from '../enums/orders-status.enum';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -53,6 +58,34 @@ export class OrderCreationController {
             user.id,
             createOrderDto,
             files,
+        );
+    }
+
+    @Put('sent/:orderId')
+    @Roles('FAC')
+    @ApiOperation({ summary: 'Actualizar el estado de una orden' })
+    @ApiResponse({ status: 200, description: 'Orden actualizada con éxito' })
+    markOrderAsSent(
+        @GetUser() user,
+        @Param('orderId', ParseIntPipe) orderId: number,
+    ) {
+        return this.orderCreationService.markOrderAsSent(
+            user.id,
+            orderId,
+        );
+    }
+
+    @Put('delivered/:orderId')
+    @Roles('FAC')
+    @ApiOperation({ summary: 'Actualizar el estado de una orden' })
+    @ApiResponse({ status: 200, description: 'Orden actualizada con éxito' })
+    markOrderAsDelivered(
+        @GetUser() user,
+        @Param('orderId', ParseIntPipe) orderId: number,
+    ) {
+        return this.orderCreationService.markOrderAsDelivered(
+            user.id,
+            orderId,
         );
     }
 }

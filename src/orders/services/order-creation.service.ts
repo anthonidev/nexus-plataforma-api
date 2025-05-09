@@ -22,6 +22,8 @@ import { OrderStatus } from '../enums/orders-status.enum';
 import { UserPoints } from 'src/points/entities/user_points.entity';
 import { TreeVolumeService } from 'src/payments/services/tree-volumen.service';
 import { Membership } from 'src/memberships/entities/membership.entity';
+import { ProductStockHistory } from 'src/ecommerce/entities/product-stock-history.entity';
+import { StockActionType } from 'src/ecommerce/enums/stock-action-type.enum';
 
 @Injectable()
 export class OrderCreationService {
@@ -50,6 +52,8 @@ export class OrderCreationService {
         private readonly userPointsRepository: Repository<UserPoints>,
         @InjectRepository(Membership)
         private readonly membershipRepository: Repository<Membership>,
+        @InjectRepository(ProductStockHistory)
+        private readonly productStockHistoryRepository: Repository<ProductStockHistory>,
         private readonly dataSource: DataSource,
         private readonly cloudinaryService: CloudinaryService,
         private readonly treeVolumenService: TreeVolumeService,
@@ -447,4 +451,145 @@ export class OrderCreationService {
             await queryRunner.release();
         }
     }
+
+    async markOrderAsSent(
+        userId: string,
+        orderId: number,
+    ) {
+        const order = await this.orderRepository.findOne({
+            where: { id: orderId },
+            relations: ['orderDetails', 'orderHistory', 'orderDetails.product'],
+        });
+
+        if (!order)
+            throw new NotFoundException(`Orden con el id ${orderId} no encontrada`);
+
+        if (order.status !== OrderStatus.APPROVED)
+            throw new BadRequestException(`La orden tiene que estar aprobada`);
+
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+        try {
+            const orderHistory = this.orderHistoryRepository.create({
+                order: order,
+                action: OrderAction.SENT,
+                notes: 'Orden enviada',
+                performedBy: { id: userId },
+            });
+
+            await queryRunner.manager.save(orderHistory);
+
+            order.status = OrderStatus.SENT;
+            await queryRunner.manager.save(order);
+
+            // ACTUALIZAR STOCK DE PRODUCTOS
+            const orderDetails = order.orderDetails;
+            for (const detail of orderDetails) {
+                const product = detail.product;
+                console.log(detail.quantity);
+                const quantityToSubtract = detail.quantity;
+
+                if (!product)
+                    throw new NotFoundException(`Producto ${product.name} no encontrado`);
+
+                if (!product.stock)
+                    throw new NotFoundException(`No hay stock registrado para el producto ${product.name}`);
+
+                if (product.stock < quantityToSubtract)
+                    throw new BadRequestException(`Stock insuficiente para el producto ${product.name}`);
+
+                console.log(quantityToSubtract);
+                // AGREGAR UN REGISTRO DE HISTORIAL DE STOCK DEL PRODUCTO
+                const productHistory = this.productStockHistoryRepository.create({
+                    product: product,
+                    actionType: StockActionType.UPDATE,
+                    previousQuantity: product.stock,
+                    newQuantity: product.stock - quantityToSubtract,
+                    quantityChanged: quantityToSubtract,
+                    notes: 'Producto actualizado',
+                }); 
+                await queryRunner.manager.save(productHistory);
+
+                product.stock -= quantityToSubtract;
+                await queryRunner.manager.save(product);
+            }
+
+            await queryRunner.commitTransaction();
+
+            return {
+                success: true,
+                message: 'Orden enviada exitosamente',
+                order: {
+                    id: order.id,
+                    totalAmount: order.totalAmount,
+                    totalItems: order.totalItems,
+                    status: order.status,
+                    createdAt: order.createdAt,
+                },
+            };
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            this.logger.error(`Error al actualizar el estado de la orden: ${error.message}`);
+            throw error;
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+
+    async markOrderAsDelivered(
+        userId: string,
+        orderId: number,
+    ) {
+        const order = await this.orderRepository.findOne({
+            where: { id: orderId },
+            relations: ['orderDetails', 'orderHistory', 'orderDetails.product'],
+        });
+
+        if (!order)
+            throw new NotFoundException(`Orden con el id ${orderId} no encontrada`);
+
+        if (order.status !== OrderStatus.SENT)
+            throw new BadRequestException(`La orden tiene que estar enviada`);
+
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+        try {
+            const orderHistory = this.orderHistoryRepository.create({
+                order: order,
+                action: OrderAction.DELIVERED,
+                notes: 'Orden entregada',
+                performedBy: { id: userId },
+            });
+
+            await queryRunner.manager.save(orderHistory);
+
+            order.status = OrderStatus.DELIVERED;
+            await queryRunner.manager.save(order);
+
+            await queryRunner.commitTransaction();
+
+            return {
+                success: true,
+                message: 'Orden entregada exitosamente',
+                order: {
+                    id: order.id,
+                    totalAmount: order.totalAmount,
+                    totalItems: order.totalItems,
+                    status: order.status,
+                    createdAt: order.createdAt,
+                },
+            };
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            this.logger.error(`Error al actualizar el estado de la orden: ${error.message}`);
+            throw error;
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+
 }

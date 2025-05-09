@@ -9,10 +9,9 @@ import { OrderAction } from "../enums/orders-action.enum";
 @Index(['order'])
 export class OrderHistory {
   @PrimaryGeneratedColumn('uuid')
-  @IsUUID()
   id: string;
 
-  @ManyToOne(() => Order, { nullable: false })
+  @ManyToOne(() => Order)
   @JoinColumn({ name: 'order_id' })
   @ValidateNested()
   @Type(() => Order)
