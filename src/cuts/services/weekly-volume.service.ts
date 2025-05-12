@@ -12,6 +12,7 @@ import {
   PointTransactionType,
 } from 'src/points/entities/points_transactions.entity';
 import { UserPoints } from 'src/points/entities/user_points.entity';
+import { WeeklyVolumesHistory } from 'src/points/entities/weekly-volumes-history.entity';
 import {
   VolumeProcessingStatus,
   VolumeSide,
@@ -37,6 +38,8 @@ export class WeeklyVolumeService {
   constructor(
     @InjectRepository(WeeklyVolume)
     private readonly weeklyVolumeRepository: Repository<WeeklyVolume>,
+    @InjectRepository(WeeklyVolumesHistory)
+    private readonly weeklyVolumesHistoryRepository: Repository<WeeklyVolumesHistory>,
     @InjectRepository(UserPoints)
     private readonly userPointsRepository: Repository<UserPoints>,
     @InjectRepository(PointsTransaction)
@@ -334,7 +337,28 @@ export class WeeklyVolumeService {
             'Comisión procesada': pointsToAdd,
           };
 
+
+          const volumeHistorySelect = await this.weeklyVolumesHistoryRepository.find({
+            where: {
+              selectedSide: volume.selectedSide,
+              weeklyVolumes: { id: volume.id },
+
+            },
+          });
           await queryRunner.manager.save(pointsTransaction);
+
+          if (volumeHistorySelect.length > 0) {
+            for (const history of volumeHistorySelect) {
+              if (history.payment) {
+                const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
+                  pointsTransaction: pointsTransaction,
+                  payment: history.payment,
+                });
+                await queryRunner.manager.save(pointsTransactionPayment);
+              }
+            }
+          }
+
 
           const carryOverVolume = Math.max(0, higherVolume - lowerVolume);
 
