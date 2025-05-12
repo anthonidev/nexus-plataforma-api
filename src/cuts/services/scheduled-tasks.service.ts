@@ -8,23 +8,23 @@ export class ScheduledTasksService {
 
   constructor(private readonly cutsService: CutsService) { }
 
-  @Cron('0 3 * * 1', {
-    // @Cron('37 12 25 4 *', {
-    name: 'weeklyVolumeCut',
-    timeZone: 'America/Lima',
-  })
-  async handleWeeklyVolumeCut() {
-    this.logger.log('Iniciando tarea programada: Corte semanal de volumen');
-    try {
-      await this.cutsService.executeCut('WEEKLY_VOLUME_CUT');
-      this.logger.log('Tarea programada completada: Corte semanal de volumen');
-    } catch (error) {
-      this.logger.error(
-        `Error en tarea programada: ${error.message}`,
-        error.stack,
-      );
-    }
-  }
+  // // @Cron('0 3 * * 1', {
+  //   @Cron('37 12 25 4 *', {
+  //   name: 'weeklyVolumeCut',
+  //   timeZone: 'America/Lima',
+  // })
+  // async handleWeeklyVolumeCut() {
+  //   this.logger.log('Iniciando tarea programada: Corte semanal de volumen');
+  //   try {
+  //     await this.cutsService.executeCut('WEEKLY_VOLUME_CUT');
+  //     this.logger.log('Tarea programada completada: Corte semanal de volumen');
+  //   } catch (error) {
+  //     this.logger.error(
+  //       `Error en tarea programada: ${error.message}`,
+  //       error.stack,
+  //     );
+  //   }
+  // }
 
   @Cron('0 3 1 * *', {
     // @Cron('52 2 1 5 *', {

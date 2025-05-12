@@ -5,6 +5,7 @@ import {
   Membership,
   MembershipStatus,
 } from 'src/memberships/entities/membership.entity';
+import { PointsTransactionPayment } from 'src/points/entities/points-transactions-payments.entity';
 import {
   PointsTransaction,
   PointTransactionStatus,
@@ -40,6 +41,8 @@ export class WeeklyVolumeService {
     private readonly userPointsRepository: Repository<UserPoints>,
     @InjectRepository(PointsTransaction)
     private readonly pointsTransactionRepository: Repository<PointsTransaction>,
+    @InjectRepository(PointsTransactionPayment)
+    private readonly pointsTransactionPaymentRepository: Repository<PointsTransactionPayment>,
     @InjectRepository(Membership)
     private readonly membershipRepository: Repository<Membership>,
     @InjectRepository(User)
