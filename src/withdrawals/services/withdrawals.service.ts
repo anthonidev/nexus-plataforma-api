@@ -417,14 +417,14 @@ export class WithdrawalsService {
 
   private async isValidWithdrawalInfo(userId: string) {
     const withdrawalInfo = await this.getWithdrawalInfo(userId);
-    // if (!withdrawalInfo.canWithdraw)
-    //     throw new BadRequestException(withdrawalInfo.reason);
+    if (!withdrawalInfo.canWithdraw)
+        throw new BadRequestException(withdrawalInfo.reason);
 
-    // if (withdrawalInfo.missingInfo && withdrawalInfo.missingInfo.length > 0)
-    //   throw new BadRequestException(
-    //     'Falta información necesaria para realizar retiros: ' +
-    //       withdrawalInfo.missingInfo.map((info) => info.message).join(', '),
-    //   );
+    if (withdrawalInfo.missingInfo && withdrawalInfo.missingInfo.length > 0)
+      throw new BadRequestException(
+        'Falta información necesaria para realizar retiros: ' +
+          withdrawalInfo.missingInfo.map((info) => info.message).join(', '),
+      );
     return withdrawalInfo;
   }
 

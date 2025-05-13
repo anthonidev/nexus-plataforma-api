@@ -123,6 +123,9 @@ export class FinanceWithdrawalsService {
           'user.personalInfo',
           'user.contactInfo',
           'user.bankInfo',
+          'withdrawalPoints',
+          'withdrawalPoints.points',
+          'withdrawalPoints.points.withdrawalPoints',
         ],
       });
 
