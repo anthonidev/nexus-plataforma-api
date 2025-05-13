@@ -26,6 +26,9 @@ export class FinanceWithdrawalsService {
         endDate,
         status,
         order = 'DESC',
+        name,
+        documentNumber, 
+        email,
       } = filters;
 
       const queryBuilder = this.withdrawalRepository
@@ -54,6 +57,34 @@ export class FinanceWithdrawalsService {
         });
       }
 
+      if (status)
+        queryBuilder.andWhere('withdrawal.status = :status', { status });
+
+      if (startDate)
+        queryBuilder.andWhere('withdrawal.createdAt >= :startDate', {
+          startDate: new Date(startDate),
+        });
+
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        queryBuilder.andWhere('withdrawal.createdAt <= :endDate', {
+          endDate: endOfDay,
+        });
+      }
+
+      if (name)
+        queryBuilder.andWhere(
+          '(personalInfo.firstName ILIKE :name OR personalInfo.lastName ILIKE :name OR (personalInfo.firstName || \' \' || personalInfo.lastName) ILIKE :name)',
+          { name: `%${name}%` },
+        );
+
+      if (documentNumber)
+        queryBuilder.andWhere('personalInfo.documentNumber ILIKE :documentNumber', { documentNumber: `%${documentNumber}%` });
+
+      if (email)
+        queryBuilder.andWhere('user.email ILIKE :email', { email: `%${email}%` });
+
       queryBuilder
         .orderBy('withdrawal.createdAt', order)
         .skip((page - 1) * limit)
@@ -75,6 +106,7 @@ export class FinanceWithdrawalsService {
         'user.referralCode',
         'personalInfo.firstName',
         'personalInfo.lastName',
+        'personalInfo.documentNumber',
       ]);
 
       const [items, totalItems] = await queryBuilder.getManyAndCount();
