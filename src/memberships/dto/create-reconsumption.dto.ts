@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -11,6 +12,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { MethodPayment } from 'src/payments/entities/payment.entity';
 
 export class PaymentDetailDto {
   @ApiProperty({ example: 'Banco', type: String, required: false })
@@ -67,6 +69,13 @@ export class CreateReconsumptionDto {
   @IsOptional()
   @Transform(({ value }) => value?.trim())
   paymentReference?: string;
+
+  @ApiProperty({ example: 'VOUCHER', enum: MethodPayment, required: true })
+  @IsEnum(MethodPayment, {
+      message: 'El método de pago debe ser VOUCHER o POINTS',
+  })
+  @IsNotEmpty({ message: 'El método de pago es requerido' })
+  methodPayment: MethodPayment;
 
   @ApiProperty({ example: null, type: String, required: false })
   @IsString()
