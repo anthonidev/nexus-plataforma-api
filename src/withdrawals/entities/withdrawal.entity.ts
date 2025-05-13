@@ -22,9 +22,11 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { WithdrawalPoints } from './wirhdrawal-points.entity';
 
 export enum WithdrawalStatus {
   PENDING = 'PENDING',
@@ -76,31 +78,37 @@ export class Withdrawal {
   })
   rejectionReason: string;
 
-  @Column({ nullable: true })
-  @IsOptional()
-  @IsString()
-  codeOperation: string;
+  // @Column({ nullable: true })
+  // @IsOptional()
+  // @IsString()
+  // codeOperation: string;
 
-  @Column({ nullable: true })
-  @IsOptional()
-  @IsString()
-  banckNameApproval: string;
+  // @Column({ nullable: true })
+  // @IsOptional()
+  // @IsString()
+  // banckNameApproval: string;
 
-  @Column({ nullable: true, type: 'timestamp' })
-  @IsOptional()
-  @IsDate()
-  dateOperation: Date;
+  // @Column({ nullable: true, type: 'timestamp' })
+  // @IsOptional()
+  // @IsDate()
+  // dateOperation: Date;
 
-  @Column({ nullable: true })
-  @IsOptional()
-  @IsString()
-  numberTicket: string;
+  // @Column({ nullable: true })
+  // @IsOptional()
+  // @IsString()
+  // numberTicket: string;
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(
+    () => WithdrawalPoints,
+    (withdrawalPoints) => withdrawalPoints.withdrawal
+  )
+  withdrawalPoints: WithdrawalPoints[];
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'reviewed_by_id' })

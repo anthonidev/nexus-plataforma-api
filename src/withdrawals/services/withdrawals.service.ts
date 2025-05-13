@@ -7,11 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { UserPoints } from 'src/points/entities/user_points.entity';
-import { BankInfo } from 'src/user/entities/bank-info.entity';
-import { BillingInfo } from 'src/user/entities/billing-info.entity';
-import { PersonalInfo } from 'src/user/entities/personal-info.entity';
 import { User } from 'src/user/entities/user.entity';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { FindWithdrawalsDto } from '../dto/find-withdrawals.dto';
 import { WithdrawalConfig } from '../entities/withdrawal-config.entity';
 import { Withdrawal, WithdrawalStatus } from '../entities/withdrawal.entity';
@@ -21,6 +18,7 @@ import {
   PointTransactionStatus,
   PointTransactionType,
 } from 'src/points/entities/points_transactions.entity';
+import { WithdrawalPoints } from '../entities/wirhdrawal-points.entity';
 
 @Injectable()
 export class WithdrawalsService {
@@ -37,6 +35,8 @@ export class WithdrawalsService {
     private readonly pointsTransactionRepository: Repository<PointsTransaction>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(WithdrawalPoints)
+    private readonly withdrawalPointsRepository: Repository<WithdrawalPoints>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -49,68 +49,53 @@ export class WithdrawalsService {
     await queryRunner.startTransaction();
 
     try {
-      const withdrawalInfo = await this.getWithdrawalInfo(userId);
-
-      if (!withdrawalInfo.canWithdraw) {
-        throw new BadRequestException(withdrawalInfo.reason);
-      }
-
-      if (withdrawalInfo.missingInfo && withdrawalInfo.missingInfo.length > 0) {
-        throw new BadRequestException(
-          'Falta información necesaria para realizar retiros: ' +
-            withdrawalInfo.missingInfo.map((info) => info.message).join(', '),
-        );
-      }
-
+      const withdrawalInfo = await this.isValidWithdrawalInfo(userId);
       // Verificar disponibilidad de puntos
-      const userPoints = await this.userPointsRepository.findOne({
-        where: { user: { id: userId } },
-      });
-
-      if (!userPoints) {
-        throw new BadRequestException('No tienes puntos registrados');
-      }
-
-      const amount = createWithdrawalDto.amount;
-
-      // Verificar que el monto esté dentro de los límites permitidos
-      if (amount < withdrawalInfo.config.minimumAmount) {
-        throw new BadRequestException(
-          `El monto mínimo para retiro es ${withdrawalInfo.config.minimumAmount}`,
-        );
-      }
-
-      if (
-        withdrawalInfo.config.maximumAmount &&
-        amount > withdrawalInfo.config.maximumAmount
-      ) {
-        throw new BadRequestException(
-          `El monto máximo para retiro es ${withdrawalInfo.config.maximumAmount}`,
-        );
-      }
-
+      const userPoints = await this.isValidUserPoints(userId);
+      const amount = createWithdrawalDto.amount;      // Verificar que el monto esté dentro de los límites permitidos
+      this.isValidLimits(amount, withdrawalInfo);
       // Verificar que el usuario tenga suficientes puntos
-      if (userPoints.availablePoints < amount) {
+      if (userPoints.availablePoints < amount)
         throw new BadRequestException(
           `No tienes suficientes puntos disponibles. Puntos disponibles: ${userPoints.availablePoints}`,
         );
-      }
-
       // Obtener información bancaria del usuario
-      const user = await this.userRepository.findOne({
-        where: { id: userId },
-        relations: ['bankInfo'],
+      const user = await this.isValidBankInfo(userId);
+
+      // Seleccionar los puntos de transaccion usados para el retiro
+      const eligiblePointsTransactions  = await this.pointsTransactionRepository.find({
+        where: {
+          user: { id: userId },
+          type: In([PointTransactionType.BINARY_COMMISSION, PointTransactionType.DIRECT_BONUS]),
+          status: PointTransactionStatus.COMPLETED,
+          isArchived: false,
+        },
+        order: { createdAt: 'ASC' },
       });
 
-      if (!user) {
-        throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
-      }
+      // Iterar sobre las transacciones y asignar puntos al retiro
+      let remainingAmountToWithdraw = createWithdrawalDto.amount;
+      const pointsTransactionsToLink: PointsTransaction[] = [];
+      let totalWithdrawnFromTransactions = 0;
 
-      if (!user.bankInfo) {
-        throw new BadRequestException(
-          'No tienes información bancaria registrada',
-        );
+      for (const transaction of eligiblePointsTransactions) {
+        const availableAmountInTransaction = 
+          transaction.amount - (transaction.pendingAmount || 0) - (transaction.withdrawnAmount || 0);
+        if (availableAmountInTransaction <= 0) continue; // Saltar a la siguiente iteración del bucle
+        if (remainingAmountToWithdraw <= 0) break; // Ya se alcanzó el monto a retirar
+
+        const amountToDeduct = Math.min(remainingAmountToWithdraw, availableAmountInTransaction);
+
+        transaction.pendingAmount = (transaction.pendingAmount || 0) + amountToDeduct; // Actualizar el monto pendiente
+        pointsTransactionsToLink.push(transaction);
+        remainingAmountToWithdraw -= amountToDeduct;
+        totalWithdrawnFromTransactions += amountToDeduct;
       }
+      // 3. Verificar si se cubrió el monto solicitado
+      if (remainingAmountToWithdraw > 0)
+        throw new BadRequestException(
+          `No se pudieron seleccionar suficientes puntos archivados disponibles para el retiro. Faltan: ${remainingAmountToWithdraw}`,
+        );
 
       // Crear la solicitud de retiro
       const withdrawal = this.withdrawalRepository.create({
@@ -120,7 +105,6 @@ export class WithdrawalsService {
         bankName: user.bankInfo.bankName,
         accountNumber: user.bankInfo.accountNumber,
         cci: user.bankInfo.cci,
-
         metadata: {
           createdAt: new Date(),
           availablePointsBefore: userPoints.availablePoints,
@@ -128,6 +112,16 @@ export class WithdrawalsService {
       });
 
       const savedWithdrawal = await queryRunner.manager.save(withdrawal);
+
+      // Crear los registros en WithdrawalPoints para vincular el retiro con las transacciones de puntos
+      const withdrawalPointsToSave = pointsTransactionsToLink.map(transaction => {
+        return this.withdrawalPointsRepository.create({
+          withdrawal: savedWithdrawal,
+          points: transaction,
+          amountUsed: transaction.pendingAmount,
+        });
+      });
+      await queryRunner.manager.save(withdrawalPointsToSave);
 
       // Registrar la transacción de puntos
       const pointsTransaction = this.pointsTransactionRepository.create({
@@ -140,12 +134,15 @@ export class WithdrawalsService {
           withdrawalStatus: WithdrawalStatus.PENDING,
         },
       });
-
       await queryRunner.manager.save(pointsTransaction);
 
       // Actualizar los puntos disponibles del usuario
       userPoints.availablePoints = Number(userPoints.availablePoints) - amount;
+      userPoints.totalWithdrawnPoints = Number(userPoints.totalWithdrawnPoints) + amount;
       await queryRunner.manager.save(userPoints);
+
+      // Guardar las actualizaciones en las transacciones de puntos (amountUsedForWithdrawal)
+      await this.pointsTransactionRepository.save(pointsTransactionsToLink);
 
       await queryRunner.commitTransaction();
 
@@ -417,4 +414,59 @@ export class WithdrawalsService {
     ];
     return days.map((day) => dayNames[day]).join(', ');
   }
+
+  private async isValidWithdrawalInfo(userId: string) {
+    const withdrawalInfo = await this.getWithdrawalInfo(userId);
+    // if (!withdrawalInfo.canWithdraw)
+    //     throw new BadRequestException(withdrawalInfo.reason);
+
+    // if (withdrawalInfo.missingInfo && withdrawalInfo.missingInfo.length > 0)
+    //   throw new BadRequestException(
+    //     'Falta información necesaria para realizar retiros: ' +
+    //       withdrawalInfo.missingInfo.map((info) => info.message).join(', '),
+    //   );
+    return withdrawalInfo;
+  }
+
+  private async isValidUserPoints(userId: string) {
+    const userPoints = await this.userPointsRepository.findOne({
+        where: { user: { id: userId } },
+      });
+
+      if (!userPoints) {
+        throw new BadRequestException('No tienes puntos registrados');
+      }
+      return userPoints;
+  }
+
+  private isValidLimits(amount: number, withdrawalInfo: any) {
+    if (amount < withdrawalInfo.config.minimumAmount)
+      throw new BadRequestException(
+        `El monto mínimo para retiro es ${withdrawalInfo.config.minimumAmount}`,
+      );
+
+    if (
+      withdrawalInfo.config.maximumAmount &&
+      amount > withdrawalInfo.config.maximumAmount
+    )
+      throw new BadRequestException(
+        `El monto máximo para retiro es ${withdrawalInfo.config.maximumAmount}`,
+      );
+  }
+
+  private async isValidBankInfo(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['bankInfo'],
+    });
+
+    if (!user)
+      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+
+    if (!user.bankInfo)
+      throw new BadRequestException(
+        'No tienes información bancaria registrada',
+      );
+    return user;
+  } 
 }

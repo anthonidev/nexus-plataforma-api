@@ -1,6 +1,7 @@
 export class Point { }
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -43,6 +44,12 @@ export class PointsTransaction {
   @ValidateNested()
   @Type(() => User)
   user: User;
+
+  @OneToMany(
+    () => PointsTransactionPayment,
+    (pointsTransactionPayment) => pointsTransactionPayment.pointsTransaction
+  )
+  withdrawalPoints: PointsTransactionPayment[];
 
   @Column({
     type: 'enum',
@@ -104,6 +111,14 @@ export class PointsTransaction {
   @Min(0, { message: 'El monto retirado no puede ser negativo' })
   @IsOptional()
   withdrawnAmount?: number;
+
+  @Column({
+    type: 'boolean',
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isArchived?: boolean;
 
   @Column({
     type: 'enum',

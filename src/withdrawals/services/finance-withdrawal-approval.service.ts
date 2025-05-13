@@ -19,6 +19,7 @@ import {
   ApproveWithdrawalDto,
   RejectWithdrawalDto,
 } from '../dto/withdrawal-approval.dto';
+import { WithdrawalPoints } from '../entities/wirhdrawal-points.entity';
 
 @Injectable()
 export class FinanceWithdrawalApprovalService {
@@ -33,13 +34,15 @@ export class FinanceWithdrawalApprovalService {
     private readonly pointsTransactionRepository: Repository<PointsTransaction>,
     @InjectRepository(UserPoints)
     private readonly userPointsRepository: Repository<UserPoints>,
+    @InjectRepository(WithdrawalPoints)
+    private readonly withdrawalPointsRepository: Repository<WithdrawalPoints>,
     private readonly dataSource: DataSource,
   ) {}
 
   async approveWithdrawal(
     withdrawalId: number,
     reviewerId: string,
-    approveWithdrawalDto: ApproveWithdrawalDto,
+    // approveWithdrawalDto: ApproveWithdrawalDto,
   ) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -75,12 +78,26 @@ export class FinanceWithdrawalApprovalService {
       withdrawal.status = WithdrawalStatus.APPROVED;
       withdrawal.reviewedBy = reviewer;
       withdrawal.reviewedAt = new Date();
-      withdrawal.codeOperation = approveWithdrawalDto.codeOperation;
-      withdrawal.banckNameApproval = approveWithdrawalDto.banckNameApproval;
-      withdrawal.dateOperation = new Date(approveWithdrawalDto.dateOperation);
-      withdrawal.numberTicket = approveWithdrawalDto.numberTicket;
+      // withdrawal.codeOperation = approveWithdrawalDto.codeOperation;
+      // withdrawal.banckNameApproval = approveWithdrawalDto.banckNameApproval;
+      // withdrawal.dateOperation = new Date(approveWithdrawalDto.dateOperation);
+      // withdrawal.numberTicket = approveWithdrawalDto.numberTicket;
 
       await queryRunner.manager.save(withdrawal);
+
+      const withdrawalPoints = await this.withdrawalPointsRepository.find({
+        where: { withdrawal: { id: withdrawalId } },
+        relations: ['points'],
+      });
+      // Iterar sobre los registros de WithdrawalPoints y actualizar las transacciones de puntos
+      for (const wp of withdrawalPoints) {
+        const pointsTransaction = wp.points;
+        pointsTransaction.withdrawnAmount = (pointsTransaction.withdrawnAmount || 0) + wp.amountUsed;
+        pointsTransaction.pendingAmount = 0;
+        if (pointsTransaction.amount - pointsTransaction.withdrawnAmount === 0)
+          pointsTransaction.isArchived = true;
+        await queryRunner.manager.save(pointsTransaction);
+      }
 
       // Buscar la transacción de puntos correspondiente
       const pointsTransaction = await this.pointsTransactionRepository.findOne({
@@ -100,8 +117,8 @@ export class FinanceWithdrawalApprovalService {
           withdrawalStatus: WithdrawalStatus.APPROVED,
           approvedAt: new Date(),
           approvedBy: reviewerId,
-          codeOperation: approveWithdrawalDto.codeOperation,
-          numberTicket: approveWithdrawalDto.numberTicket,
+          // codeOperation: approveWithdrawalDto.codeOperation,
+          // numberTicket: approveWithdrawalDto.numberTicket,
         };
 
         await queryRunner.manager.save(pointsTransaction);
@@ -126,8 +143,8 @@ export class FinanceWithdrawalApprovalService {
             withdrawalStatus: WithdrawalStatus.APPROVED,
             approvedAt: new Date(),
             approvedBy: reviewerId,
-            codeOperation: approveWithdrawalDto.codeOperation,
-            numberTicket: approveWithdrawalDto.numberTicket,
+            // codeOperation: approveWithdrawalDto.codeOperation,
+            // numberTicket: approveWithdrawalDto.numberTicket,
           };
 
           await queryRunner.manager.save(transaction);
@@ -231,6 +248,17 @@ export class FinanceWithdrawalApprovalService {
       withdrawal.rejectionReason = rejectWithdrawalDto.rejectionReason;
 
       await queryRunner.manager.save(withdrawal);
+
+      const withdrawalPoints = await this.withdrawalPointsRepository.find({
+        where: { withdrawal: { id: withdrawalId } },
+        relations: ['points'],
+      });
+
+      for (const wp of withdrawalPoints) {
+        const pointsTransaction = wp.points;
+        pointsTransaction.pendingAmount = 0;
+        await queryRunner.manager.save(pointsTransaction);
+      }
 
       // Buscar la transacción de puntos correspondiente
       const pointsTransaction = await this.pointsTransactionRepository.findOne({

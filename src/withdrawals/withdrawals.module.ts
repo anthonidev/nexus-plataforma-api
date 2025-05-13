@@ -10,6 +10,7 @@ import { Withdrawal } from './entities/withdrawal.entity';
 import { FinanceWithdrawalApprovalService } from './services/finance-withdrawal-approval.service';
 import { FinanceWithdrawalsService } from './services/finance-withdrawals.service';
 import { WithdrawalsService } from './services/withdrawals.service';
+import { WithdrawalPoints } from './entities/wirhdrawal-points.entity';
 
 @Module({
   controllers: [
@@ -23,7 +24,7 @@ import { WithdrawalsService } from './services/withdrawals.service';
     FinanceWithdrawalApprovalService,
   ],
   imports: [
-    TypeOrmModule.forFeature([WithdrawalConfig, Withdrawal]),
+    TypeOrmModule.forFeature([WithdrawalConfig, Withdrawal, WithdrawalPoints]),
     UserModule,
     PointsModule,
   ],

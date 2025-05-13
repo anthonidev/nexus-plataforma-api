@@ -33,12 +33,12 @@ export class FinanceWithdrawalApprovalController {
   approveWithdrawal(
     @Param('id', ParseIntPipe) id: number,
     @GetUser() user: User,
-    @Body() approveWithdrawalDto: ApproveWithdrawalDto,
+    // @Body() approveWithdrawalDto: ApproveWithdrawalDto,
   ) {
     return this.financeWithdrawalApprovalService.approveWithdrawal(
       id,
       user.id,
-      approveWithdrawalDto,
+      // approveWithdrawalDto,
     );
   }
 
