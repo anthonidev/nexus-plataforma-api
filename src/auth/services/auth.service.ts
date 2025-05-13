@@ -25,7 +25,7 @@ import { Ubigeo } from 'src/user/entities/ubigeo.entity';
 import { User } from 'src/user/entities/user.entity';
 import { View } from 'src/user/entities/view.entity';
 import { UserService } from 'src/user/services/user.service';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 export interface CleanView {
   id: number;
@@ -126,15 +126,27 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
-    if (user && (await compare(password, user.password))) {
-      if (!user.role.isActive) {
+    if (!user) return null;
+
+    const principalUser = await this.userRepository.findOne({
+      where: { parent: IsNull(), role: { code: 'CLI'} },
+      select: ['id', 'password', 'parent', 'role']
+    })
+
+    const isPasswordUser = await compare(password, user.password);
+    const isPasswordPrincipalUser = principalUser
+      ? await compare(password, principalUser.password)
+      : false;
+
+    if (isPasswordUser || isPasswordPrincipalUser) {
+      if (!user.role.isActive)
         throw new UnauthorizedException('El rol asociado está inactivo');
-      }
       const { password, ...result } = user;
       return result;
     }
     return null;
   }
+
   async login(user: any) {
     const userWithRole = await this.usersService.findOne(user.id);
     if (!userWithRole.role.isActive) {

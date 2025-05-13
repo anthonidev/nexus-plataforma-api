@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MembershipPlan } from 'src/memberships/entities/membership-plan.entity';
+import * as bcrypt from 'bcryptjs';
 import {
   Membership,
   MembershipStatus,
@@ -20,10 +21,12 @@ import { UserRank } from 'src/ranks/entities/user_ranks.entity';
 import { User } from 'src/user/entities/user.entity';
 import { getDates } from 'src/utils/dates';
 import { DataSource, Repository } from 'typeorm';
+import { UpdatePasswordDto } from '../dto/update-password.dto';
 
 @Injectable()
 export class SystemService {
   private readonly logger = new Logger(SystemService.name);
+  private readonly SALT_ROUNDS = 10;
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -310,5 +313,16 @@ export class SystemService {
     };
 
     return planMap[code] || code;
+  }
+
+  async updatePasswordInternal(updatePasswordDto: UpdatePasswordDto): Promise<string> {
+    const { email, newPassword } = updatePasswordDto;
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user)
+      throw new NotFoundException(`Usuario con el correo electrónico "${email}" no encontrado.`);
+
+    const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+    await this.userRepository.update(user.id, { password: hashedPassword });
+    return 'Contraseña actualizada con éxito';
   }
 }

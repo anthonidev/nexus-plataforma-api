@@ -2,6 +2,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { DirectActivationDto } from '../dto/direct-activation.dto';
 import { SystemService } from '../services/system.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { UpdatePasswordDto } from '../dto/update-password.dto';
 
 @Controller('system')
 export class SystemController {
@@ -16,6 +17,7 @@ export class SystemController {
       activationDto.planCode,
     );
   }
+
   @Post('change-plan')
   @ApiOperation({ summary: 'Cambiar plan de usuario' })
   @ApiResponse({ status: 200, description: 'Plan de usuario cambiado con éxito' })
@@ -24,5 +26,12 @@ export class SystemController {
       changePlanDto.email,
       changePlanDto.planCode,
     );
+  }
+
+  @Post('update-password')
+  @ApiOperation({ summary: 'Actualizar contraseña de usuario' })
+  @ApiResponse({ status: 200, description: 'Contraseña actualizada con éxito' })
+  updatePassword(@Body() updatePasswordDto: UpdatePasswordDto) {
+    return this.systemService.updatePasswordInternal(updatePasswordDto);
   }
 }
