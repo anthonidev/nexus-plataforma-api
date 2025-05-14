@@ -11,15 +11,17 @@ import { WeeklyVolume } from './entities/weekly_volumes.entity';
 import { PointsGateway } from './points.gateway';
 import { PointsEventsService } from './services/points-events.service';
 import { PointsService } from './services/points.service';
+import { UserPointsController } from './controllers/user-points.controller';
+import { UserPointsService } from './services/user-points.service';
 
 @Module({
-  controllers: [PointsController],
+  controllers: [PointsController, UserPointsController],
   imports: [
     TypeOrmModule.forFeature([PointsTransaction, UserPoints, WeeklyVolume, WeeklyVolumesHistory, PointsTransactionPayment]),
     EventEmitterModule.forRoot(),
     UserModule,
   ],
-  providers: [PointsService, PointsGateway, PointsEventsService],
+  providers: [PointsService, PointsGateway, PointsEventsService, UserPointsService],
   exports: [PointsService, PointsEventsService, TypeOrmModule],
 })
 export class PointsModule { }
