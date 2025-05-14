@@ -46,10 +46,10 @@ export class ReconsumptionController {
         })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-          fileIsRequired: true,
+          fileIsRequired: false,
         }),
     )
-    files: Array<Express.Multer.File>,
+    files?: Array<Express.Multer.File>,
   ) {
     return this.reconsumptionService.createReconsumption(
       user.id,

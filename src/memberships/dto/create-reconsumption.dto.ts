@@ -102,8 +102,9 @@ export class CreateReconsumptionDto {
     each: true,
     message: 'Cada detalle de pago debe ser un objeto válido',
   })
+  @IsOptional()
   @Type(() => PaymentDetailDto)
-  payments: PaymentDetailDto[];
+  payments?: PaymentDetailDto[];
 }
 
 export class UpdateAutoRenewalDto {
