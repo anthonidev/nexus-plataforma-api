@@ -7,6 +7,8 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { PaginationDto } from 'src/common/dto/paginationDto';
 import { User } from 'src/user/entities/user.entity';
 import { OrdersService } from '../services/orders.service';
+import { FindAllOrdersClientDto } from '../dto/find-all-orders-client.dto';
+import { FindAllOrdersAdminDto } from '../dto/find-all-orders-admin.dto';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -18,9 +20,9 @@ export class OrdersController {
   @ApiOperation({ summary: 'Obtener lista de ordenes' })
   @ApiResponse({ status: 200, description: 'Listado de ordenes' })
   findAll(
-    @Query() paginationDto: PaginationDto,
+    @Query() findAllOrdersAdminDto: FindAllOrdersAdminDto,
   ) {
-    return this.ordersService.findAll(paginationDto);
+    return this.ordersService.findAll(findAllOrdersAdminDto);
   }
 
   @Get(':id/item')
@@ -40,9 +42,9 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Listado de ordenes del usuario' })
   findAllWithClients(
     @GetUser() user: User,
-    @Query() paginationDto: PaginationDto,
+    @Query() findAllOrdersClientDto: FindAllOrdersClientDto,
   ) {
-    return this.ordersService.findAllWithClients(user.id, paginationDto);
+    return this.ordersService.findAllWithClients(user.id, findAllOrdersClientDto);
   }
 
   @Get(':id/item/with-clients')
