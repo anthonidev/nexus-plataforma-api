@@ -337,6 +337,7 @@ export class ReconsumptionService {
 
         savedPayment.status = PaymentStatus.APPROVED;
         savedPayment.reviewedBy = user;
+        savedPayment.reviewedAt = new Date();
         savedPayment.metadata = {
           ...savedPayment.metadata,
           "Puntos utilizados": createDto.totalAmount,
@@ -364,10 +365,20 @@ export class ReconsumptionService {
         savedReconsumption.status = ReconsumptionStatus.ACTIVE;
 
         // Actualizar fechas de inicio y fin de la membresía
-        const today = new Date();
-        membership.startDate = today;
-        membership.endDate = periodDate;
-        membership.nextReconsumptionDate = periodDate;
+        const currentStartDate = membership.startDate;
+        const newStartDate = new Date(currentStartDate);
+        newStartDate.setDate(newStartDate.getDate() + 30);
+
+        const newEndDate = new Date(newStartDate);
+        newEndDate.setDate(newEndDate.getDate() + 30);
+
+        const newNextReconsumptionDate = new Date(newEndDate);
+        newNextReconsumptionDate.setDate(newNextReconsumptionDate.getDate() + 1);
+
+        membership.startDate = newStartDate;
+        membership.endDate = newEndDate;
+        membership.nextReconsumptionDate = newNextReconsumptionDate;
+
         await queryRunner.manager.save(membership);
 
         const membershipHistory = this.membershipHistoryRepository.create({
