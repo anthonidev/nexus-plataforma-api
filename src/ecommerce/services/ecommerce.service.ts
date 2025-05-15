@@ -92,6 +92,7 @@ export class EcommerceService {
         name: createProductDto.name,
         description: createProductDto.description,
         memberPrice: createProductDto.memberPrice,
+        composition: createProductDto.composition,
         publicPrice: createProductDto.publicPrice,
         stock: createProductDto.stock || 0,
         benefits: createProductDto.benefits || [],
@@ -302,6 +303,8 @@ export class EcommerceService {
       if (updateProductDto.isActive !== undefined)
         product.isActive = updateProductDto.isActive;
       if (category !== product.category) product.category = category;
+      if (updateProductDto.composition !== undefined)
+        product.composition = updateProductDto.composition;
 
       const updatedProduct = await queryRunner.manager.save(product);
 

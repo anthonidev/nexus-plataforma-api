@@ -32,8 +32,8 @@ export class ProductService {
           status: product.status,
           isActive: product.isActive,
           mainImage: product.images && product.images.length > 0
-          ? product.images.find(img => img.isMain)?.url || product.images[0].url
-          : null,
+            ? product.images.find(img => img.isMain)?.url || product.images[0].url
+            : null,
         }
       });
 
@@ -54,7 +54,7 @@ export class ProductService {
   async findAllWithSkuAndName() {
     try {
       const products = await this.productRepository.find(
-        {select: ['id', 'name', 'sku']},
+        { select: ['id', 'name', 'sku'] },
       );
       const formattedItems = products.map(product => {
         const { id, name, sku } = product;
@@ -160,8 +160,8 @@ export class ProductService {
         return {
           ...formatProductResponse(product),
           mainImage: product.images && product.images.length > 0
-          ? product.images.find(img => img.isMain)?.url || product.images[0].url
-          : null,
+            ? product.images.find(img => img.isMain)?.url || product.images[0].url
+            : null,
         }
       });
 
@@ -240,7 +240,7 @@ export class ProductService {
       items,
       totalItems
     }
-  } 
+  }
 
   private async findOneProduct(id: number, isActive?: boolean) {
     const whereCondition = isActive ? { id, isActive } : { id };
