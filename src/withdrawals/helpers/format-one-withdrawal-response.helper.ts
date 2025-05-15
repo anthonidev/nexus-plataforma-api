@@ -1,5 +1,3 @@
-import { w } from "@faker-js/faker/dist/airline-CBNP41sR";
-
 export const formatOneWithdrawalResponse = (withdrawal) => {
   return {
     id: withdrawal.id,
