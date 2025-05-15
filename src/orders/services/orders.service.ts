@@ -6,6 +6,8 @@ import { Repository } from 'typeorm';
 import { Order } from '../entities/orders.entity';
 import { formatOrderOneResponse } from '../helpers/format-order-one-response.dto';
 import { Payment } from 'src/payments/entities/payment.entity';
+import { FindAllOrdersAdminDto } from '../dto/find-all-orders-admin.dto';
+import { FindAllOrdersClientDto } from '../dto/find-all-orders-client.dto';
 
 @Injectable()
 export class OrdersService {
@@ -18,9 +20,9 @@ export class OrdersService {
   // METHODS FOR ENDPOINTS
   // SYS
   async findAll(
-    paginationDto: PaginationDto,
+    findAllOrdersAdminDto: FindAllOrdersAdminDto,
   ) {
-    return await this.findAllOrders(paginationDto);
+    return await this.findAllOrders(findAllOrdersAdminDto);
   }
 
   async findOne(
@@ -46,9 +48,9 @@ export class OrdersService {
   // CLIENT
   async findAllWithClients(
     userId: string,
-    paginationDto: PaginationDto,
+    findAllOrdersClientDto: FindAllOrdersClientDto,
   ) {
-    return await this.findAllOrders(paginationDto, userId);
+    return await this.findAllOrders(findAllOrdersClientDto, userId);
   }
 
   async findOneWithClients(
@@ -61,10 +63,19 @@ export class OrdersService {
 
   // INTERNAL HELPERS METHODS
   private async findAllOrders(
-    paginationDto?: PaginationDto,
+    findAllOrdersAdminDto?: FindAllOrdersAdminDto,
     userId?: string,
   ) {
-    const { page = 1, limit = 10, order = 'DESC' } = paginationDto;
+    const {
+      page = 1,
+      limit = 10,
+      term,
+      endDate,
+      startDate,
+      status,
+      order = 'DESC'
+    } = findAllOrdersAdminDto;
+    const paginationDto = { page, limit };
     const queryBuilder = this.orderRepository
       .createQueryBuilder('order')
       .leftJoin('order.user', 'user')
@@ -79,6 +90,29 @@ export class OrdersService {
         .addSelect(['user.id', 'user.email'])
         .leftJoin('user.personalInfo', 'personalInfo')
         .addSelect(['personalInfo.firstName', 'personalInfo.lastName']);
+      
+    if (term)
+      queryBuilder.andWhere(
+        '(personalInfo.firstName LIKE :search OR personalInfo.lastName LIKE :search OR user.email LIKE :search OR personalInfo.documentNumber LIKE :search)',
+        { term: `%${term}%` },
+      );
+
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('order.createdAt <= :endDate', {
+        endDate: endOfDay,
+      });
+    }
+
+    if (startDate)
+      queryBuilder.andWhere('order.createdAt >= :startDate', {
+        startDate: new Date(startDate),
+      });
+
+    if (status)
+      queryBuilder.andWhere('order.status = :status', { status });
+
     const [items, totalItems] = await queryBuilder.getManyAndCount();
     const paginatedResult = PaginationHelper.createPaginatedResponse(
       items,
