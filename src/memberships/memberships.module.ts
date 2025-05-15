@@ -18,9 +18,9 @@ import { MembershipHistoryController } from './controllers/membership-history.co
 import { ReconsumptionController } from './controllers/reconsumption.controller';
 import { MembershipService } from './services/membership.service';
 import { ReconsumptionService } from './services/reconsumption.service';
-import { UserModule } from 'src/user/user.module';
 import { UserPoints } from 'src/points/entities/user_points.entity';
 import { PointsTransaction } from 'src/points/entities/points_transactions.entity';
+import { PaymentsModule } from 'src/payments/payments.module';
 
 @Module({
   controllers: [
@@ -49,8 +49,8 @@ import { PointsTransaction } from 'src/points/entities/points_transactions.entit
       UserPoints,
       PointsTransaction,
     ]),
-
     CloudinaryModule,
+    PaymentsModule,
   ],
   exports: [
     MembershipPlansService,

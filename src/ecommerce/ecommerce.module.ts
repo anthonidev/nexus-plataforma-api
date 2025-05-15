@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 import { UserModule } from 'src/user/user.module';
@@ -22,7 +22,7 @@ import { ProductController } from './controllers/product.controller';
       ProductStockHistory,
     ]),
     CloudinaryModule,
-    UserModule,
+    forwardRef(() => UserModule),
   ],
   exports: [TypeOrmModule, EcommerceService, ProductService],
 })

@@ -14,7 +14,7 @@ import { RanksService } from './services/ranks.service';
   imports: [
     TypeOrmModule.forFeature([Rank, UserRank, MonthlyVolumeRank]),
     forwardRef(() => UserModule),
-    MembershipsModule,
+    forwardRef(() => MembershipsModule),
   ],
   exports: [RanksService, TypeOrmModule],
 })

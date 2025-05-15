@@ -9,6 +9,8 @@ import { FindPointsTransactionDto } from "../dto/find-weekly-volume.dto";
 import { PointsTransaction } from "../entities/points_transactions.entity";
 import { User } from "src/user/entities/user.entity";
 import { PointsTransactionPayment } from "../entities/points-transactions-payments.entity";
+import { format } from "path";
+import { formatUserResponse } from "../helpers/format-user-response.helper";
 
 @Injectable()
 export class UserPointsService {
@@ -50,8 +52,17 @@ export class UserPointsService {
       .take(limit);
 
     const [items, totalItems] = await queryBuilder.getManyAndCount();
+    const dataUsersPoints = items.map( item => {
+      return {
+        ...item,
+        user: formatUserResponse(item.user),
+        membershipPlan: {
+          planName: item.membershipPlan.name,
+        },
+      }
+    });
     return PaginationHelper.createPaginatedResponse(
-      items,
+      dataUsersPoints,
       totalItems,
       paginationDto,
     );
@@ -97,7 +108,7 @@ export class UserPointsService {
       });
 
       return {
-        user,
+        user: formatUserResponse(user),
         transactions: PaginationHelper.createPaginatedResponse(
           items,
           totalItems,
@@ -140,7 +151,7 @@ export class UserPointsService {
             pointsTransactionsPaymentsDetails.length,
             paginationDto,
           ),
-          user,
+          user: formatUserResponse(user),
         }
       } catch (error) {
         this.logger.error(

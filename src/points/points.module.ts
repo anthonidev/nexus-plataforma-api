@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from 'src/user/user.module';
@@ -19,7 +19,7 @@ import { UserPointsService } from './services/user-points.service';
   imports: [
     TypeOrmModule.forFeature([PointsTransaction, UserPoints, WeeklyVolume, WeeklyVolumesHistory, PointsTransactionPayment]),
     EventEmitterModule.forRoot(),
-    UserModule,
+    forwardRef(() => UserModule),
   ],
   providers: [PointsService, PointsGateway, PointsEventsService, UserPointsService],
   exports: [PointsService, PointsEventsService, TypeOrmModule],

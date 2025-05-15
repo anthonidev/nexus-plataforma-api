@@ -41,8 +41,8 @@ import { TreeVolumeService } from './services/tree-volumen.service';
   ],
   imports: [
     TypeOrmModule.forFeature([PaymentConfig, PaymentImage, Payment]),
-    UserModule,
-    MembershipsModule,
+    forwardRef(() => UserModule),
+    forwardRef(() => MembershipsModule),
     PointsModule,
     RanksModule,
     NotificationsModule,
@@ -50,7 +50,6 @@ import { TreeVolumeService } from './services/tree-volumen.service';
 
   ],
   exports: [
-    PaymentsService,
     TypeOrmModule,
     FinancePaymentsService,
     FinancePaymentApprovalService,

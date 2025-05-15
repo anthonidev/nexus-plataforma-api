@@ -25,9 +25,9 @@ import { MembershipsModule } from 'src/memberships/memberships.module';
     forwardRef(() => PaymentsModule),
     EcommerceModule,
     CloudinaryModule,
-    UserModule,
+    forwardRef(() => UserModule),
     PointsModule,
-    MembershipsModule
+    forwardRef(() => MembershipsModule),
   ],
   controllers: [OrdersController, OrderCreationController],
   providers: [OrdersService, OrderCreationService],
