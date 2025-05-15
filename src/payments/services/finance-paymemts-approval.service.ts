@@ -90,6 +90,12 @@ export class FinancePaymentApprovalService {
       payment.banckName = approvePaymentDto.banckName;
       payment.dateOperation = new Date(approvePaymentDto.dateOperation);
       payment.numberTicket = approvePaymentDto.numberTicket;
+      payment.metadata = {
+        "Configuración de Pago": payment.paymentConfig.code,
+        "Estado del Pago": PaymentStatus.APPROVED,
+        "Monto": payment.amount,
+        "Descripción": `Pago aprobado el ${new Date().toLocaleDateString()} a las ${new Date().toLocaleTimeString()}`,
+      };
 
       await queryRunner.manager.save(payment);
 
@@ -282,7 +288,7 @@ export class FinancePaymentApprovalService {
         // Continue execution even if notification fails
       }
 
-      // await queryRunner.commitTransaction();
+      await queryRunner.commitTransaction();
 
       const response = this.operationPaymentResponse(
         reviewerId,

@@ -26,6 +26,7 @@ import {
 } from '../entities/membership_history.entity';
 import { UserPoints } from 'src/points/entities/user_points.entity';
 import { PointsTransaction, PointTransactionStatus, PointTransactionType } from 'src/points/entities/points_transactions.entity';
+import { TreeVolumeService } from 'src/payments/services/tree-volumen.service';
 
 @Injectable()
 export class ReconsumptionService {
@@ -52,6 +53,7 @@ export class ReconsumptionService {
     private readonly pointsTransactionRepository: Repository<PointsTransaction>,
     private readonly dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly treeVolumenService: TreeVolumeService,
   ) {}
 
   async createReconsumption(
@@ -191,10 +193,8 @@ export class ReconsumptionService {
         relatedEntityId: savedReconsumption.id,
         methodPayment: createDto.methodPayment, // Guardar el método de pago
         metadata: {
-          membershipId: membership.id,
-          planId: membership.plan.id,
-          planName: membership.plan.name,
-          reconsumptionId: savedReconsumption.id,
+            "Monto de pago": createDto.totalAmount,
+            "Concepto": "Reconsumo mensual",
         },
       });
       const savedPayment = await queryRunner.manager.save(payment);
@@ -256,9 +256,6 @@ export class ReconsumptionService {
             fileIndex: fileIndex,
           });
         }
-
-        membership.nextReconsumptionDate = periodDate;
-        await queryRunner.manager.save(membership);
 
         const membershipHistory = this.membershipHistoryRepository.create({
           membership: { id: membership.id },
@@ -339,10 +336,12 @@ export class ReconsumptionService {
         }
 
         savedPayment.status = PaymentStatus.APPROVED;
+        savedPayment.reviewedBy = user;
         savedPayment.metadata = {
           ...savedPayment.metadata,
           "Puntos utilizados": createDto.totalAmount,
         };
+        await queryRunner.manager.save(savedPayment);
 
         const pointsTransaction = this.pointsTransactionRepository.create({
           user: { id: userId },
@@ -364,6 +363,10 @@ export class ReconsumptionService {
 
         savedReconsumption.status = ReconsumptionStatus.ACTIVE;
 
+        // Actualizar fechas de inicio y fin de la membresía
+        const today = new Date();
+        membership.startDate = today;
+        membership.endDate = periodDate;
         membership.nextReconsumptionDate = periodDate;
         await queryRunner.manager.save(membership);
 
@@ -379,8 +382,15 @@ export class ReconsumptionService {
           },
         });
         await queryRunner.manager.save(membershipHistory);
+        
         await queryRunner.manager.save(savedReconsumption);
         await queryRunner.manager.save(savedPayment);
+
+        const { plan } = membership;
+        if (!plan) throw new NotFoundException(`Plan de membresía no encontrado`);
+
+        await this.treeVolumenService.processTreeVolumes(user, plan, queryRunner, savedPayment);
+        
       }
 
       await queryRunner.commitTransaction();
