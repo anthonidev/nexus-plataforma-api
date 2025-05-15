@@ -5,6 +5,7 @@ import { PaginationHelper } from 'src/common/helpers/pagination.helper';
 import { Withdrawal } from '../entities/withdrawal.entity';
 import { WithdrawalConfig } from '../entities/withdrawal-config.entity';
 import { FindWithdrawalsDto } from '../dto/find-withdrawals.dto';
+import { formatOneWithdrawalResponse } from '../helpers/format-one-withdrawal-response.helper';
 
 @Injectable()
 export class FinanceWithdrawalsService {
@@ -99,11 +100,11 @@ export class FinanceWithdrawalsService {
         'withdrawal.reviewedAt',
         'withdrawal.bankName',
         'withdrawal.accountNumber',
+        'withdrawal.metadata',
         'reviewer.id',
         'reviewer.email',
         'user.id',
         'user.email',
-        'user.referralCode',
         'personalInfo.firstName',
         'personalInfo.lastName',
         'personalInfo.documentNumber',
@@ -145,8 +146,9 @@ export class FinanceWithdrawalsService {
     }
   }
 
-  async findOneWithdrawal(id: number): Promise<Withdrawal> {
+  async findOneWithdrawal(id: number): Promise<any> {
     try {
+      const paginationDto = { page: 1, limit: 10 };
       const withdrawal = await this.withdrawalRepository.findOne({
         where: { id },
         relations: [
@@ -157,7 +159,6 @@ export class FinanceWithdrawalsService {
           'user.bankInfo',
           'withdrawalPoints',
           'withdrawalPoints.points',
-          'withdrawalPoints.points.withdrawalPoints',
         ],
       });
 
@@ -172,7 +173,15 @@ export class FinanceWithdrawalsService {
         delete withdrawal.reviewedBy.password;
       }
 
-      return withdrawal;
+      const formattedWithdrawal = formatOneWithdrawalResponse(withdrawal);
+      return {
+        ...formattedWithdrawal,
+        withdrawalPoints: PaginationHelper.createPaginatedResponse(
+          formattedWithdrawal.withdrawalPoints,
+          formattedWithdrawal.withdrawalPoints.length,
+          paginationDto,
+        ),
+      };
     } catch (error) {
       this.logger.error(`Error fetching withdrawal ${id}: ${error.message}`);
       throw error;

@@ -156,15 +156,17 @@ export class FinanceWithdrawalApprovalService {
       }
 
       // Actualizar el campo totalWithdrawnPoints en UserPoints
-      const userPoints = await this.userPointsRepository.findOne({
-        where: { user: { id: withdrawal.user.id } },
-      });
+      // const userPoints = await this.userPointsRepository.findOne({
+      //   where: { user: { id: withdrawal.user.id } },
+      // });
 
-      if (userPoints) {
-        userPoints.totalWithdrawnPoints =
-          Number(userPoints.totalWithdrawnPoints) + Number(withdrawal.amount);
-        await queryRunner.manager.save(userPoints);
-      }
+      // if (userPoints) {
+      //   userPoints.availablePoints =
+      //     Number(userPoints.availablePoints) - Number(withdrawal.amount);
+      //   userPoints.totalWithdrawnPoints =
+      //     Number(userPoints.totalWithdrawnPoints) + Number(withdrawal.amount);
+      //   await queryRunner.manager.save(userPoints);
+      // }
 
       await queryRunner.commitTransaction();
 
@@ -322,6 +324,8 @@ export class FinanceWithdrawalApprovalService {
       if (userPoints) {
         userPoints.availablePoints =
           Number(userPoints.availablePoints) + Number(withdrawal.amount);
+        userPoints.totalWithdrawnPoints =
+          Number(userPoints.totalWithdrawnPoints) - Number(withdrawal.amount);
         await queryRunner.manager.save(userPoints);
       }
 

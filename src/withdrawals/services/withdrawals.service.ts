@@ -106,8 +106,14 @@ export class WithdrawalsService {
         accountNumber: user.bankInfo.accountNumber,
         cci: user.bankInfo.cci,
         metadata: {
-          createdAt: new Date(),
-          availablePointsBefore: userPoints.availablePoints,
+          creadoEl: new Date(),
+          puntosDisponiblesAntesDelRetiro: userPoints.availablePoints,
+          puntosSolicitados: amount,
+          metodoPago: {
+            banco: user.bankInfo.bankName,
+            cuenta: user.bankInfo.accountNumber,
+            cci: user.bankInfo.cci,
+          },
         },
       });
 
@@ -130,8 +136,9 @@ export class WithdrawalsService {
         amount,
         status: PointTransactionStatus.PENDING,
         metadata: {
-          withdrawalId: savedWithdrawal.id,
-          withdrawalStatus: WithdrawalStatus.PENDING,
+          montoRetiro: amount,
+          puntosAntesDelRetiro: userPoints.availablePoints,
+          fechaSolicitud: new Date(),
         },
       });
       await queryRunner.manager.save(pointsTransaction);
@@ -189,7 +196,7 @@ export class WithdrawalsService {
 
       const queryBuilder = this.withdrawalRepository
         .createQueryBuilder('withdrawal')
-        .leftJoinAndSelect('withdrawal.reviewedBy', 'reviewer')
+        .leftJoin('withdrawal.reviewedBy', 'reviewer')
         .where('withdrawal.user.id = :userId', { userId });
 
       if (status) {

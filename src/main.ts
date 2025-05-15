@@ -11,7 +11,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: [envs.frontendUrl, 'http://localhost:3000'],
+    origin: [envs.frontendUrl, 'http://localhost:3000', 'http://app.hoppscotch'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
   });
