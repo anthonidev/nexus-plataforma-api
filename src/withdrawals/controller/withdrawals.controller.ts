@@ -6,11 +6,13 @@ import { FindWithdrawalsDto } from '../dto/find-withdrawals.dto';
 import { WithdrawalsService } from '../services/withdrawals.service';
 import { CreateWithdrawalDto } from '../dto/create-withdrawal.dto';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 
 @Controller('withdrawals')
 @UseGuards(JwtAuthGuard)
+@Roles('CLI')
 export class WithdrawalsController {
-  constructor(private readonly withdrawalsService: WithdrawalsService) {}
+  constructor(private readonly withdrawalsService: WithdrawalsService) { }
   @Post()
   @ApiOperation({ summary: 'Crear retiro' })
   @ApiResponse({ status: 200, description: 'Retiro creado' })

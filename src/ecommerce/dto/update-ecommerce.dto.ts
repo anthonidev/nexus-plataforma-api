@@ -30,6 +30,11 @@ export class UpdateProductDto {
   @Transform(({ value }) => value?.trim())
   description?: string;
 
+  @ApiProperty({ example: 'Colágeno Renew para la persona que no tiene un colágeno', type: String, required: false })
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  composition?: string;
+
   @ApiProperty({ example: 15.20, type: Number, required: false })
   @IsOptional()
   @IsNumber(

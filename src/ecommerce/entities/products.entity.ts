@@ -51,6 +51,11 @@ export class Product {
   @Transform(({ value }) => value?.trim())
   description: string;
 
+  @Column('text')
+  @IsOptional()
+  @Transform(({ value }) => value?.trim())
+  composition?: string;
+
   @Column({
     type: 'decimal',
     precision: 10,
