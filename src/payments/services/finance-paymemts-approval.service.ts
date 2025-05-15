@@ -139,7 +139,7 @@ export class FinancePaymentApprovalService {
         reviewerId,
         `Pago aprobado correctamente`,
         payment,
-        reviewer,
+        payment.user,
       );
     } catch (error) {
       await queryRunner.rollbackTransaction();
