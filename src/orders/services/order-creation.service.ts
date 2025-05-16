@@ -470,17 +470,18 @@ export class OrderCreationService {
         await queryRunner.connect();
         await queryRunner.startTransaction();
         try {
+
+            order.status = OrderStatus.SENT;
+            await queryRunner.manager.save(order);
+
             const orderHistory = this.orderHistoryRepository.create({
-                order: order,
+                order: { id: orderId },
                 action: OrderAction.SENT,
                 notes: 'Orden enviada',
                 performedBy: { id: userId },
             });
 
             await queryRunner.manager.save(orderHistory);
-
-            order.status = OrderStatus.SENT;
-            await queryRunner.manager.save(order);
 
             // ACTUALIZAR STOCK DE PRODUCTOS
             const orderDetails = order.orderDetails;
@@ -554,6 +555,10 @@ export class OrderCreationService {
         await queryRunner.connect();
         await queryRunner.startTransaction();
         try {
+
+            order.status = OrderStatus.DELIVERED;
+            await queryRunner.manager.save(order);
+
             const orderHistory = this.orderHistoryRepository.create({
                 order: order,
                 action: OrderAction.DELIVERED,
@@ -562,9 +567,6 @@ export class OrderCreationService {
             });
 
             await queryRunner.manager.save(orderHistory);
-
-            order.status = OrderStatus.DELIVERED;
-            await queryRunner.manager.save(order);
 
             await queryRunner.commitTransaction();
 
@@ -587,6 +589,4 @@ export class OrderCreationService {
             await queryRunner.release();
         }
     }
-
-
 }

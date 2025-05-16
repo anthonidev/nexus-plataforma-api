@@ -226,7 +226,10 @@ export class PointsService {
     if (!getWeeklyVolumeDetails)
       throw new NotFoundException(`Volumen semanal con ID ${id} no encontrada`);
     const { history, ...restData } = getWeeklyVolumeDetails;
-    const historyDetails = await this.paymentDetails(history);
+    const sortedHistory = history.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const historyDetails = await this.paymentDetails(sortedHistory);
     return {
       ...restData,
       weeklyVolumesHistory: PaginationHelper.createPaginatedResponse(
