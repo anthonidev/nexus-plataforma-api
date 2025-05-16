@@ -35,6 +35,7 @@ export class FinancePaymentApprovalService {
     @InjectRepository(MembershipHistory)
     private readonly membershipHistoryRepository: Repository<MembershipHistory>,
     @InjectRepository(UserPoints)
+    private readonly userPointsRepository: Repository<UserPoints>,
     @InjectRepository(MembershipUpgrade)
     private readonly membershipUpgradeRepository: Repository<MembershipUpgrade>,
     private readonly notificationFactory: NotificationFactory,
@@ -285,17 +286,19 @@ export class FinancePaymentApprovalService {
           `Error al enviar notificación de rechazo: ${notificationError.message}`,
           notificationError.stack,
         );
-        // Continue execution even if notification fails
       }
 
       await queryRunner.commitTransaction();
-
-      const response = this.operationPaymentResponse(
-        reviewerId,
+      console.log("reviewerId", reviewerId);
+      console.log("payment", payment);
+      console.log("reviewer", reviewer);
+      const response = await this.operationPaymentResponse(
+        payment.user.id,
         `Pago rechazado correctamente`,
         payment,
         reviewer,
       );
+      console.log("RESPONSE", response);
       return {
         ...response,
         rejectionReason: payment.rejectionReason,
@@ -335,8 +338,8 @@ export class FinancePaymentApprovalService {
 
       if (!payment) throw new NotFoundException(`Pago con ID ${paymentId} no encontrado`);
 
-      if (payment.status !== PaymentStatus.APPROVED)
-        throw new BadRequestException(`El pago tiene que estar aprobado previamente`);
+      // if (payment.status !== PaymentStatus.APPROVED)
+      //   throw new BadRequestException(`El pago tiene que estar aprobado previamente`);
 
       const reviewer = await this.userRepository.findOne({
         where: { id: reviewerId },
@@ -354,13 +357,18 @@ export class FinancePaymentApprovalService {
       await queryRunner.manager.save(payment);
 
       await queryRunner.commitTransaction();
+      console.log("reviewerId", reviewerId);
+      console.log("payment", payment);
+      console.log("reviewer", reviewer);
 
-      return this.operationPaymentResponse(
+      const message = await this.operationPaymentResponse(
         reviewerId,
         `Pago completado correctamente`,
         payment,
         reviewer,
       );
+      console.log("MESSAGE", message);
+      return message;
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(`Error al aprobar pago: ${error.message}`, error.stack);
@@ -380,6 +388,7 @@ export class FinancePaymentApprovalService {
       where: { id: userId },
       relations: ['personalInfo', 'contactInfo'],
     });
+    console.log("user", user);
     return {
       success: true,
       message,

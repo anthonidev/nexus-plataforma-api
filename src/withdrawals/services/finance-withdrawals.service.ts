@@ -16,7 +16,7 @@ export class FinanceWithdrawalsService {
     private readonly withdrawalRepository: Repository<Withdrawal>,
     @InjectRepository(WithdrawalConfig)
     private readonly withdrawalConfigRepository: Repository<WithdrawalConfig>,
-  ) {}
+  ) { }
 
   async findAllWithdrawals(filters: FindWithdrawalsDto) {
     try {
@@ -28,7 +28,7 @@ export class FinanceWithdrawalsService {
         status,
         order = 'DESC',
         name,
-        documentNumber, 
+        documentNumber,
         email,
       } = filters;
 

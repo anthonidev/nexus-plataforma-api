@@ -37,7 +37,7 @@ export class FinanceWithdrawalApprovalService {
     @InjectRepository(WithdrawalPoints)
     private readonly withdrawalPointsRepository: Repository<WithdrawalPoints>,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async approveWithdrawal(
     withdrawalId: number,
@@ -277,10 +277,9 @@ export class FinanceWithdrawalApprovalService {
         pointsTransaction.status = PointTransactionStatus.CANCELLED;
         pointsTransaction.metadata = {
           ...pointsTransaction.metadata,
-          withdrawalStatus: WithdrawalStatus.REJECTED,
-          rejectedAt: new Date(),
-          rejectedBy: reviewerId,
-          rejectionReason: rejectWithdrawalDto.rejectionReason,
+          "Estado de Retiro": "Cancelado",
+          "Motivo de Rechazo": rejectWithdrawalDto.rejectionReason,
+
         };
 
         await queryRunner.manager.save(pointsTransaction);
@@ -301,11 +300,8 @@ export class FinanceWithdrawalApprovalService {
           transaction.status = PointTransactionStatus.CANCELLED;
           transaction.metadata = {
             ...transaction.metadata,
-            withdrawalId: withdrawalId.toString(),
-            withdrawalStatus: WithdrawalStatus.REJECTED,
-            rejectedAt: new Date(),
-            rejectedBy: reviewerId,
-            rejectionReason: rejectWithdrawalDto.rejectionReason,
+            "Estado de Retiro": "Cancelado",
+            "Motivo de Rechazo": rejectWithdrawalDto.rejectionReason,
           };
 
           await queryRunner.manager.save(transaction);

@@ -5,7 +5,9 @@ export const formatOneWithdrawalResponse = (withdrawal) => {
     status: withdrawal.status,
     createdAt: withdrawal.createdAt,
     metadata: withdrawal.metadata,
-
+    bankName: withdrawal.bankName,
+    accountNumber: withdrawal.accountNumber,
+    cci: withdrawal.cci,
     user: {
       id: withdrawal.user.id,
       email: withdrawal.user.email,
@@ -14,20 +16,21 @@ export const formatOneWithdrawalResponse = (withdrawal) => {
         lastName: withdrawal.user.personalInfo?.lastName,
         documentNumber: withdrawal.user.personalInfo?.documentNumber,
       },
+      bankInfo: {
+        bankName: withdrawal.bankName,
+        accountNumber: withdrawal.accountNumber,
+        cci: withdrawal.cci,
+      },
     },
 
     reviewedBy: withdrawal.reviewedBy
       ? {
-          id: withdrawal.reviewedBy.id,
-          email: withdrawal.reviewedBy.email,
-        }
+        id: withdrawal.reviewedBy.id,
+        email: withdrawal.reviewedBy.email,
+      }
       : null,
 
-    bankInfo: {
-      bankName: withdrawal.bankName,
-      accountNumber: withdrawal.accountNumber,
-      cci: withdrawal.cci,
-    },
+
     withdrawalPoints: withdrawal.withdrawalPoints.map((wp) => {
       return {
         id: wp.id,
@@ -38,6 +41,10 @@ export const formatOneWithdrawalResponse = (withdrawal) => {
           amount: wp.points.amount,
           withdrawnAmount: wp.points.withdrawnAmount,
           pendingAmount: wp.points.pendingAmount,
+          status: wp.points.status,
+          metadata: wp.points.metadata,
+          createdAt: wp.points.createdAt,
+          isArchived: wp.points.isArchived,
         },
       };
     }),

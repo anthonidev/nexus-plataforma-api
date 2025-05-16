@@ -88,7 +88,6 @@ export class ReconsumptionService {
         const minimumReconsumptionAmount = membership.minimumReconsumptionAmount;
         await this.treeVolumeService.processTreeVolumesReConsumption(
             user,
-            plan,
             minimumReconsumptionAmount,
             queryRunner,
             payment

@@ -54,7 +54,7 @@ export class ReconsumptionService {
     private readonly dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
     private readonly treeVolumenService: TreeVolumeService,
-  ) {}
+  ) { }
 
   async createReconsumption(
     userId: string,
@@ -166,7 +166,7 @@ export class ReconsumptionService {
           );
         }
 
-    // No necesitas validar files ni createDto.payments aquí
+        // No necesitas validar files ni createDto.payments aquí
       } else {
         throw new BadRequestException('Método de pago no soportado');
       }
@@ -193,8 +193,8 @@ export class ReconsumptionService {
         relatedEntityId: savedReconsumption.id,
         methodPayment: createDto.methodPayment, // Guardar el método de pago
         metadata: {
-            "Monto de pago": createDto.totalAmount,
-            "Concepto": "Reconsumo mensual",
+          "Monto de pago": createDto.totalAmount,
+          "Concepto": "Reconsumo mensual",
         },
       });
       const savedPayment = await queryRunner.manager.save(payment);
@@ -393,15 +393,20 @@ export class ReconsumptionService {
           },
         });
         await queryRunner.manager.save(membershipHistory);
-        
+
         await queryRunner.manager.save(savedReconsumption);
         await queryRunner.manager.save(savedPayment);
 
         const { plan } = membership;
         if (!plan) throw new NotFoundException(`Plan de membresía no encontrado`);
 
-        await this.treeVolumenService.processTreeVolumes(user, plan, queryRunner, savedPayment);
-        
+        await this.treeVolumenService.processTreeVolumesReConsumption(
+          user,
+          createDto.totalAmount,
+          queryRunner,
+          savedPayment,
+        )
+
       }
 
       await queryRunner.commitTransaction();
@@ -434,19 +439,19 @@ export class ReconsumptionService {
     } finally {
       await queryRunner.release();
     }
-  } 
+  }
 
   async updateAutoRenewal(userId: string, updateDto: UpdateAutoRenewalDto) {
     try {
       const membership = await this.membershipRepository.findOne({
-      where: {
-        user: { id: userId },
-        status: MembershipStatus.ACTIVE,
-      },
+        where: {
+          user: { id: userId },
+          status: MembershipStatus.ACTIVE,
+        },
       });
 
       if (!membership) {
-      throw new NotFoundException('No se encontró una membresía activa');
+        throw new NotFoundException('No se encontró una membresía activa');
       }
 
       // Actualizar el valor de autoRenewal
@@ -455,29 +460,29 @@ export class ReconsumptionService {
 
       // Registrar en el historial
       const membershipHistory = this.membershipHistoryRepository.create({
-      membership: { id: membership.id },
-      action: MembershipAction.STATUS_CHANGED,
-      notes: `Auto renovación ${updateDto.autoRenewal ? 'activada' : 'desactivada'}`,
-      changes: {
-        field: 'autoRenewal',
-        oldValue: !updateDto.autoRenewal,
-        newValue: updateDto.autoRenewal,
-      },
+        membership: { id: membership.id },
+        action: MembershipAction.STATUS_CHANGED,
+        notes: `Auto renovación ${updateDto.autoRenewal ? 'activada' : 'desactivada'}`,
+        changes: {
+          field: 'autoRenewal',
+          oldValue: !updateDto.autoRenewal,
+          newValue: updateDto.autoRenewal,
+        },
       });
 
       await this.membershipHistoryRepository.save(membershipHistory);
 
       return {
-      success: true,
-      message: `Auto renovación ${updateDto.autoRenewal ? 'activada' : 'desactivada'} exitosamente`,
-      membership: {
-        id: membership.id,
-        autoRenewal: membership.autoRenewal,
-      },
+        success: true,
+        message: `Auto renovación ${updateDto.autoRenewal ? 'activada' : 'desactivada'} exitosamente`,
+        membership: {
+          id: membership.id,
+          autoRenewal: membership.autoRenewal,
+        },
       };
     } catch (error) {
       this.logger.error(
-      `Error al actualizar auto renovación: ${error.message}`,
+        `Error al actualizar auto renovación: ${error.message}`,
       );
       throw error;
     }

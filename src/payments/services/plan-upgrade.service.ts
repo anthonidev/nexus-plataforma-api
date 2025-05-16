@@ -31,6 +31,7 @@ export class PlanUpgradeService {
         private readonly rankRepository: Repository<Rank>,
         @InjectRepository(UserRank)
         private readonly userRankRepository: Repository<UserRank>,
+
         private readonly directBonusService: DirectBonusService,
         private readonly treeVolumeService: TreeVolumeService,
         private readonly notificationFactory: NotificationFactory

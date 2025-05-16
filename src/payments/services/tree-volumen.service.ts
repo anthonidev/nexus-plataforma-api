@@ -225,7 +225,6 @@ export class TreeVolumeService {
 
     async processTreeVolumesReConsumption(
         user: User,
-        plan: MembershipPlan,
         reconsumptionAmount: number,
         queryRunner: any,
         payment: Payment,

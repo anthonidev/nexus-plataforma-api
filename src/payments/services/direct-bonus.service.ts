@@ -242,6 +242,7 @@ export class DirectBonusService {
                     'Comisión directa': referrerPlan.directCommissionAmount,
                 },
             });
+            await queryRunner.manager.save(pointsTransaction); //faltaba agregar esto
             const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
                 pointsTransaction: { id: pointsTransaction.id },
                 payment: payment,

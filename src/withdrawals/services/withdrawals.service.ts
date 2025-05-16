@@ -38,7 +38,7 @@ export class WithdrawalsService {
     @InjectRepository(WithdrawalPoints)
     private readonly withdrawalPointsRepository: Repository<WithdrawalPoints>,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async createWithdrawal(
     userId: string,
@@ -63,7 +63,7 @@ export class WithdrawalsService {
       const user = await this.isValidBankInfo(userId);
 
       // Seleccionar los puntos de transaccion usados para el retiro
-      const eligiblePointsTransactions  = await this.pointsTransactionRepository.find({
+      const eligiblePointsTransactions = await this.pointsTransactionRepository.find({
         where: {
           user: { id: userId },
           type: In([PointTransactionType.BINARY_COMMISSION, PointTransactionType.DIRECT_BONUS]),
@@ -79,7 +79,7 @@ export class WithdrawalsService {
       let totalWithdrawnFromTransactions = 0;
 
       for (const transaction of eligiblePointsTransactions) {
-        const availableAmountInTransaction = 
+        const availableAmountInTransaction =
           transaction.amount - (transaction.pendingAmount || 0) - (transaction.withdrawnAmount || 0);
         if (availableAmountInTransaction <= 0) continue; // Saltar a la siguiente iteración del bucle
         if (remainingAmountToWithdraw <= 0) break; // Ya se alcanzó el monto a retirar
@@ -106,14 +106,10 @@ export class WithdrawalsService {
         accountNumber: user.bankInfo.accountNumber,
         cci: user.bankInfo.cci,
         metadata: {
-          creadoEl: new Date(),
-          puntosDisponiblesAntesDelRetiro: userPoints.availablePoints,
-          puntosSolicitados: amount,
-          metodoPago: {
-            banco: user.bankInfo.bankName,
-            cuenta: user.bankInfo.accountNumber,
-            cci: user.bankInfo.cci,
-          },
+          "Creado el": new Date(),
+          "Monto solicitado": amount,
+          "Puntos disponibles": userPoints.availablePoints,
+
         },
       });
 
@@ -136,9 +132,9 @@ export class WithdrawalsService {
         amount,
         status: PointTransactionStatus.PENDING,
         metadata: {
-          montoRetiro: amount,
-          puntosAntesDelRetiro: userPoints.availablePoints,
-          fechaSolicitud: new Date(),
+          "Monto solicitado": amount,
+          "Puntos disponibles": userPoints.availablePoints,
+          "Fecha de solicitud": new Date(),
         },
       });
       await queryRunner.manager.save(pointsTransaction);
@@ -321,7 +317,6 @@ export class WithdrawalsService {
           message: 'Debes completar tu información de facturación',
         });
       } else {
-        console.log(user.billingInfo);
         if (!user.billingInfo.address) {
           missingInfo.push({
             field: 'billingAddress',
@@ -425,25 +420,25 @@ export class WithdrawalsService {
   private async isValidWithdrawalInfo(userId: string) {
     const withdrawalInfo = await this.getWithdrawalInfo(userId);
     if (!withdrawalInfo.canWithdraw)
-        throw new BadRequestException(withdrawalInfo.reason);
+      throw new BadRequestException(withdrawalInfo.reason);
 
     if (withdrawalInfo.missingInfo && withdrawalInfo.missingInfo.length > 0)
       throw new BadRequestException(
         'Falta información necesaria para realizar retiros: ' +
-          withdrawalInfo.missingInfo.map((info) => info.message).join(', '),
+        withdrawalInfo.missingInfo.map((info) => info.message).join(', '),
       );
     return withdrawalInfo;
   }
 
   private async isValidUserPoints(userId: string) {
     const userPoints = await this.userPointsRepository.findOne({
-        where: { user: { id: userId } },
-      });
+      where: { user: { id: userId } },
+    });
 
-      if (!userPoints) {
-        throw new BadRequestException('No tienes puntos registrados');
-      }
-      return userPoints;
+    if (!userPoints) {
+      throw new BadRequestException('No tienes puntos registrados');
+    }
+    return userPoints;
   }
 
   private isValidLimits(amount: number, withdrawalInfo: any) {
@@ -475,5 +470,5 @@ export class WithdrawalsService {
         'No tienes información bancaria registrada',
       );
     return user;
-  } 
+  }
 }
