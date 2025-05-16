@@ -23,6 +23,7 @@ export class ProductService {
   async findAll(findProductsDto: FindProductsDto) {
     try {
       const products = await this.findAllProducts(findProductsDto);
+
       const { items, totalItems } = products;
 
       const formattedItems = items.map(product => {
@@ -216,7 +217,7 @@ export class ProductService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('product.images', 'images')
-      .orderBy('product.createdAt', order);
+    // .orderBy('product.createdAt', order); // esta linea da error porque no existe el campo createdAt en la entidad Product
 
     if (name)
       queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:name)', {

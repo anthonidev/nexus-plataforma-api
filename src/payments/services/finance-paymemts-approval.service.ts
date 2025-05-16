@@ -289,16 +289,13 @@ export class FinancePaymentApprovalService {
       }
 
       await queryRunner.commitTransaction();
-      console.log("reviewerId", reviewerId);
-      console.log("payment", payment);
-      console.log("reviewer", reviewer);
+
       const response = await this.operationPaymentResponse(
         payment.user.id,
         `Pago rechazado correctamente`,
         payment,
         reviewer,
       );
-      console.log("RESPONSE", response);
       return {
         ...response,
         rejectionReason: payment.rejectionReason,
@@ -357,9 +354,7 @@ export class FinancePaymentApprovalService {
       await queryRunner.manager.save(payment);
 
       await queryRunner.commitTransaction();
-      console.log("reviewerId", reviewerId);
-      console.log("payment", payment);
-      console.log("reviewer", reviewer);
+
 
       const message = await this.operationPaymentResponse(
         reviewerId,
@@ -367,7 +362,6 @@ export class FinancePaymentApprovalService {
         payment,
         reviewer,
       );
-      console.log("MESSAGE", message);
       return message;
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -388,7 +382,6 @@ export class FinancePaymentApprovalService {
       where: { id: userId },
       relations: ['personalInfo', 'contactInfo'],
     });
-    console.log("user", user);
     return {
       success: true,
       message,

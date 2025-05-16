@@ -302,7 +302,6 @@ export class OrderCreationService {
                     order: { createdAt: 'ASC' },
                 });
 
-                console.log('Transacciones de puntos disponibles:', availableTransactions);
 
                 // Verificar si hay suficientes puntos disponibles
                 const totalAvailablePoints = availableTransactions.reduce(
@@ -412,7 +411,7 @@ export class OrderCreationService {
                 const { plan } = membership;
                 if (!plan) throw new NotFoundException(`Plan de membresía no encontrado`);
                 await this.treeVolumenService.processTreeVolumes(user, plan, queryRunner, savedPayment);
-                
+
             }
 
             await queryRunner.commitTransaction();
@@ -487,7 +486,6 @@ export class OrderCreationService {
             const orderDetails = order.orderDetails;
             for (const detail of orderDetails) {
                 const product = detail.product;
-                console.log(detail.quantity);
                 const quantityToSubtract = detail.quantity;
 
                 if (!product)
@@ -499,7 +497,6 @@ export class OrderCreationService {
                 if (product.stock < quantityToSubtract)
                     throw new BadRequestException(`Stock insuficiente para el producto ${product.name}`);
 
-                console.log(quantityToSubtract);
                 // AGREGAR UN REGISTRO DE HISTORIAL DE STOCK DEL PRODUCTO
                 const productHistory = this.productStockHistoryRepository.create({
                     product: product,
@@ -508,7 +505,7 @@ export class OrderCreationService {
                     newQuantity: product.stock - quantityToSubtract,
                     quantityChanged: quantityToSubtract,
                     notes: 'Producto actualizado',
-                }); 
+                });
                 await queryRunner.manager.save(productHistory);
 
                 product.stock -= quantityToSubtract;
