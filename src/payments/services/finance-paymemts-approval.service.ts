@@ -136,10 +136,10 @@ export class FinancePaymentApprovalService {
       await queryRunner.commitTransaction();
 
       return this.operationPaymentResponse(
-        reviewerId,
+        payment.user.id,
         `Pago aprobado correctamente`,
         payment,
-        payment.user,
+        reviewer,
       );
     } catch (error) {
       await queryRunner.rollbackTransaction();

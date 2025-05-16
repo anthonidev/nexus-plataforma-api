@@ -90,6 +90,9 @@ export class OrdersService {
         .addSelect(['user.id', 'user.email'])
         .leftJoin('user.personalInfo', 'personalInfo')
         .addSelect(['personalInfo.firstName', 'personalInfo.lastName']);
+
+    if (status)
+      queryBuilder.andWhere('order.status = :status', { status });
       
     if (term)
       queryBuilder.andWhere(
@@ -109,9 +112,6 @@ export class OrdersService {
       queryBuilder.andWhere('order.createdAt >= :startDate', {
         startDate: new Date(startDate),
       });
-
-    if (status)
-      queryBuilder.andWhere('order.status = :status', { status });
 
     const [items, totalItems] = await queryBuilder.getManyAndCount();
     const paginatedResult = PaginationHelper.createPaginatedResponse(

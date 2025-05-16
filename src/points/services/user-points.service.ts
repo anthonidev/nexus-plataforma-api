@@ -9,8 +9,6 @@ import { FindPointsTransactionDto } from "../dto/find-weekly-volume.dto";
 import { PointsTransaction } from "../entities/points_transactions.entity";
 import { User } from "src/user/entities/user.entity";
 import { PointsTransactionPayment } from "../entities/points-transactions-payments.entity";
-import { format } from "path";
-import { formatUserResponse } from "../helpers/format-user-response.helper";
 
 @Injectable()
 export class UserPointsService {
@@ -55,7 +53,7 @@ export class UserPointsService {
     const dataUsersPoints = items.map( item => {
       return {
         ...item,
-        user: formatUserResponse(item.user),
+        user: this.formatUserResponse(item.user),
         membershipPlan: {
           planName: item.membershipPlan.name,
         },
@@ -108,7 +106,7 @@ export class UserPointsService {
       });
 
       return {
-        user: formatUserResponse(user),
+        user: this.formatUserResponse(user),
         transactions: PaginationHelper.createPaginatedResponse(
           items,
           totalItems,
@@ -151,7 +149,7 @@ export class UserPointsService {
             pointsTransactionsPaymentsDetails.length,
             paginationDto,
           ),
-          user: formatUserResponse(user),
+          user: this.formatUserResponse(user),
         }
       } catch (error) {
         this.logger.error(
@@ -162,23 +160,35 @@ export class UserPointsService {
   }
 
   private async paymentDetails(
-      entity: PointsTransactionPayment[]
-    ) {
-      return entity.map(item => {
-        const { payment, ...restData } = item;
-        return {
-          ...restData,
-          payment: {
-            id: payment.id,
-            amount: payment.amount,
-            methodPayment: payment.methodPayment,
-            codeOperation: payment.codeOperation,
-            banckName: payment.banckName,
-            dateOperation: payment.dateOperation,
-            numberTicket: payment.numberTicket,
-            status: payment.status, 
-          },
-        };
-      });
-    }
+    entity: PointsTransactionPayment[]
+  ) {
+    return entity.map(item => {
+      const { payment, ...restData } = item;
+      return {
+        ...restData,
+        payment: {
+          id: payment.id,
+          amount: payment.amount,
+          methodPayment: payment.methodPayment,
+          codeOperation: payment.codeOperation,
+          banckName: payment.banckName,
+          dateOperation: payment.dateOperation,
+          numberTicket: payment.numberTicket,
+          status: payment.status, 
+        },
+      };
+    });
+  }
+
+  private formatUserResponse = (user: any) => {
+    return {
+      id: user.id,
+      email: user.email,
+      personalInfo: {
+        firstName: user.personalInfo.firstName,
+        lastName: user.personalInfo.lastName,
+        documentNumber: user.personalInfo.documentNumber,
+      },
+    };
+  };
 }
