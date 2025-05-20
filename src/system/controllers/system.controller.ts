@@ -3,10 +3,15 @@ import { DirectActivationDto } from '../dto/direct-activation.dto';
 import { SystemService } from '../services/system.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { UpdatePasswordDto } from '../dto/update-password.dto';
+import { AddPointsDto } from '../dto/add-points.dto';
+import { AddPointsService } from '../services/add-points.service';
 
 @Controller('system')
 export class SystemController {
-  constructor(private readonly systemService: SystemService) {}
+  constructor(
+    private readonly systemService: SystemService,
+    private readonly addPointsService: AddPointsService
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Activar usuario con plan' })
@@ -33,5 +38,11 @@ export class SystemController {
   @ApiResponse({ status: 200, description: 'Contraseña actualizada con éxito' })
   updatePassword(@Body() updatePasswordDto: UpdatePasswordDto) {
     return this.systemService.updatePasswordInternal(updatePasswordDto);
+  }
+  @Post('add-points')
+  @ApiOperation({ summary: 'Agregar puntos a un usuario' })
+  @ApiResponse({ status: 200, description: 'Puntos agregados con éxito' })
+  addPoints(@Body() addPointsDto: AddPointsDto) {
+    return this.addPointsService.addPoints(addPointsDto);
   }
 }
