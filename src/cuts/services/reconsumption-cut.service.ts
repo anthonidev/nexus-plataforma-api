@@ -82,7 +82,7 @@ export class ReconsumptionCutService {
       this.logger.log('Iniciando procesamiento de reconsumiciones automáticas');
 
       const today = new Date();
-      today.setHours(23, 59, 59, 999);
+      today.setHours(0, 0, 0, 0);
 
       const graceDate = new Date(today);
       graceDate.setDate(graceDate.getDate() - 5);
@@ -95,13 +95,7 @@ export class ReconsumptionCutService {
         .where('membership.status = :status', {
           status: MembershipStatus.ACTIVE,
         })
-        .andWhere(
-          '(membership.endDate <= :today OR membership.endDate <= :graceDate)',
-          {
-            today,
-            graceDate,
-          },
-        )
+        .andWhere('membership.endDate <= :today', { today })
         .getMany();
 
       this.logger.log(
@@ -117,16 +111,14 @@ export class ReconsumptionCutService {
 
       for (const membership of memberships) {
         try {
-          const isEndDate = this.isSameDate(membership.endDate, today);
-          const isGraceExpired = this.isSameDate(membership.endDate, graceDate);
-          console.log(
-            `Procesando membresía ${membership.id} - Fecha de fin: ${membership.endDate} - Hoy: ${today} - Fecha de gracia: ${graceDate}`,
+          const endDate = new Date(membership.endDate);
+          endDate.setHours(0, 0, 0, 0);
+
+          const daysSinceExpiration = Math.floor(
+            (today.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24),
           );
 
-          if (isEndDate) {
-            console.log(
-              `Membresía ${membership.id} está en fecha de fin: ${membership.endDate}`,
-            );
+          if (daysSinceExpiration === 0) {
             const orderResult = await this.evaluateOrderReconsumption(
               membership,
               queryRunner,
@@ -154,18 +146,12 @@ export class ReconsumptionCutService {
             }
 
             processed++;
-          } else if (isGraceExpired) {
-            console.log(
-              `Membresía ${membership.id} ha expirado después del período de gracia: ${membership.endDate}`,
-            );
+          } else if (daysSinceExpiration >= 5) {
             await this.expireMembership(membership, queryRunner);
             expired++;
             successful++;
             processed++;
           } else {
-            console.log(
-              `Membresía ${membership.id} no requiere acción: Fecha de fin: ${membership.endDate}`,
-            );
             processed++;
             continue;
           }
@@ -190,8 +176,6 @@ export class ReconsumptionCutService {
       };
 
       this.logger.log(`Procesamiento completado: ${JSON.stringify(results)}`);
-
-      //   await this.sendReconsumptionReport(results);
 
       return results;
     } catch (error) {
@@ -503,17 +487,6 @@ export class ReconsumptionCutService {
     });
 
     await queryRunner.manager.save(membershipHistory);
-  }
-
-  private isSameDate(date1: Date | string, date2: Date | string): boolean {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
-
-    return (
-      d1.getFullYear() === d2.getFullYear() &&
-      d1.getMonth() === d2.getMonth() &&
-      d1.getDate() === d2.getDate()
-    );
   }
 
   private async sendReconsumptionReport(reportData: {
