@@ -43,7 +43,6 @@ export enum MethodPayment {
   PAYMENT_GATEWAY = 'PAYMENT_GATEWAY',
 }
 
-
 @Entity('payments')
 @Index(['user', 'paymentConfig'])
 @Index(['status', 'createdAt'])
@@ -87,9 +86,7 @@ export class Payment {
   })
   status: PaymentStatus;
 
-  @Column(
-    { default: MethodPayment.VOUCHER },
-  )
+  @Column({ default: MethodPayment.VOUCHER })
   @IsEnum(MethodPayment, {
     message: 'El método de pago debe ser VOUCHER, POINTS o PAYMENT_GATEWAY',
   })
@@ -141,7 +138,7 @@ export class Payment {
 
   @OneToMany(
     () => WeeklyVolumesHistory,
-    (weeklyVolumesHistory) => weeklyVolumesHistory.payment
+    (weeklyVolumesHistory) => weeklyVolumesHistory.payment,
   )
   weeklyVolumesHistory: WeeklyVolumesHistory[];
 
@@ -164,8 +161,9 @@ export class Payment {
   @IsNumber()
   relatedEntityId: number;
 
-  @OneToMany(() => PointsTransactionPayment,
-    (pointsTransactionPayment) => pointsTransactionPayment.payment
+  @OneToMany(
+    () => PointsTransactionPayment,
+    (pointsTransactionPayment) => pointsTransactionPayment.payment,
   )
   pointsTransactionsPayments: PointsTransactionPayment[];
 

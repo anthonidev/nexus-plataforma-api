@@ -5,6 +5,7 @@ import {
   Membership,
   MembershipStatus,
 } from 'src/memberships/entities/membership.entity';
+import { Payment } from 'src/payments/entities/payment.entity';
 import { PointsTransactionPayment } from 'src/points/entities/points-transactions-payments.entity';
 import {
   PointsTransaction,
@@ -48,11 +49,13 @@ export class WeeklyVolumeService {
     private readonly pointsTransactionPaymentRepository: Repository<PointsTransactionPayment>,
     @InjectRepository(Membership)
     private readonly membershipRepository: Repository<Membership>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
     private readonly mailService: MailService,
-  ) { }
+  ) {}
 
   async processWeeklyVolumes(): Promise<{
     processed: number;
@@ -177,7 +180,6 @@ export class WeeklyVolumeService {
 
             await queryRunner.manager.save(volume);
 
-
             let carryOverVolume = volume.leftVolume + volume.rightVolume;
 
             const existingNextWeekVolume =
@@ -203,7 +205,7 @@ export class WeeklyVolumeService {
                 'Procesado en': new Date().toISOString().split('T')[0],
                 'Volumen izquierdo': existingNextWeekVolume.leftVolume,
                 'Volumen derecho': existingNextWeekVolume.rightVolume,
-                "Volumen transferido": carryOverVolume,
+                'Volumen transferido': carryOverVolume,
               };
 
               await queryRunner.manager.save(existingNextWeekVolume);
@@ -223,7 +225,7 @@ export class WeeklyVolumeService {
                   'Procesado en': new Date().toISOString().split('T')[0],
                   'Volumen izquierdo': volume.leftVolume,
                   'Volumen derecho': volume.rightVolume,
-                  "Volumen transferido": carryOverVolume,
+                  'Volumen transferido': carryOverVolume,
                 },
               });
 
@@ -336,29 +338,43 @@ export class WeeklyVolumeService {
             'Volumen derecho': volume.rightVolume,
             'Comisión procesada': pointsToAdd,
           };
+          console.log('Volumen ID:', volume.id);
+          console.log('Volumen Seleccionado:', volume.selectedSide);
+          console.log('lowerSide:', lowerSide);
 
+          const volumeHistorySelect =
+            await this.weeklyVolumesHistoryRepository.find({
+              where: {
+                selectedSide: lowerSide,
+                weeklyVolumes: { id: volume.id },
+              },
+              select: {
+                id: true,
+                payment: { id: true },
+              },
+              relations: ['payment'],
+            });
 
-          const volumeHistorySelect = await this.weeklyVolumesHistoryRepository.find({
-            where: {
-              selectedSide: volume.selectedSide,
-              weeklyVolumes: { id: volume.id },
-
-            },
-          });
+          console.log('Volume History Select:', volumeHistorySelect);
           await queryRunner.manager.save(pointsTransaction);
 
           if (volumeHistorySelect.length > 0) {
+            console.log(
+              'Procesando historial de volúmenes:',
+              volumeHistorySelect.length,
+            );
             for (const history of volumeHistorySelect) {
+              console.log('Procesando historial de volumen:', history.id);
               if (history.payment) {
-                const pointsTransactionPayment = this.pointsTransactionPaymentRepository.create({
-                  pointsTransaction: pointsTransaction,
-                  payment: history.payment,
-                });
+                const pointsTransactionPayment =
+                  this.pointsTransactionPaymentRepository.create({
+                    pointsTransaction: pointsTransaction,
+                    payment: { id: history.payment.id },
+                  });
                 await queryRunner.manager.save(pointsTransactionPayment);
               }
             }
           }
-
 
           const carryOverVolume = Math.max(0, higherVolume - lowerVolume);
 
@@ -480,13 +496,15 @@ export class WeeklyVolumeService {
 
       const subject = `Reporte de Comisiones Binarias: ${formattedStartDate} al ${formattedEndDate}`;
 
-      const successRate = reportData.processed > 0
-        ? ((reportData.successful / reportData.processed) * 100).toFixed(2)
-        : 0;
+      const successRate =
+        reportData.processed > 0
+          ? ((reportData.successful / reportData.processed) * 100).toFixed(2)
+          : 0;
 
-      const avgPointsPerUser = reportData.successful > 0
-        ? (reportData.totalPoints / reportData.successful).toFixed(2)
-        : 0;
+      const avgPointsPerUser =
+        reportData.successful > 0
+          ? (reportData.totalPoints / reportData.successful).toFixed(2)
+          : 0;
 
       const html = `
         <!DOCTYPE html>
@@ -551,7 +569,9 @@ export class WeeklyVolumeService {
                   </tr>
                 </table>
   
-                ${weeklyStats ? `
+                ${
+                  weeklyStats
+                    ? `
                 <h2 style="color: #0a8043; font-size: 18px; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
                   Métricas Semanales
                 </h2>
@@ -577,9 +597,13 @@ export class WeeklyVolumeService {
                     </td>
                   </tr>
                 </table>
-                ` : ''}
+                `
+                    : ''
+                }
   
-                ${topEarners.length > 0 ? `
+                ${
+                  topEarners.length > 0
+                    ? `
                 <h2 style="color: #0a8043; font-size: 18px; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
                   Top ${topEarners.length} Comisiones
                 </h2>
@@ -590,16 +614,22 @@ export class WeeklyVolumeService {
                     <th style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">Volumen Izq.</th>
                     <th style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">Volumen Der.</th>
                   </tr>
-                  ${topEarners.map((earner, index) => `
+                  ${topEarners
+                    .map(
+                      (earner, index) => `
                   <tr style="background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
                     <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">${earner.user}</td>
                     <td style="text-align: right; padding: 10px; border-bottom: 1px solid #dee2e6; font-weight: bold;">${earner.points.toFixed(2)}</td>
                     <td style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">${earner.leftVolume.toFixed(2)}</td>
                     <td style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">${earner.rightVolume.toFixed(2)}</td>
                   </tr>
-                  `).join('')}
+                  `,
+                    )
+                    .join('')}
                 </table>
-                ` : ''}
+                `
+                    : ''
+                }
                 
                 <h2 style="color: #0a8043; font-size: 18px; margin: 25px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
                   Detalles del Procesamiento
@@ -670,8 +700,15 @@ export class WeeklyVolumeService {
   private async getTopEarnersForWeek(
     startDate: Date,
     endDate: Date,
-    limit: number = 5
-  ): Promise<Array<{ user: string; points: number; leftVolume: number; rightVolume: number }>> {
+    limit: number = 5,
+  ): Promise<
+    Array<{
+      user: string;
+      points: number;
+      leftVolume: number;
+      rightVolume: number;
+    }>
+  > {
     try {
       // Obtener las transacciones de puntos del tipo comisión binaria en el período
       const transactions = await this.pointsTransactionRepository.find({
@@ -685,7 +722,7 @@ export class WeeklyVolumeService {
         take: limit,
       });
 
-      return transactions.map(transaction => {
+      return transactions.map((transaction) => {
         const userName = transaction.user.personalInfo
           ? `${transaction.user.personalInfo.firstName} ${transaction.user.personalInfo.lastName}`
           : transaction.user.email;
@@ -708,8 +745,12 @@ export class WeeklyVolumeService {
   // Método para obtener estadísticas semanales
   private async getWeeklyStats(
     startDate: Date,
-    endDate: Date
-  ): Promise<{ totalVolume: number; leftVolume: number; rightVolume: number } | null> {
+    endDate: Date,
+  ): Promise<{
+    totalVolume: number;
+    leftVolume: number;
+    rightVolume: number;
+  } | null> {
     try {
       const query = `
         SELECT 
@@ -735,7 +776,9 @@ export class WeeklyVolumeService {
 
       return null;
     } catch (error) {
-      this.logger.error(`Error al obtener estadísticas semanales: ${error.message}`);
+      this.logger.error(
+        `Error al obtener estadísticas semanales: ${error.message}`,
+      );
       return null;
     }
   }
@@ -956,6 +999,153 @@ export class WeeklyVolumeService {
     } catch (error) {
       this.logger.error(`Error contando referidos directos: ${error.message}`);
       return { directCount: 0 };
+    }
+  }
+
+  async fixBinaryCommissionPayments(weekEndDateStr: Date): Promise<{
+    processed: number;
+    successful: number;
+    failed: number;
+    details: any[];
+  }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const weekEndDate = new Date(weekEndDateStr);
+      const binaryTransactions = await this.pointsTransactionRepository.find({
+        where: {
+          type: PointTransactionType.BINARY_COMMISSION,
+          status: PointTransactionStatus.COMPLETED,
+          createdAt: Between(
+            new Date(weekEndDate.getTime() - 7 * 24 * 60 * 60 * 1000),
+            weekEndDate,
+          ),
+        },
+        relations: ['user', 'pointsTransactionsPayments'],
+      });
+
+      let processed = 0;
+      let successful = 0;
+      let failed = 0;
+      const details = [];
+
+      for (const transaction of binaryTransactions) {
+        try {
+          console.log('USER ID:', transaction.user.id);
+          console.log('VOLUME WEEK END DATE:', weekEndDate);
+          console.log('TRANSACTION ID:', transaction.id);
+          console.log('status', VolumeProcessingStatus.PROCESSED);
+          const weeklyVolume = await this.weeklyVolumeRepository.findOne({
+            where: {
+              user: { id: transaction.user.id },
+              //la fecha solo debe estar loke 2025-06-01 y tiene que se Date
+              weekEndDate: weekEndDateStr,
+              status: VolumeProcessingStatus.PROCESSED,
+            },
+          });
+
+          if (!weeklyVolume) {
+            details.push({
+              transactionId: transaction.id,
+              userId: transaction.user.id,
+              status: 'FAILED',
+              reason: 'No se encontró volumen semanal procesado',
+            });
+            failed++;
+            processed++;
+            continue;
+          }
+
+          const volumeHistory = await this.weeklyVolumesHistoryRepository.find({
+            where: {
+              selectedSide: weeklyVolume.selectedSide,
+              weeklyVolumes: { id: weeklyVolume.id },
+            },
+            relations: ['payment'],
+          });
+
+          if (volumeHistory.length === 0) {
+            details.push({
+              transactionId: transaction.id,
+              userId: transaction.user.id,
+              status: 'FAILED',
+              reason:
+                'No se encontró historial de volumen con el lado seleccionado',
+            });
+            failed++;
+            processed++;
+            continue;
+          }
+
+          const existingPaymentIds = transaction.pointsTransactionsPayments.map(
+            (ptp) => ptp.payment.id,
+          );
+
+          let associationsCreated = 0;
+
+          for (const history of volumeHistory) {
+            if (
+              history.payment &&
+              !existingPaymentIds.includes(history.payment.id)
+            ) {
+              const pointsTransactionPayment =
+                this.pointsTransactionPaymentRepository.create({
+                  pointsTransaction: { id: transaction.id },
+                  payment: { id: history.payment.id },
+                });
+
+              await queryRunner.manager.save(pointsTransactionPayment);
+              associationsCreated++;
+            }
+          }
+
+          details.push({
+            transactionId: transaction.id,
+            userId: transaction.user.id,
+            status: 'SUCCESS',
+            associationsCreated,
+            selectedSide: weeklyVolume.selectedSide,
+            weeklyVolumeId: weeklyVolume.id,
+          });
+
+          successful++;
+          processed++;
+        } catch (error) {
+          this.logger.error(
+            `Error procesando transacción ${transaction.id}: ${error.message}`,
+          );
+          details.push({
+            transactionId: transaction.id,
+            userId: transaction.user.id,
+            status: 'ERROR',
+            error: error.message,
+          });
+          failed++;
+          processed++;
+        }
+      }
+
+      await queryRunner.commitTransaction();
+
+      const result = {
+        processed,
+        successful,
+        failed,
+        details,
+      };
+
+      return result;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(
+        `Error general en corrección: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 }

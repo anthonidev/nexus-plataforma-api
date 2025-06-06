@@ -6,10 +6,10 @@ import { CutsService } from './cuts.service';
 export class ScheduledTasksService {
   private readonly logger = new Logger(ScheduledTasksService.name);
 
-  constructor(private readonly cutsService: CutsService) { }
+  constructor(private readonly cutsService: CutsService) {}
 
   @Cron('0 4 * * 1', {
-    // @Cron('40 3 12 5 *', {
+    // @Cron('49 3 * * *', {
     name: 'weeklyVolumeCut',
     timeZone: 'America/Lima',
   })

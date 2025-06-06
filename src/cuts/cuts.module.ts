@@ -14,6 +14,7 @@ import { RanksModule } from 'src/ranks/ranks.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailModule } from 'src/mail/mail.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { PaymentsModule } from 'src/payments/payments.module';
 
 @Module({
   controllers: [CutsController],
@@ -31,7 +32,7 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
     ScheduleModule,
     MailModule,
     NotificationsModule,
-
+    PaymentsModule,
   ],
   exports: [
     CutsService,
@@ -40,4 +41,4 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
     ScheduledTasksService,
   ],
 })
-export class CutsModule { }
+export class CutsModule {}

@@ -31,10 +31,12 @@ export class CutsController {
     return this.cutsService.executeCut(body.code);
   }
 
-  @Get('validar-hijos')
-  @ApiOperation({ summary: 'Validar hijos' })
-  @ApiResponse({ status: 200, description: 'Validación de hijos completada' })
-  async validarHijos() {
-    return this.cutsService.validarHijos();
+  @Post('fix-binary-commission-payments')
+  @ApiOperation({
+    summary: 'Corregir asociaciones de pagos con comisiones binarias',
+  })
+  @ApiResponse({ status: 200, description: 'Corrección completada' })
+  async fixBinaryCommissionPayments(@Body() body: { weekEndDate: Date }) {
+    return this.cutsService.fixBinaryCommissionPayments(body.weekEndDate);
   }
 }

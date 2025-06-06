@@ -244,19 +244,15 @@ export class CutsService {
     return endDate;
   }
 
-  async validarHijos(): Promise<any> {
-    const left = await this.weeklyVolumeService.validarHijos(
-      '467ecd94-405a-431c-8395-2f0e8d9aecfd',
-      'LEFT',
+  async fixBinaryCommissionPayments(weekEndDate: Date) {
+    this.logger.log(
+      `Fixing binary commission payments for week ending: ${weekEndDate}`,
     );
-    const right = await this.weeklyVolumeService.validarHijos(
-      '467ecd94-405a-431c-8395-2f0e8d9aecfd',
-      'RIGHT',
+    const result =
+      await this.weeklyVolumeService.fixBinaryCommissionPayments(weekEndDate);
+    this.logger.log(
+      `Binary commission payments fixed for week ending: ${weekEndDate}`,
     );
-    const cant = await this.weeklyVolumeService.cantidadRef(
-      '467ecd94-405a-431c-8395-2f0e8d9aecfd',
-    );
-
-    return { left, right, cant };
+    return result;
   }
 }

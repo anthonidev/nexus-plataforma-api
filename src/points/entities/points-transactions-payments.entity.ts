@@ -1,4 +1,11 @@
-import { CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { PointsTransaction } from './points_transactions.entity';
 import { Payment } from 'src/payments/entities/payment.entity';
 
@@ -9,15 +16,12 @@ export class PointsTransactionPayment {
 
   @ManyToOne(
     () => PointsTransaction,
-    (pointsTransaction) => pointsTransaction.pointsTransactionsPayments
+    (pointsTransaction) => pointsTransaction.pointsTransactionsPayments,
   )
   @JoinColumn({ name: 'points_transaction_id' })
   pointsTransaction: PointsTransaction;
 
-  @ManyToOne(
-    () => Payment,
-    (payment) => payment.pointsTransactionsPayments
-  )
+  @ManyToOne(() => Payment, (payment) => payment.pointsTransactionsPayments)
   @JoinColumn({ name: 'payment_id' })
   payment: Payment;
 
