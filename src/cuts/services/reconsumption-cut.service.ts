@@ -118,7 +118,7 @@ export class ReconsumptionCutService {
             (today.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24),
           );
 
-          if (daysSinceExpiration === 0) {
+          if (daysSinceExpiration >= 0) {
             const orderResult = await this.evaluateOrderReconsumption(
               membership,
               queryRunner,
@@ -145,15 +145,15 @@ export class ReconsumptionCutService {
               }
             }
 
-            processed++;
-          } else if (daysSinceExpiration >= 5) {
-            await this.expireMembership(membership, queryRunner);
-            expired++;
-            successful++;
-            processed++;
-          } else {
-            processed++;
-            continue;
+            if (daysSinceExpiration >= 5) {
+              await this.expireMembership(membership, queryRunner);
+              expired++;
+              successful++;
+              processed++;
+            } else {
+              processed++;
+              continue;
+            }
           }
         } catch (error) {
           this.logger.error(
@@ -194,13 +194,23 @@ export class ReconsumptionCutService {
     queryRunner: any,
   ): Promise<{ success: boolean; message: string }> {
     try {
+      const startDateWithGrace = new Date(membership.startDate);
+      startDateWithGrace.setDate(startDateWithGrace.getDate() + 5);
+
+      const endDateWithGrace = new Date(membership.endDate);
+      endDateWithGrace.setDate(endDateWithGrace.getDate() + 5);
+
       const orders = await this.orderRepository.find({
         where: {
           user: { id: membership.user.id },
           status: OrderStatus.APPROVED,
-          createdAt: Between(membership.startDate, membership.endDate),
+          createdAt: Between(startDateWithGrace, endDateWithGrace),
         },
+        relations: ['user', 'orderDetails'],
       });
+      if (membership.user.id === '1c7afae4-4833-489d-8a65-b3b6a3a7e16e') {
+        this.logger.log(`Órdenes encontradas para reconsumo: ${orders.length}`);
+      }
 
       const totalOrderAmount = orders.reduce(
         (sum, order) => sum + Number(order.totalAmount),
@@ -283,7 +293,7 @@ export class ReconsumptionCutService {
 
     const reconsumption = this.reconsumptionRepository.create({
       membership: { id: membership.id },
-      amount: totalAmount,
+      amount: membership.minimumReconsumptionAmount,
       status: ReconsumptionStatus.ACTIVE,
       periodDate: newEndDate,
       notes: 'Reconsumo automático por órdenes entregadas',

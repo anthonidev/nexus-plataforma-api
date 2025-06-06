@@ -43,7 +43,7 @@ export class ScheduledTasksService {
       );
     }
   }
-  @Cron('0 7 * * *', {
+  @Cron('0 3 * * *', {
     name: 'reconsumptionCut',
     timeZone: 'America/Lima',
   })
