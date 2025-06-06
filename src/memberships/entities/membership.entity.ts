@@ -113,12 +113,6 @@ export class Membership {
   @Min(0, { message: 'El monto mínimo de reconsumo no puede ser negativo' })
   minimumReconsumptionAmount: number;
 
-  @Column({ type: 'date' })
-  @IsDate({
-    message: 'La fecha del próximo reconsumo debe ser una fecha válida',
-  })
-  nextReconsumptionDate: Date;
-
   @Column({ type: 'boolean', default: false })
   autoRenewal: boolean;
 
@@ -150,14 +144,7 @@ export class Membership {
       );
     }
 
-    // Asegurar que la fecha de próximo reconsumo no sea anterior a la fecha actual
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    if (this.nextReconsumptionDate && this.nextReconsumptionDate < today) {
-      throw new Error(
-        'La fecha del próximo reconsumo no puede ser anterior a la fecha actual',
-      );
-    }
   }
 }

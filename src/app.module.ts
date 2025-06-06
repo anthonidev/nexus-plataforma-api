@@ -20,6 +20,7 @@ import { SeedModule } from './seed/seed.module';
 import { SystemModule } from './system/system.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { OrdersModule } from './orders/orders.module';
+import { FixModule } from './fix/fix.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { OrdersModule } from './orders/orders.module';
     EcommerceModule,
     NotificationsModule,
     OrdersModule,
+    FixModule,
   ],
 })
 export class AppModule {}

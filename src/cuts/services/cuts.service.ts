@@ -86,7 +86,6 @@ export class CutsService {
         case 'MONTHLY_VOLUME_CUT':
           result = await this.monthlyVolumeService.processMonthlyVolumes();
           break;
-        // Otros tipos de cortes
         default:
           throw new Error(`Tipo de corte no implementado: ${config.code}`);
       }

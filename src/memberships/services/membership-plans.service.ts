@@ -185,7 +185,6 @@ export class MembershipPlansService {
         name: membership.plan.name,
         price: membership.plan.price,
       },
-      nextReconsumptionDate: membership.nextReconsumptionDate,
       endDate: membership.endDate,
     };
 

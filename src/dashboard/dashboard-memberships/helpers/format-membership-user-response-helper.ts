@@ -10,7 +10,6 @@ export const formatMembershipUserResponse = (membership: any) => {
         },
         startDate: membership.startDate,
         endDate: membership.endDate,
-        nextReconsumptionDate: membership.nextReconsumptionDate,
         autoRenewal: membership.autoRenewal,
       }
     : null;

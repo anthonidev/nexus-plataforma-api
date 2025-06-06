@@ -11,7 +11,6 @@ export interface UserMembershipInfo {
     price: number;
   };
   message?: string;
-  nextReconsumptionDate?: Date;
   endDate?: Date;
   pendingUpgrade?: {
     id: number;

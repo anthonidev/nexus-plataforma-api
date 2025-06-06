@@ -25,7 +25,7 @@ import { ApiConsumes, ApiOperation, ApiResponse } from '@nestjs/swagger';
 @Controller('user-memberships')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ReconsumptionController {
-  constructor(private readonly reconsumptionService: ReconsumptionService) { }
+  constructor(private readonly reconsumptionService: ReconsumptionService) {}
 
   @Post('reconsumption')
   @UseInterceptors(FilesInterceptor('paymentImages', 5))

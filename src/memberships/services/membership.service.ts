@@ -107,7 +107,7 @@ export class MembershipService {
         },
       });
 
-      const nextReconsumptionDate = new Date(membership.nextReconsumptionDate);
+      const nextReconsumptionDate = new Date(membership.endDate);
       const canReconsume =
         !pendingReconsumption && new Date() >= nextReconsumptionDate;
 
@@ -151,7 +151,7 @@ export class MembershipService {
       });
 
       // Obtener próxima fecha de reconsumo
-      const nextReconsumptionDate = new Date(membership.nextReconsumptionDate);
+      const nextReconsumptionDate = new Date(membership.endDate);
 
       // Verificar si puede hacer reconsumo
       const pendingReconsumption = await this.reconsumptionRepository.findOne({

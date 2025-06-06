@@ -94,7 +94,6 @@ export class SystemService {
         status: MembershipStatus.ACTIVE,
         paidAmount: plan.price,
         paymentReference: 'Activación Directa',
-        nextReconsumptionDate: dates.nextReconsumptionDate,
         autoRenewal: false,
         minimumReconsumptionAmount: 300,
       });
@@ -174,7 +173,6 @@ export class SystemService {
             id: savedMembership.id,
             startDate: savedMembership.startDate,
             endDate: savedMembership.endDate,
-            nextReconsumptionDate: savedMembership.nextReconsumptionDate,
           },
         },
       };
@@ -292,7 +290,6 @@ export class SystemService {
             id: existingMembership.id,
             startDate: existingMembership.startDate,
             endDate: existingMembership.endDate,
-            nextReconsumptionDate: existingMembership.nextReconsumptionDate,
           },
         },
       };
@@ -315,11 +312,15 @@ export class SystemService {
     return planMap[code] || code;
   }
 
-  async updatePasswordInternal(updatePasswordDto: UpdatePasswordDto): Promise<string> {
+  async updatePasswordInternal(
+    updatePasswordDto: UpdatePasswordDto,
+  ): Promise<string> {
     const { email, newPassword } = updatePasswordDto;
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user)
-      throw new NotFoundException(`Usuario con el correo electrónico "${email}" no encontrado.`);
+      throw new NotFoundException(
+        `Usuario con el correo electrónico "${email}" no encontrado.`,
+      );
 
     const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
     await this.userRepository.update(user.id, { password: hashedPassword });

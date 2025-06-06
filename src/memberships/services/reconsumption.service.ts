@@ -8,7 +8,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { PaymentConfig } from 'src/payments/entities/payment-config.entity';
 import { PaymentImage } from 'src/payments/entities/payment-image.entity';
-import { MethodPayment, Payment, PaymentStatus } from 'src/payments/entities/payment.entity';
+import {
+  MethodPayment,
+  Payment,
+  PaymentStatus,
+} from 'src/payments/entities/payment.entity';
 import { User } from 'src/user/entities/user.entity';
 import { DataSource, In, Repository } from 'typeorm';
 import {
@@ -25,7 +29,11 @@ import {
   MembershipHistory,
 } from '../entities/membership_history.entity';
 import { UserPoints } from 'src/points/entities/user_points.entity';
-import { PointsTransaction, PointTransactionStatus, PointTransactionType } from 'src/points/entities/points_transactions.entity';
+import {
+  PointsTransaction,
+  PointTransactionStatus,
+  PointTransactionType,
+} from 'src/points/entities/points_transactions.entity';
 import { TreeVolumeService } from 'src/payments/services/tree-volumen.service';
 
 @Injectable()
@@ -54,7 +62,7 @@ export class ReconsumptionService {
     private readonly dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
     private readonly treeVolumenService: TreeVolumeService,
-  ) { }
+  ) {}
 
   async createReconsumption(
     userId: string,
@@ -67,42 +75,60 @@ export class ReconsumptionService {
 
     try {
       const user = await this.userRepository.findOne({ where: { id: userId } });
-      if (!user) throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+      if (!user)
+        throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
 
       const membership = await this.membershipRepository.findOne({
         where: { user: { id: userId }, status: MembershipStatus.ACTIVE },
         relations: ['plan'],
       });
-      if (!membership) throw new NotFoundException('No se encontró una membresía activa');
+      if (!membership)
+        throw new NotFoundException('No se encontró una membresía activa');
 
       const pendingReconsumption = await this.reconsumptionRepository.findOne({
-        where: { membership: { id: membership.id }, status: ReconsumptionStatus.PENDING },
+        where: {
+          membership: { id: membership.id },
+          status: ReconsumptionStatus.PENDING,
+        },
       });
-      if (pendingReconsumption) throw new BadRequestException('Ya existe un reconsumo pendiente para esta membresía');
-
-      if (new Date() < membership.nextReconsumptionDate) {
+      if (pendingReconsumption)
         throw new BadRequestException(
-          `Aún no es posible realizar el reconsumo. Próxima fecha disponible: ${membership.nextReconsumptionDate.toISOString().split('T')[0]}`,
+          'Ya existe un reconsumo pendiente para esta membresía',
+        );
+
+      if (new Date() < membership.endDate) {
+        throw new BadRequestException(
+          `Aún no es posible realizar el reconsumo. Próxima fecha disponible: ${membership.endDate.toISOString().split('T')[0]}`,
         );
       }
 
       if (createDto.totalAmount < membership.minimumReconsumptionAmount) {
-        throw new BadRequestException(`El monto mínimo para reconsumo es ${membership.minimumReconsumptionAmount}`);
+        throw new BadRequestException(
+          `El monto mínimo para reconsumo es ${membership.minimumReconsumptionAmount}`,
+        );
       }
 
       const paymentConfig = await this.paymentConfigRepository.findOne({
         where: { code: 'RECONSUMPTION' },
       });
       if (!paymentConfig || !paymentConfig.isActive) {
-        throw new BadRequestException('La opción de pago para reconsumo no está disponible');
+        throw new BadRequestException(
+          'La opción de pago para reconsumo no está disponible',
+        );
       }
 
       // Validar según método de pago
       if (createDto.methodPayment === MethodPayment.VOUCHER) {
         if (!files || files.length === 0) {
-          throw new BadRequestException('Se requiere al menos una imagen de comprobante de pago');
+          throw new BadRequestException(
+            'Se requiere al menos una imagen de comprobante de pago',
+          );
         }
-        if (!createDto.payments || !Array.isArray(createDto.payments) || createDto.payments.length === 0) {
+        if (
+          !createDto.payments ||
+          !Array.isArray(createDto.payments) ||
+          createDto.payments.length === 0
+        ) {
           throw new BadRequestException('Se requieren detalles de pago');
         }
         if (files.length !== createDto.payments.length) {
@@ -111,7 +137,10 @@ export class ReconsumptionService {
           );
         }
         if (createDto.payments.length > 1) {
-          const totalFromPayments = createDto.payments.reduce((sum, p) => sum + p.amount, 0);
+          const totalFromPayments = createDto.payments.reduce(
+            (sum, p) => sum + p.amount,
+            0,
+          );
           if (Math.abs(totalFromPayments - createDto.totalAmount) > 0.01) {
             throw new BadRequestException(
               `La suma de los montos (${totalFromPayments}) no coincide con el monto total (${createDto.totalAmount})`,
@@ -119,24 +148,30 @@ export class ReconsumptionService {
           }
         }
       } else if (createDto.methodPayment === MethodPayment.POINTS) {
-        // Lógica para pago con puntos (similar a createOrder)
-        const availableTransactions = await this.pointsTransactionRepository.find({
-          where: {
-            user: { id: userId },
-            status: PointTransactionStatus.COMPLETED,
-            type: In([PointTransactionType.BINARY_COMMISSION, PointTransactionType.DIRECT_BONUS]),
-          },
-          order: { createdAt: 'ASC' },
-        });
+        const availableTransactions =
+          await this.pointsTransactionRepository.find({
+            where: {
+              user: { id: userId },
+              status: PointTransactionStatus.COMPLETED,
+              type: In([
+                PointTransactionType.BINARY_COMMISSION,
+                PointTransactionType.DIRECT_BONUS,
+              ]),
+            },
+            order: { createdAt: 'ASC' },
+          });
 
         const totalAvailablePoints = availableTransactions.reduce(
-          (sum, transaction) => sum + Number(transaction.amount) - Number(transaction.withdrawnAmount || 0),
-          0
+          (sum, transaction) =>
+            sum +
+            Number(transaction.amount) -
+            Number(transaction.withdrawnAmount || 0),
+          0,
         );
 
         if (totalAvailablePoints < createDto.totalAmount) {
           throw new BadRequestException(
-            `No hay suficientes puntos disponibles (${totalAvailablePoints}) para cubrir el total del reconsumo (${createDto.totalAmount})`
+            `No hay suficientes puntos disponibles (${totalAvailablePoints}) para cubrir el total del reconsumo (${createDto.totalAmount})`,
           );
         }
 
@@ -146,7 +181,9 @@ export class ReconsumptionService {
         for (const transaction of availableTransactions) {
           if (remainingAmount <= 0) break;
 
-          const availableAmount = Number(transaction.amount) - Number(transaction.withdrawnAmount || 0);
+          const availableAmount =
+            Number(transaction.amount) -
+            Number(transaction.withdrawnAmount || 0);
 
           if (availableAmount <= 0) continue;
 
@@ -154,7 +191,7 @@ export class ReconsumptionService {
 
           selectedTransactions.push({
             transaction,
-            amountToUse
+            amountToUse,
           });
 
           remainingAmount -= amountToUse;
@@ -162,7 +199,7 @@ export class ReconsumptionService {
 
         if (remainingAmount > 0) {
           throw new BadRequestException(
-            `No se pudieron seleccionar suficientes transacciones de puntos para cubrir el monto total del reconsumo.`
+            `No se pudieron seleccionar suficientes transacciones de puntos para cubrir el monto total del reconsumo.`,
           );
         }
 
@@ -193,8 +230,8 @@ export class ReconsumptionService {
         relatedEntityId: savedReconsumption.id,
         methodPayment: createDto.methodPayment, // Guardar el método de pago
         metadata: {
-          "Monto de pago": createDto.totalAmount,
-          "Concepto": "Reconsumo mensual",
+          'Monto de pago': createDto.totalAmount,
+          Concepto: 'Reconsumo mensual',
         },
       });
       const savedPayment = await queryRunner.manager.save(payment);
@@ -272,23 +309,30 @@ export class ReconsumptionService {
         await queryRunner.manager.save(membershipHistory);
       } else if (createDto.methodPayment === MethodPayment.POINTS) {
         // Lógica para pago con puntos (similar a createOrder)
-        const availableTransactions = await this.pointsTransactionRepository.find({
-          where: {
-            user: { id: userId },
-            status: PointTransactionStatus.COMPLETED,
-            type: In([PointTransactionType.BINARY_COMMISSION, PointTransactionType.DIRECT_BONUS]),
-          },
-          order: { createdAt: 'ASC' },
-        });
+        const availableTransactions =
+          await this.pointsTransactionRepository.find({
+            where: {
+              user: { id: userId },
+              status: PointTransactionStatus.COMPLETED,
+              type: In([
+                PointTransactionType.BINARY_COMMISSION,
+                PointTransactionType.DIRECT_BONUS,
+              ]),
+            },
+            order: { createdAt: 'ASC' },
+          });
 
         const totalAvailablePoints = availableTransactions.reduce(
-          (sum, transaction) => sum + Number(transaction.amount) - Number(transaction.withdrawnAmount || 0),
-          0
+          (sum, transaction) =>
+            sum +
+            Number(transaction.amount) -
+            Number(transaction.withdrawnAmount || 0),
+          0,
         );
 
         if (totalAvailablePoints < createDto.totalAmount) {
           throw new BadRequestException(
-            `No hay suficientes puntos disponibles (${totalAvailablePoints}) para cubrir el total del reconsumo (${createDto.totalAmount})`
+            `No hay suficientes puntos disponibles (${totalAvailablePoints}) para cubrir el total del reconsumo (${createDto.totalAmount})`,
           );
         }
 
@@ -298,7 +342,9 @@ export class ReconsumptionService {
         for (const transaction of availableTransactions) {
           if (remainingAmount <= 0) break;
 
-          const availableAmount = Number(transaction.amount) - Number(transaction.withdrawnAmount || 0);
+          const availableAmount =
+            Number(transaction.amount) -
+            Number(transaction.withdrawnAmount || 0);
 
           if (availableAmount <= 0) continue;
 
@@ -306,7 +352,7 @@ export class ReconsumptionService {
 
           selectedTransactions.push({
             transaction,
-            amountToUse
+            amountToUse,
           });
 
           remainingAmount -= amountToUse;
@@ -314,7 +360,7 @@ export class ReconsumptionService {
 
         if (remainingAmount > 0) {
           throw new BadRequestException(
-            `No se pudieron seleccionar suficientes transacciones de puntos para cubrir el monto total del reconsumo.`
+            `No se pudieron seleccionar suficientes transacciones de puntos para cubrir el monto total del reconsumo.`,
           );
         }
 
@@ -331,7 +377,8 @@ export class ReconsumptionService {
           });
           await queryRunner.manager.save(paymentImage);
 
-          transaction.withdrawnAmount = (Number(transaction.withdrawnAmount || 0) + amountToUse);
+          transaction.withdrawnAmount =
+            Number(transaction.withdrawnAmount || 0) + amountToUse;
           await queryRunner.manager.save(transaction);
         }
 
@@ -340,7 +387,7 @@ export class ReconsumptionService {
         savedPayment.reviewedAt = new Date();
         savedPayment.metadata = {
           ...savedPayment.metadata,
-          "Puntos utilizados": createDto.totalAmount,
+          'Puntos utilizados': createDto.totalAmount,
         };
         await queryRunner.manager.save(savedPayment);
 
@@ -350,16 +397,23 @@ export class ReconsumptionService {
           type: PointTransactionType.WITHDRAWAL,
           status: PointTransactionStatus.COMPLETED,
           metadata: {
-            "Tipo de transacción": PointTransactionType.WITHDRAWAL,
-            "Puntos utilizados": createDto.totalAmount,
-          }
+            'Tipo de transacción': PointTransactionType.WITHDRAWAL,
+            'Puntos utilizados': createDto.totalAmount,
+          },
         });
         await queryRunner.manager.save(pointsTransaction);
 
-        const userPoints = await this.userPointsRepository.findOne({ where: { user: { id: userId } } });
-        if (!userPoints) throw new NotFoundException(`No hay puntos para el usuario ${userId}`);
-        userPoints.availablePoints = userPoints.availablePoints - createDto.totalAmount;
-        userPoints.totalWithdrawnPoints = userPoints.totalWithdrawnPoints + createDto.totalAmount;
+        const userPoints = await this.userPointsRepository.findOne({
+          where: { user: { id: userId } },
+        });
+        if (!userPoints)
+          throw new NotFoundException(
+            `No hay puntos para el usuario ${userId}`,
+          );
+        userPoints.availablePoints =
+          userPoints.availablePoints - createDto.totalAmount;
+        userPoints.totalWithdrawnPoints =
+          userPoints.totalWithdrawnPoints + createDto.totalAmount;
         await queryRunner.manager.save(userPoints);
 
         savedReconsumption.status = ReconsumptionStatus.ACTIVE;
@@ -372,12 +426,8 @@ export class ReconsumptionService {
         const newEndDate = new Date(newStartDate);
         newEndDate.setDate(newEndDate.getDate() + 30);
 
-        const newNextReconsumptionDate = new Date(newEndDate);
-        newNextReconsumptionDate.setDate(newNextReconsumptionDate.getDate() + 1);
-
         membership.startDate = newStartDate;
         membership.endDate = newEndDate;
-        membership.nextReconsumptionDate = newNextReconsumptionDate;
 
         await queryRunner.manager.save(membership);
 
@@ -398,15 +448,15 @@ export class ReconsumptionService {
         await queryRunner.manager.save(savedPayment);
 
         const { plan } = membership;
-        if (!plan) throw new NotFoundException(`Plan de membresía no encontrado`);
+        if (!plan)
+          throw new NotFoundException(`Plan de membresía no encontrado`);
 
         await this.treeVolumenService.processTreeVolumesReConsumption(
           user,
           createDto.totalAmount,
           queryRunner,
           savedPayment,
-        )
-
+        );
       }
 
       await queryRunner.commitTransaction();
@@ -430,7 +480,9 @@ export class ReconsumptionService {
             await this.cloudinaryService.deleteImage(publicId);
             this.logger.log(`Imagen eliminada de Cloudinary: ${publicId}`);
           } catch (deleteErr) {
-            this.logger.error(`Error al eliminar imagen de Cloudinary: ${deleteErr.message}`);
+            this.logger.error(
+              `Error al eliminar imagen de Cloudinary: ${deleteErr.message}`,
+            );
           }
         }
       }

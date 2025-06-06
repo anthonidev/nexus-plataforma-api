@@ -160,9 +160,6 @@ export class UserMembershipsService {
       const endDate = new Date(startDate);
       endDate.setMonth(endDate.getMonth() + 1);
 
-      const nextReconsumptionDate = new Date(endDate);
-      nextReconsumptionDate.setDate(nextReconsumptionDate.getDate() + 1);
-
       const membership = this.membershipRepository.create({
         user: { id: userId },
         plan: { id: plan.id },
@@ -171,7 +168,6 @@ export class UserMembershipsService {
         status: MembershipStatus.PENDING,
         paidAmount: createDto.totalAmount,
         paymentReference: createDto.paymentReference,
-        nextReconsumptionDate,
         autoRenewal: false,
       });
 
