@@ -16,6 +16,7 @@ import {
 } from '../entities/cut_execution_logs.entity';
 import { WeeklyVolumeService } from './weekly-volume.service';
 import { MonthlyVolumeService } from './monthly-volume.service';
+import { ReconsumptionCutService } from './reconsumption-cut.service';
 
 @Injectable()
 export class CutsService {
@@ -28,6 +29,7 @@ export class CutsService {
     private readonly cutExecutionRepository: Repository<CutExecution>,
     @InjectRepository(CutExecutionLog)
     private readonly cutExecutionLogRepository: Repository<CutExecutionLog>,
+    private readonly reconsumptionCutService: ReconsumptionCutService,
     private readonly weeklyVolumeService: WeeklyVolumeService,
     private readonly monthlyVolumeService: MonthlyVolumeService,
   ) {}
@@ -88,6 +90,9 @@ export class CutsService {
           break;
         default:
           throw new Error(`Tipo de corte no implementado: ${config.code}`);
+        case 'RECONSUMPTION_CUT':
+          result = await this.reconsumptionCutService.processReconsumptions();
+          break;
       }
 
       // Actualizar la ejecución con los resultados

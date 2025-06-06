@@ -7,6 +7,7 @@ import { CutsController } from './controllers/cuts.controller';
 import { CutsService } from './services/cuts.service';
 import { WeeklyVolumeService } from './services/weekly-volume.service';
 import { ScheduledTasksService } from './services/scheduled-tasks.service';
+import { ReconsumptionCutService } from './services/reconsumption-cut.service';
 import { MembershipsModule } from 'src/memberships/memberships.module';
 import { PointsModule } from 'src/points/points.module';
 import { MonthlyVolumeService } from './services/monthly-volume.service';
@@ -15,6 +16,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { MailModule } from 'src/mail/mail.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { PaymentsModule } from 'src/payments/payments.module';
+import { OrdersModule } from 'src/orders/orders.module';
 
 @Module({
   controllers: [CutsController],
@@ -22,6 +24,7 @@ import { PaymentsModule } from 'src/payments/payments.module';
     CutsService,
     WeeklyVolumeService,
     MonthlyVolumeService,
+    ReconsumptionCutService,
     ScheduledTasksService,
   ],
   imports: [
@@ -33,10 +36,13 @@ import { PaymentsModule } from 'src/payments/payments.module';
     MailModule,
     NotificationsModule,
     PaymentsModule,
+    OrdersModule,
   ],
   exports: [
     CutsService,
     WeeklyVolumeService,
+    MonthlyVolumeService,
+    ReconsumptionCutService,
     TypeOrmModule,
     ScheduledTasksService,
   ],

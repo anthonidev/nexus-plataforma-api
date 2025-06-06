@@ -5,7 +5,7 @@ export const paymentConfigsData = [
     description: 'Pago para la adquisición de una nueva membresía',
     requiresApproval: true,
     isActive: true,
-    minimumAmount: 235.0, // El precio del plan más básico (Ejecutivo)
+    minimumAmount: 275.0, // El precio del plan más básico (Ejecutivo)
     maximumAmount: null, // Sin límite máximo para permitir futuros planes
   },
   {
@@ -15,7 +15,7 @@ export const paymentConfigsData = [
       'Pago mensual para mantener la membresía activa y acumular puntos binarios',
     requiresApproval: true,
     isActive: true,
-    minimumAmount: 300.0, // Monto mínimo de reconsumo mencionado en la entidad Membership
+    minimumAmount: 275.0, // Monto mínimo de reconsumo mencionado en la entidad Membership
     maximumAmount: null, // Sin límite máximo
   },
   {
@@ -35,5 +35,5 @@ export const paymentConfigsData = [
     isActive: true,
     minimumAmount: 10.0, // Monto mínimo de la orden
     maximumAmount: null, // Sin límite máximo
-  }
+  },
 ];
