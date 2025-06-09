@@ -10,8 +10,8 @@ import { AddPointsService } from '../services/add-points.service';
 export class SystemController {
   constructor(
     private readonly systemService: SystemService,
-    private readonly addPointsService: AddPointsService
-  ) { }
+    private readonly addPointsService: AddPointsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Activar usuario con plan' })
@@ -25,7 +25,10 @@ export class SystemController {
 
   @Post('change-plan')
   @ApiOperation({ summary: 'Cambiar plan de usuario' })
-  @ApiResponse({ status: 200, description: 'Plan de usuario cambiado con éxito' })
+  @ApiResponse({
+    status: 200,
+    description: 'Plan de usuario cambiado con éxito',
+  })
   changeUserPlan(@Body() changePlanDto: DirectActivationDto) {
     return this.systemService.changeUserPlan(
       changePlanDto.email,

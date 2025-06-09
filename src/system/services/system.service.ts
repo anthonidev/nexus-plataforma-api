@@ -304,7 +304,7 @@ export class SystemService {
 
   private getPlanNameByCode(code: string): string {
     const planMap = {
-      EJE: 'Ejecutivo',
+      BAS: 'Básico',
       VIP: 'VIP',
       PRE: 'Premium',
     };
