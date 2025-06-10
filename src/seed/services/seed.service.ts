@@ -56,7 +56,7 @@ export class SeedService {
     @InjectRepository(ProductCategory)
     private readonly productCategoryRepository: Repository<ProductCategory>,
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
   private async createView(viewData: any, parentView?: View): Promise<View> {
     const { code, name, url, order, icon } = viewData;
     try {
@@ -129,9 +129,7 @@ export class SeedService {
             });
             if (existingRole) {
               //update role
-              this.logger.debug(
-                `Rol existente encontrado: ${roleData.code}`,
-              );
+              this.logger.debug(`Rol existente encontrado: ${roleData.code}`);
               const views = await this.viewRepository.findBy({
                 code: In(roleData.views),
               });
@@ -369,11 +367,10 @@ export class SeedService {
       const results = await Promise.all(
         categoryData.map(async (categoryData) => {
           try {
-            const existingCategory = await this.productCategoryRepository.findOne(
-              {
+            const existingCategory =
+              await this.productCategoryRepository.findOne({
                 where: { code: categoryData.code },
-              },
-            );
+              });
 
             if (existingCategory) {
               this.logger.debug(
@@ -439,7 +436,6 @@ export class SeedService {
       throw error;
     }
   }
-
 
   async seedAll() {
     this.logger.log('Iniciando proceso de seed completo...');

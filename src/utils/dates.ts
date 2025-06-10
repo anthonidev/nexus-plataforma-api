@@ -127,7 +127,7 @@ export const getDates = (date: Date): { startDate: Date; endDate: Date } => {
   const endDate = new Date(
     date.getFullYear(),
     date.getMonth() + 1,
-    date.getDate() - 1,
+    date.getDate(),
     0,
     0,
     0,
