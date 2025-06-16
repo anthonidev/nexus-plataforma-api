@@ -43,20 +43,20 @@ export class ScheduledTasksService {
       );
     }
   }
-  // @Cron('37 15 * * *', {
-  //   name: 'reconsumptionCut',
-  //   timeZone: 'America/Lima',
-  // })
-  // async handleReconsumptionCut() {
-  //   this.logger.log('Iniciando tarea programada: Corte de reconsumición');
-  //   try {
-  //     await this.cutsService.executeCut('RECONSUMPTION_CUT');
-  //     this.logger.log('Tarea programada completada: Corte de reconsumición');
-  //   } catch (error) {
-  //     this.logger.error(
-  //       `Error en tarea programada: ${error.message}`,
-  //       error.stack,
-  //     );
-  //   }
-  // }
+  @Cron('20 9 * * *', {
+    name: 'reconsumptionCut',
+    timeZone: 'America/Lima',
+  })
+  async handleReconsumptionCut() {
+    this.logger.log('Iniciando tarea programada: Corte de reconsumición');
+    try {
+      await this.cutsService.executeCut('RECONSUMPTION_CUT');
+      this.logger.log('Tarea programada completada: Corte de reconsumición');
+    } catch (error) {
+      this.logger.error(
+        `Error en tarea programada: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
 }
