@@ -10,7 +10,10 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { PointsTransaction, PointTransactionType } from 'src/points/entities/points_transactions.entity';
+import {
+  PointsTransaction,
+  PointTransactionType,
+} from 'src/points/entities/points_transactions.entity';
 import {
   BeforeInsert,
   BeforeUpdate,
@@ -128,7 +131,9 @@ export class PaymentImage {
 
     // Validar que si no hay url/cloudinaryPublicId, debe haber un pointsTransaction
     if ((!this.url || !this.cloudinaryPublicId) && !this.pointsTransaction) {
-      throw new Error('Debe proporcionar una imagen o una transacción de puntos');
+      throw new Error(
+        'Debe proporcionar una imagen o una transacción de puntos',
+      );
     }
 
     // Validar que el tipo de pointsTransaction sea válido

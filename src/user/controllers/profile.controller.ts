@@ -18,12 +18,17 @@ import { UpdatePersonalInfoDto } from '../dto/update-personal-info.dto';
 import { User } from '../entities/user.entity';
 import { ProfileService } from '../services/profile.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 
 @Controller('profile')
 @UseGuards(JwtAuthGuard)
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) { }
+  constructor(private readonly profileService: ProfileService) {}
 
   @Get()
   @ApiOperation({ summary: 'Obtener perfil de usuario' })
@@ -34,7 +39,10 @@ export class ProfileController {
 
   @Put('contact-info')
   @ApiOperation({ summary: 'Actualizar información de contacto' })
-  @ApiResponse({ status: 200, description: 'Información de contacto actualizada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Información de contacto actualizada',
+  })
   updateContactInfo(
     @GetUser() user: User,
     @Body() updateContactInfoDto: UpdateContactInfoDto,
@@ -44,7 +52,10 @@ export class ProfileController {
 
   @Put('billing-info')
   @ApiOperation({ summary: 'Actualizar información de facturación' })
-  @ApiResponse({ status: 200, description: 'Información de facturación actualizada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Información de facturación actualizada',
+  })
   updateBillingInfo(
     @GetUser() user: User,
     @Body() updateBillingInfoDto: UpdateBillingInfoDto,

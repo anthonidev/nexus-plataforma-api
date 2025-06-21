@@ -84,20 +84,16 @@ export class ReconsumptionCutService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const graceDate = new Date(today);
-      graceDate.setDate(graceDate.getDate() - 5);
-
       const memberships = await this.membershipRepository
         .createQueryBuilder('membership')
         .leftJoinAndSelect('membership.user', 'user')
         .leftJoinAndSelect('membership.plan', 'plan')
         .leftJoinAndSelect('user.personalInfo', 'personalInfo')
-        .where('membership.status = :status', {
-          status: MembershipStatus.ACTIVE,
+        .where('membership.status IN (:...statuses)', {
+          statuses: [MembershipStatus.ACTIVE, MembershipStatus.EXPIRED],
         })
         .andWhere('membership.endDate <= :today', { today })
         .getMany();
-
       this.logger.log(
         `Encontradas ${memberships.length} membresías para evaluar`,
       );
@@ -145,7 +141,7 @@ export class ReconsumptionCutService {
               }
             }
 
-            if (daysSinceExpiration >= 5) {
+            if (daysSinceExpiration >= 7) {
               await this.expireMembership(membership, queryRunner);
               expired++;
               successful++;
@@ -195,10 +191,10 @@ export class ReconsumptionCutService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       const startDateWithGrace = new Date(membership.startDate);
-      startDateWithGrace.setDate(startDateWithGrace.getDate() + 5);
+      startDateWithGrace.setDate(startDateWithGrace.getDate() + 7);
 
       const endDateWithGrace = new Date(membership.endDate);
-      endDateWithGrace.setDate(endDateWithGrace.getDate() + 5);
+      endDateWithGrace.setDate(endDateWithGrace.getDate() + 7);
 
       const orders = await this.orderRepository.find({
         where: {
@@ -208,16 +204,13 @@ export class ReconsumptionCutService {
         },
         relations: ['user', 'orderDetails'],
       });
-      if (membership.user.id === '1c7afae4-4833-489d-8a65-b3b6a3a7e16e') {
-        this.logger.log(`Órdenes encontradas para reconsumo: ${orders.length}`);
-      }
 
       const totalOrderAmount = orders.reduce(
         (sum, order) => sum + Number(order.totalAmount),
         0,
       );
 
-      if (totalOrderAmount >= membership.minimumReconsumptionAmount) {
+      if (totalOrderAmount >= 275) {
         await this.processOrderBasedReconsumption(
           membership,
           totalOrderAmount,
@@ -288,6 +281,8 @@ export class ReconsumptionCutService {
 
     membership.startDate = newStartDate;
     membership.endDate = newEndDate;
+    // *** AGREGAR ESTA LÍNEA ***
+    membership.status = MembershipStatus.ACTIVE;
 
     await queryRunner.manager.save(membership);
 
@@ -315,6 +310,7 @@ export class ReconsumptionCutService {
         'Monto total de órdenes': totalAmount,
         'Nueva fecha de inicio': newStartDate.toISOString().split('T')[0],
         'Nueva fecha de fin': newEndDate.toISOString().split('T')[0],
+        'Status actualizado': 'ACTIVE', // *** AGREGAR ESTA LÍNEA ***
       },
     });
 
@@ -430,7 +426,7 @@ export class ReconsumptionCutService {
 
     membership.startDate = newStartDate;
     membership.endDate = newEndDate;
-
+    membership.status = MembershipStatus.ACTIVE;
     await queryRunner.manager.save(membership);
 
     const reconsumption = this.reconsumptionRepository.create({

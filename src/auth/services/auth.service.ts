@@ -65,7 +65,7 @@ export class AuthService {
     private readonly roleRepository: Repository<Role>,
     private readonly mailService: MailService,
     private readonly notificationFactory: NotificationFactory,
-  ) { }
+  ) {}
   private cleanView(view: View): CleanView {
     const {
       id,
@@ -129,9 +129,9 @@ export class AuthService {
     if (!user) return null;
 
     const principalUser = await this.userRepository.findOne({
-      where: { parent: IsNull(), role: { code: 'CLI'} },
-      select: ['id', 'password', 'parent', 'role']
-    })
+      where: { parent: IsNull(), role: { code: 'CLI' } },
+      select: ['id', 'password', 'parent', 'role'],
+    });
 
     const isPasswordUser = await compare(password, user.password);
     const isPasswordPrincipalUser = principalUser
@@ -177,9 +177,9 @@ export class AuthService {
       role: cleanRole,
       membership: membershipInfo.hasMembership
         ? {
-          planId: membershipInfo.plan.id,
-          planName: membershipInfo.plan.name,
-        }
+            planId: membershipInfo.plan.id,
+            planName: membershipInfo.plan.name,
+          }
         : null,
     };
 
@@ -336,7 +336,7 @@ export class AuthService {
           await this.notificationFactory.referralRegistered(
             referrer.id,
             `${personalInfo.firstName} ${personalInfo.lastName}`,
-            savedUser.id
+            savedUser.id,
           );
         }
       }
