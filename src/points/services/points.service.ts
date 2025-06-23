@@ -32,7 +32,7 @@ export class PointsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly pointsEventsService: PointsEventsService,
-  ) { }
+  ) {}
 
   async getUserPoints(userId: string) {
     try {
@@ -69,8 +69,8 @@ export class PointsService {
         totalWithdrawnPoints: userPoints.totalWithdrawnPoints,
         membershipPlan: userPoints.membershipPlan
           ? {
-            name: userPoints.membershipPlan.name,
-          }
+              name: userPoints.membershipPlan.name,
+            }
           : null,
       };
     } catch (error) {
@@ -142,21 +142,24 @@ export class PointsService {
     }
   }
 
-  async getPointsTransactionDetails(
-    id: number,
-    paginationDto: PaginationDto,
-  ) {
-    const getPointsTransactionDetails = await this.pointsTransactionRepository.findOne({
-      where: { id },
-      relations: [
-        'pointsTransactionsPayments',
-        'pointsTransactionsPayments.payment',
-      ],
-    });
+  async getPointsTransactionDetails(id: number, paginationDto: PaginationDto) {
+    const getPointsTransactionDetails =
+      await this.pointsTransactionRepository.findOne({
+        where: { id },
+        relations: [
+          'pointsTransactionsPayments',
+          'pointsTransactionsPayments.payment',
+        ],
+      });
     if (!getPointsTransactionDetails)
-      throw new NotFoundException(`Transacción de puntos con ID ${id} no encontrada`);
-    const { pointsTransactionsPayments, ...restData } = getPointsTransactionDetails;
-    const pointsTransactionsPaymentsDetails = await this.paymentDetails(pointsTransactionsPayments);
+      throw new NotFoundException(
+        `Transacción de puntos con ID ${id} no encontrada`,
+      );
+    const { pointsTransactionsPayments, ...restData } =
+      getPointsTransactionDetails;
+    const pointsTransactionsPaymentsDetails = await this.paymentDetails(
+      pointsTransactionsPayments,
+    );
     return {
       ...restData,
       listPayments: PaginationHelper.createPaginatedResponse(
@@ -164,7 +167,7 @@ export class PointsService {
         pointsTransactionsPaymentsDetails.length,
         paginationDto,
       ),
-    }
+    };
   }
 
   async getWeeklyVolumes(userId: string, filters: FindWeeklyVolumeDto) {
@@ -227,7 +230,8 @@ export class PointsService {
       throw new NotFoundException(`Volumen semanal con ID ${id} no encontrada`);
     const { history, ...restData } = getWeeklyVolumeDetails;
     const sortedHistory = history.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
     const historyDetails = await this.paymentDetails(sortedHistory);
     return {
@@ -237,7 +241,7 @@ export class PointsService {
         historyDetails.length,
         paginationDto,
       ),
-    }
+    };
   }
 
   // This is a utility method to update points and emit the update event
@@ -275,21 +279,22 @@ export class PointsService {
   }
 
   private async paymentDetails(
-    entity: PointsTransactionPayment[] | WeeklyVolumesHistory[]
+    entity: PointsTransactionPayment[] | WeeklyVolumesHistory[],
   ) {
-    return entity.map(item => {
+    return entity.map((item) => {
       const { payment, ...restData } = item;
+
       return {
         ...restData,
         payment: {
-          id: payment.id,
-          amount: payment.amount,
-          methodPayment: payment.methodPayment,
-          codeOperation: payment.codeOperation,
-          banckName: payment.banckName,
-          dateOperation: payment.dateOperation,
-          numberTicket: payment.numberTicket,
-          status: payment.status,
+          id: payment?.id,
+          amount: payment?.amount,
+          methodPayment: payment?.methodPayment,
+          codeOperation: payment?.codeOperation,
+          banckName: payment?.banckName,
+          dateOperation: payment?.dateOperation,
+          numberTicket: payment?.numberTicket,
+          status: payment?.status,
         },
       };
     });
