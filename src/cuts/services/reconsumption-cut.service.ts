@@ -64,7 +64,7 @@ export class ReconsumptionCutService {
     private readonly dataSource: DataSource,
     private readonly treeVolumeService: TreeVolumeService,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   async processReconsumptions(): Promise<{
     processed: number;
@@ -141,7 +141,7 @@ export class ReconsumptionCutService {
               }
             }
 
-            if (daysSinceExpiration >= 7) {
+            if (daysSinceExpiration >= 10) {
               await this.expireMembership(membership, queryRunner);
               expired++;
               successful++;
@@ -191,10 +191,10 @@ export class ReconsumptionCutService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       const startDateWithGrace = new Date(membership.startDate);
-      startDateWithGrace.setDate(startDateWithGrace.getDate() + 7);
+      startDateWithGrace.setDate(startDateWithGrace.getDate() + 10);
 
       const endDateWithGrace = new Date(membership.endDate);
-      endDateWithGrace.setDate(endDateWithGrace.getDate() + 7);
+      endDateWithGrace.setDate(endDateWithGrace.getDate() + 10);
 
       const orders = await this.orderRepository.find({
         where: {
